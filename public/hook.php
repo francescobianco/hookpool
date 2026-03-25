@@ -3,6 +3,7 @@
 require __DIR__ . '/../src/config.php';
 require __DIR__ . '/../src/db.php';
 require __DIR__ . '/../src/utils.php';
+require __DIR__ . '/../src/mail.php';
 
 $token = $_GET['token'] ?? '';
 $projectSlug = trim((string)($_GET['project'] ?? ''));
@@ -46,6 +47,15 @@ if (!$webhook['active'] || !$webhook['project_active']) {
     http_response_code(410);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'Webhook is disabled']) . "\n";
+    exit;
+}
+
+// Check if webhook is paused
+$pausedUntil = $webhook['paused_until'] ?? null;
+if ($pausedUntil && strtotime($pausedUntil) > time()) {
+    http_response_code(410);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Webhook is paused']) . "\n";
     exit;
 }
 
@@ -128,6 +138,54 @@ $eventId = (int)$db->lastInsertId();
 // Execute forwarding (only if event passed guards)
 if ($validated) {
     executeForwarding($db, $eventId, $webhook['id']);
+}
+
+// Check called_in_interval alarms — log as ALARM event when a call arrives within the window
+if ($validated) {
+    $nowTime   = date('H:i');
+    $alarmStmt = $db->prepare("
+        SELECT a.*, u.email AS user_email
+        FROM alarms a
+        JOIN webhooks w ON w.id = a.webhook_id
+        JOIN projects p ON p.id = w.project_id
+        JOIN users    u ON u.id = p.user_id
+        WHERE a.webhook_id = ? AND a.type = 'called_in_interval'
+          AND a.active = 1 AND a.deleted_at IS NULL
+    ");
+    $alarmStmt->execute([$webhook['id']]);
+    foreach ($alarmStmt->fetchAll(PDO::FETCH_ASSOC) as $alarm) {
+        $cfg   = json_decode($alarm['config'], true) ?: [];
+        $start = $cfg['start'] ?? '';
+        $end   = $cfg['end']   ?? '';
+        if (!$start || !$end) continue;
+        if ($nowTime < $start || $nowTime > $end) continue;
+
+        $alarmName = $alarm['name'] !== '' ? $alarm['name'] : $webhook['name'];
+        $msg       = "Chiamata ricevuta nell'intervallo {$start}–{$end}.";
+
+        // Insert as ALARM event
+        $db->prepare("
+            INSERT INTO events (webhook_id, method, path, query_string, headers, body, content_type, ip, validated)
+            VALUES (?, 'ALARM', '/', '', ?, ?, 'application/alarm', '', 1)
+        ")->execute([
+            $webhook['id'],
+            json_encode(['X-Alarm-Id' => (string)$alarm['id'], 'X-Alarm-Name' => $alarmName, 'X-Alarm-Type' => 'called_in_interval']),
+            $msg,
+        ]);
+
+        $userEmail = $alarm['user_email'] ?? '';
+        if ($userEmail) {
+            $subject  = "Allarme: {$alarmName} — chiamata nell'intervallo";
+            $htmlBody = buildEmailTemplate(
+                "Allarme Webhook — {$alarmName}",
+                "<strong>Webhook:</strong> " . htmlspecialchars($webhook['name']) . "<br><br>" . htmlspecialchars($msg),
+                BASE_URL . '/?page=webhook&action=detail&id=' . $webhook['id'],
+                'Vai al Webhook',
+                '#f39c12'
+            );
+            sendEmail($userEmail, $subject, $htmlBody);
+        }
+    }
 }
 
 // Respond quickly

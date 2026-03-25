@@ -241,7 +241,6 @@ if ($action === 'detail') {
                     <?= $project['active'] ? __('project.active') : __('project.inactive') ?>
                 </span>
                 <a href="<?= BASE_URL ?>/?page=project&action=edit&id=<?= $project['id'] ?>" class="btn btn-sm btn-outline"><?= __('project.edit') ?></a>
-                <button onclick="openModal('deleteProjectModal')" class="btn btn-sm btn-danger"><?= __('project.delete') ?></button>
             </div>
         </div>
 
@@ -323,26 +322,6 @@ if ($action === 'detail') {
             </div>
             <?php endif; ?>
         </section>
-    </div>
-
-    <!-- Delete Project Modal -->
-    <div id="deleteProjectModal" class="modal" style="display:none" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-header">
-                <h3>Delete Project</h3>
-                <button onclick="closeModal('deleteProjectModal')" class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p><?= __('project.confirm_delete') ?></p>
-            </div>
-            <div class="modal-footer">
-                <form method="post" action="<?= BASE_URL ?>/?page=project&action=delete&id=<?= $project['id'] ?>">
-                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
-                    <button type="submit" class="btn btn-danger"><?= __('form.yes_delete') ?></button>
-                    <button type="button" onclick="closeModal('deleteProjectModal')" class="btn btn-outline"><?= __('form.cancel') ?></button>
-                </form>
-            </div>
-        </div>
     </div>
 
     <!-- Add Guard Modal -->
@@ -462,6 +441,33 @@ if ($action === 'edit') {
                     <a href="<?= BASE_URL ?>/?page=project&action=detail&id=<?= $project['id'] ?>" class="btn btn-outline"><?= __('form.cancel') ?></a>
                 </div>
             </form>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card" style="border-color:var(--color-danger,#e74c3c);margin-top:24px">
+            <h3 style="margin-top:0;color:var(--color-danger,#e74c3c)"><?= __('settings.danger_zone') ?></h3>
+            <p class="text-muted"><?= __('project.confirm_delete') ?></p>
+            <button onclick="openModal('deleteProjectModal')" class="btn btn-danger"><?= __('project.delete') ?></button>
+        </div>
+    </div>
+
+    <!-- Delete Project Modal -->
+    <div id="deleteProjectModal" class="modal" style="display:none" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3><?= __('project.delete') ?></h3>
+                <button onclick="closeModal('deleteProjectModal')" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p><?= __('project.confirm_delete') ?></p>
+            </div>
+            <div class="modal-footer">
+                <form method="post" action="<?= BASE_URL ?>/?page=project&action=delete&id=<?= $project['id'] ?>">
+                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                    <button type="submit" class="btn btn-danger"><?= __('form.yes_delete') ?></button>
+                    <button type="button" onclick="closeModal('deleteProjectModal')" class="btn btn-outline"><?= __('form.cancel') ?></button>
+                </form>
+            </div>
         </div>
     </div>
     <?php

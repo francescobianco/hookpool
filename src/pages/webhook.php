@@ -345,6 +345,266 @@ if ($action === 'delete_forward' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// --- ADD ALARM ---
+if ($action === 'add_alarm' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . (int)($_POST['webhook_id'] ?? 0));
+        exit;
+    }
+    $webhookId = (int)($_POST['webhook_id'] ?? 0);
+    $wh = loadWebhookForUser($db, $webhookId, $userId);
+    if (!$wh) { setFlash('error', __('msg.unauthorized')); header('Location: ' . BASE_URL . '/?page=project'); exit; }
+
+    $name = trim($_POST['name'] ?? '');
+    $type = $_POST['type'] ?? '';
+    $validTypes = ['not_called_since', 'not_called_in_interval', 'called_in_interval'];
+    if (!in_array($type, $validTypes)) {
+        setFlash('error', __('msg.invalid'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
+        exit;
+    }
+
+    $config = [];
+    if ($type === 'not_called_since') {
+        $config = [
+            'hours'   => max(0, (int)($_POST['hours']   ?? 0)),
+            'minutes' => max(0, min(59, (int)($_POST['minutes'] ?? 0))),
+        ];
+        if ($config['hours'] === 0 && $config['minutes'] === 0) {
+            setFlash('error', __('alarm.error_zero_threshold'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
+            exit;
+        }
+    } else {
+        $start = trim($_POST['interval_start'] ?? '');
+        $end   = trim($_POST['interval_end']   ?? '');
+        if (!preg_match('/^\d{2}:\d{2}$/', $start) || !preg_match('/^\d{2}:\d{2}$/', $end) || $start >= $end) {
+            setFlash('error', __('alarm.error_interval'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
+            exit;
+        }
+        $config = ['start' => $start, 'end' => $end];
+    }
+
+    $db->prepare('INSERT INTO alarms (webhook_id, name, type, config) VALUES (?, ?, ?, ?)')
+       ->execute([$webhookId, $name, $type, json_encode($config)]);
+    setFlash('success', __('alarm.created'));
+    header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
+    exit;
+}
+
+// --- DELETE ALARM ---
+if ($action === 'delete_alarm' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $alarmId = (int)($_GET['alarm_id'] ?? 0);
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=project');
+        exit;
+    }
+    $alStmt = $db->prepare('
+        SELECT a.id, a.webhook_id FROM alarms a
+        JOIN webhooks w ON w.id = a.webhook_id
+        JOIN projects p ON p.id = w.project_id
+        WHERE a.id = ? AND p.user_id = ? AND a.deleted_at IS NULL
+    ');
+    $alStmt->execute([$alarmId, $userId]);
+    $al = $alStmt->fetch();
+    if (!$al) { setFlash('error', __('msg.unauthorized')); header('Location: ' . BASE_URL . '/?page=project'); exit; }
+
+    $db->prepare("UPDATE alarms SET deleted_at = datetime('now') WHERE id = ?")->execute([$alarmId]);
+    setFlash('success', __('alarm.deleted'));
+    header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $al['webhook_id']);
+    exit;
+}
+
+// --- WEBHOOK SETTINGS ---
+if ($action === 'settings') {
+    $webhookId = (int)($_GET['id'] ?? 0);
+    $wh = loadWebhookForUser($db, $webhookId, $userId);
+    if (!$wh) {
+        setFlash('error', __('webhook.not_found'));
+        header('Location: ' . BASE_URL . '/?page=project');
+        exit;
+    }
+
+    // Handle rename
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'rename') {
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+            setFlash('error', __('msg.csrf_error'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+            exit;
+        }
+        $name = trim($_POST['name'] ?? '');
+        if ($name === '') {
+            setFlash('error', __('msg.required'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+            exit;
+        }
+        $db->prepare('UPDATE webhooks SET name = ? WHERE id = ?')->execute([$name, $webhookId]);
+        setFlash('success', __('msg.saved'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+        exit;
+    }
+
+    // Handle toggle active
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'toggle') {
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+            setFlash('error', __('msg.csrf_error'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+            exit;
+        }
+        $newActive = $wh['active'] ? 0 : 1;
+        $db->prepare('UPDATE webhooks SET active = ? WHERE id = ?')->execute([$newActive, $webhookId]);
+        setFlash('success', __('msg.saved'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+        exit;
+    }
+
+    // Handle pause for 24 hours
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'pause') {
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+            setFlash('error', __('msg.csrf_error'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+            exit;
+        }
+        $db->prepare("UPDATE webhooks SET paused_until = datetime('now', '+24 hours') WHERE id = ?")
+           ->execute([$webhookId]);
+        setFlash('success', __('webhook.paused'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+        exit;
+    }
+
+    // Handle unpause
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'unpause') {
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+            setFlash('error', __('msg.csrf_error'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+            exit;
+        }
+        $db->prepare("UPDATE webhooks SET paused_until = NULL WHERE id = ?")->execute([$webhookId]);
+        setFlash('success', __('msg.saved'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+        exit;
+    }
+
+    // Handle delete
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'delete') {
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+            setFlash('error', __('msg.csrf_error'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+            exit;
+        }
+        $db->prepare("UPDATE webhooks SET deleted_at = datetime('now') WHERE id = ?")->execute([$webhookId]);
+        setFlash('success', __('webhook.deleted'));
+        header('Location: ' . BASE_URL . '/?page=project&action=detail&id=' . $wh['project_id']);
+        exit;
+    }
+
+    $isPaused    = !empty($wh['paused_until']) && strtotime($wh['paused_until']) > time();
+    $pausedUntil = $isPaused ? $wh['paused_until'] : null;
+    $page_title  = __('webhook.settings') . ' — ' . e($wh['name']);
+    ob_start();
+    ?>
+    <div class="page-container">
+        <div class="page-header">
+            <div class="header-title-group">
+                <div class="breadcrumb">
+                    <a href="<?= BASE_URL ?>/?page=project&action=detail&id=<?= $wh['project_id'] ?>"><?= e($wh['project_name']) ?></a>
+                    <span class="breadcrumb-sep">›</span>
+                    <a href="<?= BASE_URL ?>/?page=webhook&action=detail&id=<?= $webhookId ?>"><?= e($wh['name']) ?></a>
+                    <span class="breadcrumb-sep">›</span>
+                    <span><?= __('webhook.settings') ?></span>
+                </div>
+                <h1><?= __('webhook.settings') ?></h1>
+            </div>
+            <a href="<?= BASE_URL ?>/?page=webhook&action=detail&id=<?= $webhookId ?>" class="btn btn-outline"><?= __('form.back') ?></a>
+        </div>
+
+        <!-- Rename -->
+        <div class="card">
+            <h3 style="margin-top:0"><?= __('webhook.name') ?></h3>
+            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>" class="form">
+                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                <input type="hidden" name="_action" value="rename">
+                <div class="form-row" style="align-items:flex-end">
+                    <div class="form-group flex-1" style="margin-bottom:0">
+                        <input type="text" name="name" value="<?= e($wh['name']) ?>" maxlength="100" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><?= __('form.save') ?></button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Status -->
+        <div class="card">
+            <h3 style="margin-top:0"><?= __('webhook.status') ?></h3>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                <span class="badge <?= $wh['active'] ? 'badge-success' : 'badge-muted' ?>" style="font-size:14px">
+                    <?= $wh['active'] ? __('webhook.active') : __('webhook.inactive') ?>
+                </span>
+                <?php if ($isPaused): ?>
+                    <span class="badge badge-warning" style="font-size:14px">
+                        <?= __('webhook.paused_until') ?>: <?= e(date('d/m H:i', strtotime($pausedUntil))) ?>
+                    </span>
+                <?php endif; ?>
+                <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>" class="inline">
+                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                    <input type="hidden" name="_action" value="toggle">
+                    <button type="submit" class="btn btn-sm btn-outline">
+                        <?= $wh['active'] ? __('webhook.disable') : __('webhook.enable') ?>
+                    </button>
+                </form>
+                <?php if (!$isPaused): ?>
+                <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>" class="inline">
+                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                    <input type="hidden" name="_action" value="pause">
+                    <button type="submit" class="btn btn-sm btn-outline"><?= __('webhook.pause_24h') ?></button>
+                </form>
+                <?php else: ?>
+                <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>" class="inline">
+                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                    <input type="hidden" name="_action" value="unpause">
+                    <button type="submit" class="btn btn-sm btn-outline"><?= __('webhook.unpause') ?></button>
+                </form>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card" style="border-color:var(--color-danger,#e74c3c)">
+            <h3 style="margin-top:0;color:var(--color-danger,#e74c3c)"><?= __('settings.danger_zone') ?></h3>
+            <p class="text-muted"><?= __('webhook.confirm_delete') ?></p>
+            <button onclick="openModal('deleteWebhookModal')" class="btn btn-danger"><?= __('webhook.delete') ?></button>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div id="deleteWebhookModal" class="modal" style="display:none" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3><?= __('webhook.delete') ?></h3>
+                <button onclick="closeModal('deleteWebhookModal')" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p><?= __('webhook.confirm_delete') ?></p>
+            </div>
+            <div class="modal-footer">
+                <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>">
+                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                    <input type="hidden" name="_action" value="delete">
+                    <button type="submit" class="btn btn-danger"><?= __('form.yes_delete') ?></button>
+                    <button type="button" onclick="closeModal('deleteWebhookModal')" class="btn btn-outline"><?= __('form.cancel') ?></button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php
+    $content = ob_get_clean();
+    require __DIR__ . '/../layout.php';
+    exit;
+}
+
 // --- WEBHOOK DETAIL ---
 $webhookId = (int)($_GET['id'] ?? 0);
 $wh = loadWebhookForUser($db, $webhookId, $userId);
@@ -364,13 +624,19 @@ $guardStmt = $db->prepare('SELECT * FROM guards WHERE webhook_id = ? AND deleted
 $guardStmt->execute([$webhookId]);
 $guards = $guardStmt->fetchAll();
 
+// Load alarms
+$alarmStmt = $db->prepare('SELECT * FROM alarms WHERE webhook_id = ? AND deleted_at IS NULL ORDER BY created_at');
+$alarmStmt->execute([$webhookId]);
+$alarms = $alarmStmt->fetchAll();
+
 // Load recent events (last 20)
 $evtStmt = $db->prepare('SELECT * FROM events WHERE webhook_id = ? ORDER BY received_at DESC LIMIT 20');
 $evtStmt->execute([$webhookId]);
 $recentEvents = $evtStmt->fetchAll();
 
-$webhookUrl = webhookUrl($wh['slug'] ?? $wh['project_slug'] ?? '', $wh['token']);
-$page_title = e($wh['name']);
+$isPaused    = !empty($wh['paused_until']) && strtotime($wh['paused_until']) > time();
+$webhookUrl  = webhookUrl($wh['slug'] ?? $wh['project_slug'] ?? '', $wh['token']);
+$page_title  = e($wh['name']);
 $lastEventId = !empty($recentEvents) ? (int)$recentEvents[0]['id'] : 0;
 $eventsAjaxBase = '?page=api&action=events&webhook_id=' . $webhookId;
 
@@ -384,20 +650,25 @@ ob_start();
                 <span class="breadcrumb-sep">›</span>
                 <span><?= e($wh['name']) ?></span>
             </div>
-            <div class="title-inline">
-                <h1><?= e($wh['name']) ?></h1>
-                <a href="<?= BASE_URL ?>/?page=webhook&action=edit&id=<?= $webhookId ?>" class="title-edit-link" aria-label="<?= __('webhook.edit') ?>" title="<?= __('webhook.edit') ?>">✎</a>
+            <div class="title-inline" id="webhookTitleBlock">
+                <h1 id="webhookTitleText"><?= e($wh['name']) ?></h1>
+                <button type="button" class="title-edit-link" id="webhookRenameBtn" aria-label="<?= __('webhook.edit') ?>" title="<?= __('webhook.edit') ?>" onclick="startRename()">✎</button>
+                <form id="webhookRenameForm" style="display:none;align-items:center;gap:6px" onsubmit="submitRename(event)">
+                    <input type="text" id="webhookRenameInput" value="<?= e($wh['name']) ?>" maxlength="100" class="inline-rename-input">
+                    <button type="submit" class="btn btn-xs btn-primary">✓</button>
+                    <button type="button" class="btn btn-xs btn-outline" onclick="cancelRename()">✕</button>
+                </form>
             </div>
         </div>
         <div class="header-actions">
+            <?php if ($isPaused): ?>
+            <span class="badge badge-warning"><?= __('webhook.paused') ?></span>
+            <?php else: ?>
             <span class="badge <?= $wh['active'] ? 'badge-success' : 'badge-muted' ?>">
                 <?= $wh['active'] ? __('webhook.active') : __('webhook.inactive') ?>
             </span>
-            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=toggle&id=<?= $webhookId ?>" class="inline">
-                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
-                <button type="submit" class="btn btn-sm btn-outline"><?= $wh['active'] ? 'Disable' : 'Enable' ?></button>
-            </form>
-            <button onclick="openModal('deleteWebhookModal')" class="btn btn-sm btn-danger"><?= __('webhook.delete') ?></button>
+            <?php endif; ?>
+            <a href="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>" class="btn btn-sm btn-outline">&#9881; <?= __('webhook.settings') ?></a>
         </div>
     </div>
 
@@ -417,14 +688,53 @@ ob_start();
         </div>
     </div>
 
-    <!-- Forward Actions -->
+    <!-- Webhook-level Guards -->
     <section class="section">
         <div class="section-header">
-            <h2><?= __('forward.create') ?></h2>
-            <button onclick="openModal('addForwardModal')" class="btn btn-sm btn-primary">+ <?= __('forward.create') ?></button>
+            <h2>Webhook Guards</h2>
+            <button onclick="openModal('addGuardModal')" class="btn btn-sm btn-outline">+ <?= __('guard.create') ?></button>
+        </div>
+        <?php if (empty($guards)): ?>
+        <p class="text-muted">No guards on this webhook.</p>
+        <?php else: ?>
+        <div class="guards-list">
+            <?php foreach ($guards as $guard): ?>
+            <?php $cfg = json_decode($guard['config'], true) ?: []; ?>
+            <div class="guard-item">
+                <div class="guard-info">
+                    <span class="badge badge-info"><?= e($guard['type']) ?></span>
+                    <span class="guard-config text-muted">
+                        <?php
+                        $cfgStr = match($guard['type']) {
+                            'required_header' => 'Header: ' . ($cfg['header'] ?? ''),
+                            'static_token'    => 'Header: ' . ($cfg['header'] ?? '') . ' = [token]',
+                            'query_secret'    => 'Param: ' . ($cfg['param'] ?? '') . ' = [secret]',
+                            'ip_whitelist'    => 'IPs: ' . ($cfg['ips'] ?? ''),
+                            default           => json_encode($cfg),
+                        };
+                        echo e($cfgStr);
+                        ?>
+                    </span>
+                </div>
+                <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=delete_guard&guard_id=<?= $guard['id'] ?>" class="inline">
+                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                    <input type="hidden" name="redirect" value="webhook&action=detail&id=<?= $webhookId ?>">
+                    <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Remove this guard?')">Remove</button>
+                </form>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </section>
+
+    <!-- Forward Actions (Azioni) -->
+    <section class="section">
+        <div class="section-header">
+            <h2>Azioni</h2>
+            <button onclick="openModal('addForwardModal')" class="btn btn-sm btn-outline">+ Azioni</button>
         </div>
         <?php if (empty($forwardActions)): ?>
-        <p class="text-muted">No forward actions configured. Add one to automatically forward incoming events to other endpoints.</p>
+        <p class="text-muted">Nessuna azione configurata. Aggiungine una per inoltrare gli eventi ad altri endpoint.</p>
         <?php else: ?>
         <div class="forward-actions-list">
             <?php foreach ($forwardActions as $fa): ?>
@@ -467,43 +777,41 @@ ob_start();
         <?php endif; ?>
     </section>
 
-    <!-- Webhook-level Guards -->
+    <!-- Alarms -->
     <section class="section">
         <div class="section-header">
-            <h2>Webhook Guards</h2>
-            <button onclick="openModal('addGuardModal')" class="btn btn-sm btn-outline">+ <?= __('guard.create') ?></button>
+            <h2><?= __('alarm.title') ?></h2>
+            <button onclick="openModal('addAlarmModal')" class="btn btn-sm btn-outline">+ <?= __('alarm.create') ?></button>
         </div>
-        <?php if (empty($guards)): ?>
-        <p class="text-muted">No guards on this webhook.</p>
+        <?php if (empty($alarms)): ?>
+        <p class="text-muted"><?= __('alarm.none') ?></p>
         <?php else: ?>
         <div class="guards-list">
-            <?php foreach ($guards as $guard): ?>
-            <?php $cfg = json_decode($guard['config'], true) ?: []; ?>
+            <?php foreach ($alarms as $al): ?>
+            <?php $alCfg = json_decode($al['config'], true) ?: []; ?>
             <div class="guard-item">
                 <div class="guard-info">
-                    <span class="badge badge-info"><?= e($guard['type']) ?></span>
+                    <span class="badge badge-warning"><?= e($al['name'] ?: __('alarm.type.' . $al['type'])) ?></span>
                     <span class="guard-config text-muted">
                         <?php
-                        $cfgStr = match($guard['type']) {
-                            'required_header' => 'Header: ' . ($cfg['header'] ?? ''),
-                            'static_token'    => 'Header: ' . ($cfg['header'] ?? '') . ' = [token]',
-                            'query_secret'    => 'Param: ' . ($cfg['param'] ?? '') . ' = [secret]',
-                            'ip_whitelist'    => 'IPs: ' . ($cfg['ips'] ?? ''),
-                            default           => json_encode($cfg),
-                        };
-                        echo e($cfgStr);
+                        echo e(match($al['type']) {
+                            'not_called_since'      => __('alarm.type.not_called_since') . ': ' . ($alCfg['hours'] ?? 0) . 'h ' . ($alCfg['minutes'] ?? 0) . 'm',
+                            'not_called_in_interval'=> __('alarm.type.not_called_in_interval') . ': ' . ($alCfg['start'] ?? '') . '–' . ($alCfg['end'] ?? ''),
+                            'called_in_interval'    => __('alarm.type.called_in_interval') . ': ' . ($alCfg['start'] ?? '') . '–' . ($alCfg['end'] ?? ''),
+                            default => $al['type'],
+                        });
                         ?>
                     </span>
                 </div>
-                <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=delete_guard&guard_id=<?= $guard['id'] ?>" class="inline">
+                <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=delete_alarm&alarm_id=<?= $al['id'] ?>" class="inline">
                     <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
-                    <input type="hidden" name="redirect" value="webhook&action=detail&id=<?= $webhookId ?>">
-                    <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Remove this guard?')">Remove</button>
+                    <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('<?= __('alarm.confirm_delete') ?>')">Remove</button>
                 </form>
             </div>
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
+
     </section>
 
     <!-- Recent Events -->
@@ -526,6 +834,7 @@ ob_start();
                     <th class="col-path"><?= __('event.path') ?></th>
                     <th class="col-ip"><?= __('event.ip') ?></th>
                     <th class="col-status">Status</th>
+                    <th class="col-info">Info</th>
                 </tr>
             </thead>
             <tbody id="recentEventsBody">
@@ -535,7 +844,8 @@ ob_start();
                     <td class="col-time"><span title="<?= e($ev['received_at']) ?>"><?= e(date('H:i:s', strtotime($ev['received_at']))) ?></span></td>
                     <td class="col-path mono"><?= e($ev['path']) ?></td>
                     <td class="col-ip mono"><?= e($ev['ip']) ?></td>
-                    <td class="col-status"><?= $ev['validated'] ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>' ?></td>
+                    <td class="col-status"><?= strtoupper($ev['method']) === 'ALARM' ? '<span class="badge badge-warning">Alarm</span>' : ($ev['validated'] ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>') ?></td>
+                    <td class="col-info text-muted"><?= strtoupper($ev['method']) === 'ALARM' ? e($ev['body']) : '' ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -589,6 +899,7 @@ ob_start();
                         <th class="col-path"><?= __('event.path') ?></th>
                         <th class="col-ip"><?= __('event.ip') ?></th>
                         <th class="col-status">Status</th>
+                        <th class="col-info">Info</th>
                     </tr>
                 </thead>
                 <tbody id="recentEventsBody"></tbody>
@@ -623,16 +934,18 @@ ob_start();
 
                     const method = (ev.method || 'POST').toUpperCase();
                     const methodLower = method.toLowerCase();
-                    const statusBadge = ev.validated == 1
-                        ? '<span class="badge badge-success">Valid</span>'
-                        : '<span class="badge badge-error">Guard</span>';
+                    const statusBadge = method === 'ALARM'
+                        ? '<span class="badge badge-warning">Alarm</span>'
+                        : (ev.validated == 1 ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>');
 
+                    const infoCell = method === 'ALARM' ? escapeHtml(ev.body || '') : '';
                     tr.innerHTML = `
                         <td class="col-method"><span class="badge-method ${methodLower}">${escapeHtml(method)}</span></td>
                         <td class="col-time"><span title="${escapeHtml(ev.received_at || '')}">${escapeHtml(renderTime(ev.received_at || ''))}</span></td>
                         <td class="col-path mono">${escapeHtml(ev.path || '/')}</td>
                         <td class="col-ip mono">${escapeHtml(ev.ip || '')}</td>
                         <td class="col-status">${statusBadge}</td>
+                        <td class="col-info text-muted">${infoCell}</td>
                     `;
 
                     tbody.insertBefore(tr, tbody.firstChild);
@@ -656,25 +969,119 @@ ob_start();
 })();
 </script>
 
-<!-- Delete Webhook Modal -->
-<div id="deleteWebhookModal" class="modal" style="display:none" aria-hidden="true">
+<script>
+function startRename() {
+    document.getElementById('webhookTitleText').style.display = 'none';
+    document.getElementById('webhookRenameBtn').style.display = 'none';
+    const form = document.getElementById('webhookRenameForm');
+    form.style.display = 'flex';
+    const input = document.getElementById('webhookRenameInput');
+    input.focus();
+    input.select();
+}
+
+function cancelRename() {
+    document.getElementById('webhookRenameForm').style.display = 'none';
+    document.getElementById('webhookTitleText').style.display = '';
+    document.getElementById('webhookRenameBtn').style.display = '';
+}
+
+function submitRename(e) {
+    e.preventDefault();
+    const name = document.getElementById('webhookRenameInput').value.trim();
+    if (!name) return;
+
+    fetch('<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({
+            _csrf: '<?= e(generateCsrfToken()) ?>',
+            _action: 'rename',
+            name: name,
+        }),
+    }).then(r => {
+        if (r.redirected || r.ok) {
+            document.getElementById('webhookTitleText').textContent = name;
+            // update breadcrumb too
+            const crumb = document.querySelector('.breadcrumb span:last-child');
+            if (crumb) crumb.textContent = name;
+            cancelRename();
+        }
+    }).catch(() => cancelRename());
+}
+</script>
+
+<!-- Add Alarm Modal -->
+<div id="addAlarmModal" class="modal" style="display:none" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-header">
-            <h3>Delete Webhook</h3>
-            <button onclick="closeModal('deleteWebhookModal')" class="modal-close">&times;</button>
+            <h3><?= __('alarm.create') ?></h3>
+            <button onclick="closeModal('addAlarmModal')" class="modal-close">&times;</button>
         </div>
-        <div class="modal-body">
-            <p><?= __('webhook.confirm_delete') ?></p>
-        </div>
-        <div class="modal-footer">
-            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=delete&id=<?= $webhookId ?>">
-                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
-                <button type="submit" class="btn btn-danger"><?= __('form.yes_delete') ?></button>
-                <button type="button" onclick="closeModal('deleteWebhookModal')" class="btn btn-outline"><?= __('form.cancel') ?></button>
-            </form>
-        </div>
+        <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=add_alarm">
+            <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+            <input type="hidden" name="webhook_id" value="<?= $webhookId ?>">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label><?= __('alarm.name') ?></label>
+                    <input type="text" name="name" placeholder="<?= __('alarm.name_placeholder') ?>" maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label><?= __('alarm.type_label') ?> <span class="required">*</span></label>
+                    <select name="type" id="alarmTypeSelect" onchange="updateAlarmFields(this.value)" required>
+                        <option value="">— <?= __('alarm.type_select') ?> —</option>
+                        <option value="not_called_since"><?= __('alarm.type.not_called_since') ?></option>
+                        <option value="not_called_in_interval"><?= __('alarm.type.not_called_in_interval') ?></option>
+                        <option value="called_in_interval"><?= __('alarm.type.called_in_interval') ?></option>
+                    </select>
+                </div>
+                <!-- Fields for not_called_since -->
+                <div id="alarm_fields_since" style="display:none">
+                    <p class="form-hint"><?= __('alarm.hint.not_called_since') ?></p>
+                    <div class="form-row">
+                        <div class="form-group form-group-sm">
+                            <label><?= __('alarm.hours') ?></label>
+                            <input type="number" name="hours" min="0" max="999" value="1" placeholder="0">
+                        </div>
+                        <div class="form-group form-group-sm">
+                            <label><?= __('alarm.minutes') ?></label>
+                            <input type="number" name="minutes" min="0" max="59" value="0" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+                <!-- Fields for interval-based types -->
+                <div id="alarm_fields_interval" style="display:none">
+                    <p class="form-hint" id="alarm_interval_hint"></p>
+                    <div class="form-row">
+                        <div class="form-group form-group-sm">
+                            <label><?= __('alarm.interval_start') ?></label>
+                            <input type="time" name="interval_start" value="09:00">
+                        </div>
+                        <div class="form-group form-group-sm">
+                            <label><?= __('alarm.interval_end') ?></label>
+                            <input type="time" name="interval_end" value="17:00">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary"><?= __('alarm.create') ?></button>
+                <button type="button" onclick="closeModal('addAlarmModal')" class="btn btn-outline"><?= __('form.cancel') ?></button>
+            </div>
+        </form>
     </div>
 </div>
+<script>
+function updateAlarmFields(type) {
+    document.getElementById('alarm_fields_since').style.display    = type === 'not_called_since' ? '' : 'none';
+    document.getElementById('alarm_fields_interval').style.display = (type === 'not_called_in_interval' || type === 'called_in_interval') ? '' : 'none';
+    const hints = {
+        'not_called_in_interval': '<?= __('alarm.hint.not_called_in_interval') ?>',
+        'called_in_interval':     '<?= __('alarm.hint.called_in_interval') ?>',
+    };
+    document.getElementById('alarm_interval_hint').textContent = hints[type] || '';
+}
+</script>
 
 <!-- Add Forward Action Modal -->
 <div id="addForwardModal" class="modal" style="display:none" aria-hidden="true">

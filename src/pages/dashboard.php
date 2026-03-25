@@ -5,7 +5,7 @@ $userId       = (int)$current_user['id'];
 
 // Filters from GET
 $filterProjectId = isset($_GET['project_id']) && $_GET['project_id'] !== '' ? (int)$_GET['project_id'] : null;
-$filterMethod    = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'], true) ? $_GET['method'] : '';
+$filterMethod    = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM'], true) ? $_GET['method'] : '';
 $filterStatus    = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
 $filterTime      = isset($_GET['time']) && in_array($_GET['time'], ['1h','24h','7d','30d'], true) ? $_GET['time'] : '';
 
@@ -96,7 +96,7 @@ $ajaxBase = '?' . http_build_query($ajaxParams);
 
         <select name="method" onchange="this.form.submit()">
             <option value=""><?= __('dashboard.filter_method') ?></option>
-            <?php foreach (['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'] as $m): ?>
+            <?php foreach (['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM'] as $m): ?>
             <option value="<?= $m ?>"<?= $filterMethod === $m ? ' selected' : '' ?>><?= $m ?></option>
             <?php endforeach; ?>
         </select>
@@ -169,9 +169,10 @@ function renderEventRow(array $event): string {
     $id        = (int)$event['id'];
     $base      = BASE_URL;
 
-    $statusBadge = $validated
-        ? '<span class="badge badge-success">Valid</span>'
-        : '<span class="badge badge-error">Guard</span>';
+    $isAlarm = strtoupper($event['method'] ?? '') === 'ALARM';
+    $statusBadge = $isAlarm
+        ? '<span class="badge badge-warning">Alarm</span>'
+        : ($validated ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>');
 
     $methodUpper = strtoupper($event['method'] ?? 'POST');
 
@@ -248,9 +249,9 @@ function renderEventRow(array $event): string {
                         else if (ago < 3600) timeStr = Math.round(ago/60) + 'm ago';
                         else timeStr = ts.toLocaleTimeString();
 
-                        const statusBadge = ev.validated == 1
-                            ? '<span class="badge badge-success">Valid</span>'
-                            : '<span class="badge badge-error">Guard</span>';
+                        const statusBadge = method === 'ALARM'
+                            ? '<span class="badge badge-warning">Alarm</span>'
+                            : (ev.validated == 1 ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>');
 
                         tr.innerHTML = `
                             <td class="col-method"><span class="badge-method ${methodLower}">${escapeHtml(method)}</span></td>

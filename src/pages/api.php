@@ -19,7 +19,7 @@ switch ($action) {
         $afterId       = isset($_GET['after_id']) ? (int)$_GET['after_id'] : 0;
         $filterProjId  = isset($_GET['project_id']) && $_GET['project_id'] !== '' ? (int)$_GET['project_id'] : null;
         $filterWebhookId = isset($_GET['webhook_id']) && $_GET['webhook_id'] !== '' ? (int)$_GET['webhook_id'] : null;
-        $filterMethod  = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'], true) ? $_GET['method'] : '';
+        $filterMethod  = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM'], true) ? $_GET['method'] : '';
         $filterStatus  = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
         $filterTime    = isset($_GET['time']) && in_array($_GET['time'], ['1h','24h','7d','30d'], true) ? $_GET['time'] : '';
         $limit         = min(100, max(1, (int)($_GET['limit'] ?? 50)));
@@ -63,7 +63,7 @@ switch ($action) {
 
         $where = implode(' AND ', $whereClauses);
         $stmt = $db->prepare("
-            SELECT e.id, e.webhook_id, e.method, e.path, e.ip, e.received_at, e.validated, e.rejection_reason,
+            SELECT e.id, e.webhook_id, e.method, e.path, e.ip, e.received_at, e.validated, e.rejection_reason, e.body,
                    p.name AS project_name, p.id AS project_id,
                    w.name AS webhook_name
             FROM events e

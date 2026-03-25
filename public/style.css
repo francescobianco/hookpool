@@ -44,6 +44,7 @@
     --method-patch:   #8b5cf6;
     --method-head:    #6b7280;
     --method-options: #6b7280;
+    --method-alarm:   #ef4444;
 }
 
 /* --- Reset ----------------------------------------------------------------- */
@@ -404,6 +405,16 @@ details > summary { cursor: pointer; user-select: none; }
     transition: background 0.15s, color 0.15s;
 }
 .title-edit-link:hover { background: var(--bg-hover); color: var(--text-primary); text-decoration: none; }
+.inline-rename-input {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: var(--bg-input, var(--bg-card));
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 2px 8px;
+    color: var(--text-primary);
+    min-width: 180px;
+}
 .header-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
 .breadcrumb {
@@ -755,6 +766,7 @@ tr:last-child td { border-bottom: none; }
 .col-path    { }
 .col-ip      { width: 110px; }
 .col-status  { width: 70px; text-align: center; }
+.col-info    { font-size: 12px; color: var(--text-muted, #888); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .events-table-compact td { padding: 5px 10px; }
 
@@ -783,6 +795,7 @@ tr:last-child td { border-bottom: none; }
 .badge-method.patch   { background: var(--method-patch); }
 .badge-method.head,
 .badge-method.options { background: var(--method-head); }
+.badge-method.alarm   { background: var(--method-alarm); }
 
 /* Smaller variant */
 .badge-method-sm {
@@ -802,6 +815,7 @@ tr:last-child td { border-bottom: none; }
 .badge-method-sm.patch   { background: var(--method-patch); }
 .badge-method-sm.head,
 .badge-method-sm.options { background: var(--method-head); }
+.badge-method-sm.alarm   { background: var(--method-alarm); }
 
 /* --- Generic Badges -------------------------------------------------------- */
 .badge {
