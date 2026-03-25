@@ -19,6 +19,7 @@
         <?php endif; ?>
         <a href="<?= BASE_URL ?>/" class="logo">
             <img src="<?= BASE_URL ?>/assets/images/logo.png" alt="<?= APP_NAME ?>" class="logo-img">
+            <span class="logo-name"><span class="logo-hook">hook</span><span class="logo-pool">pool</span></span>
         </a>
     </div>
     <nav class="header-nav">
