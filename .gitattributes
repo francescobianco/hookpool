@@ -2,6 +2,8 @@ Dockerfile            export-ignore
 docker-compose.yml    export-ignore
 docker-entrypoint.sh  export-ignore
 .env.example          export-ignore
+.convcommit           export-ignore
+.gitattributes        export-ignore
 env.php.example       export-ignore
 Makefile              export-ignore
 *.lftp                export-ignore
