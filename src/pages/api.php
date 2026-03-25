@@ -18,6 +18,7 @@ switch ($action) {
     case 'events':
         $afterId       = isset($_GET['after_id']) ? (int)$_GET['after_id'] : 0;
         $filterProjId  = isset($_GET['project_id']) && $_GET['project_id'] !== '' ? (int)$_GET['project_id'] : null;
+        $filterWebhookId = isset($_GET['webhook_id']) && $_GET['webhook_id'] !== '' ? (int)$_GET['webhook_id'] : null;
         $filterMethod  = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'], true) ? $_GET['method'] : '';
         $filterStatus  = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
         $filterTime    = isset($_GET['time']) && in_array($_GET['time'], ['1h','24h','7d','30d'], true) ? $_GET['time'] : '';
@@ -33,6 +34,10 @@ switch ($action) {
         if ($filterProjId !== null) {
             $whereClauses[] = 'p.id = ?';
             $params[] = $filterProjId;
+        }
+        if ($filterWebhookId !== null) {
+            $whereClauses[] = 'w.id = ?';
+            $params[] = $filterWebhookId;
         }
         if ($filterMethod !== '') {
             $whereClauses[] = 'e.method = ?';

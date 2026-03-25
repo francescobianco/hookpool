@@ -45,7 +45,7 @@ if ($action === 'create') {
 
         // Auto-create first webhook
         $token = generateUniqueWebhookToken($db, $projectId);
-        $db->prepare('INSERT INTO webhooks (project_id, name, token) VALUES (?, ?, ?)')->execute([$projectId, 'Default', $token]);
+        $db->prepare('INSERT INTO webhooks (project_id, name, token) VALUES (?, ?, ?)')->execute([$projectId, 'Webhook', $token]);
 
         setFlash('success', __('project.created'));
         header('Location: ' . BASE_URL . '/?page=project&action=detail&id=' . $projectId);
@@ -76,7 +76,7 @@ if ($action === 'create') {
                     <div class="name-with-emoji">
                         <select id="emoji" name="emoji" class="emoji-picker" title="Choose a project icon">
                             <?php foreach ($projectEmojis as $key): ?>
-                            <option value="<?= e($key) ?>"<?= (($_POST['emoji'] ?? 'robot') === $key) ? ' selected' : '' ?>><?= projectEmoji($key) ?> <?= e($key) ?></option>
+                            <option value="<?= e($key) ?>"<?= (($_POST['emoji'] ?? 'robot') === $key) ? ' selected' : '' ?>><?= projectEmoji($key) ?></option>
                             <?php endforeach; ?>
                         </select>
                         <input type="text" id="name" name="name" value="<?= e($_POST['name'] ?? '') ?>"
@@ -259,7 +259,7 @@ if ($action === 'detail') {
                 <div class="card card-webhook">
                     <div class="card-header">
                         <div class="card-title-group">
-                            <span class="webhook-dot<?= $wh['active'] ? '' : ' inactive' ?>">●</span>
+                            <span class="webhook-dot<?= $wh['active'] ? '' : ' inactive' ?>">↪</span>
                             <h3 class="card-title"><?= e($wh['name']) ?></h3>
                         </div>
                         <span class="badge <?= $wh['active'] ? 'badge-success' : 'badge-muted' ?>"><?= $wh['active'] ? 'Active' : 'Inactive' ?></span>
@@ -425,7 +425,7 @@ if ($action === 'edit') {
                     <div class="name-with-emoji">
                         <select id="emoji" name="emoji" class="emoji-picker" title="Choose a project icon">
                             <?php foreach ($projectEmojis as $key): ?>
-                            <option value="<?= e($key) ?>"<?= ((($project['emoji'] ?? '') ?: 'robot') === $key) ? ' selected' : '' ?>><?= projectEmoji($key) ?> <?= e($key) ?></option>
+                            <option value="<?= e($key) ?>"<?= ((($project['emoji'] ?? '') ?: 'robot') === $key) ? ' selected' : '' ?>><?= projectEmoji($key) ?></option>
                             <?php endforeach; ?>
                         </select>
                         <input type="text" id="name" name="name" value="<?= e($project['name']) ?>" required maxlength="100">

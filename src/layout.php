@@ -65,6 +65,19 @@
                     + <?= __('project.create') ?>
                 </a>
             </div>
+            <div class="sidebar-category sidebar-links-group">
+                <div class="sidebar-category-header">
+                    <span class="cat-name">Links</span>
+                </div>
+                <ul class="sidebar-webhooks sidebar-static-links">
+                    <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'dashboard') ? ' active' : '' ?>">
+                        <a href="<?= BASE_URL ?>/?page=dashboard">Dashboard</a>
+                    </li>
+                    <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'settings') ? ' active' : '' ?>">
+                        <a href="<?= BASE_URL ?>/?page=settings"><?= __('nav.settings') ?></a>
+                    </li>
+                </ul>
+            </div>
 
             <?php
             // Load sidebar data: categories and projects for current user

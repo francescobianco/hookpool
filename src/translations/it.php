@@ -70,7 +70,7 @@ return [
     'event.pretty'          => 'Formattato',
     'event.content_type'    => 'Content Type',
     'event.ip'              => 'Indirizzo IP',
-    'event.received_at'     => 'Ricevuto alle',
+    'event.received_at'     => 'Ricevuto',
     'event.validated'       => 'Validato',
     'event.rejected'        => 'Rifiutato',
     'event.rejection_reason'=> 'Motivo Rifiuto',

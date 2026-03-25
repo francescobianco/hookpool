@@ -248,7 +248,6 @@ details > summary { cursor: pointer; user-select: none; }
 }
 
 .sidebar-section { margin-bottom: 0.5rem; }
-
 .sidebar-empty {
     color: var(--text-muted);
     font-size: 0.8rem;
@@ -344,8 +343,10 @@ details > summary { cursor: pointer; user-select: none; }
     transition: background 0.1s, color 0.1s;
 }
 .sidebar-webhook a:hover { background: var(--bg-hover); color: var(--text-primary); }
-.sidebar-webhook.active a { color: var(--accent); font-weight: 500; }
+.sidebar-webhook.active a { background: var(--bg-hover); color: var(--text-primary); font-weight: 500; }
 .sidebar-webhook.inactive a { opacity: 0.5; }
+.sidebar-links-group { margin-bottom: 0.5rem; }
+.sidebar-static-links { margin-left: 0; }
 
 /* --- Main Content ---------------------------------------------------------- */
 .main-content {
@@ -378,6 +379,20 @@ details > summary { cursor: pointer; user-select: none; }
 }
 .header-title-group { flex: 1; min-width: 0; }
 .header-title-group h1 { margin-bottom: 0.25rem; }
+.title-inline { display: flex; align-items: center; gap: 0.45rem; }
+.title-inline h1 { margin-bottom: 0; }
+.title-edit-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+.title-edit-link:hover { background: var(--bg-hover); color: var(--text-primary); text-decoration: none; }
 .header-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
 .breadcrumb {

@@ -122,7 +122,7 @@ if ($action === 'create') {
             exit;
         }
         $name = trim($_POST['name'] ?? '');
-        if ($name === '') $name = 'Webhook ' . date('YmdHis');
+        if ($name === '') $name = 'Webhook';
 
         $token = generateUniqueWebhookToken($db, $projectId);
         $db->prepare('INSERT INTO webhooks (project_id, name, token) VALUES (?, ?, ?)')->execute([$projectId, $name, $token]);
@@ -146,11 +146,69 @@ if ($action === 'create') {
                 <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
                 <div class="form-group">
                     <label for="name"><?= __('webhook.name') ?></label>
-                    <input type="text" id="name" name="name" maxlength="100" placeholder="Default">
+                    <input type="text" id="name" name="name" maxlength="100" placeholder="Webhook">
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary"><?= __('webhook.create') ?></button>
                     <a href="<?= BASE_URL ?>/?page=project&action=detail&id=<?= $projectId ?>" class="btn btn-outline"><?= __('form.cancel') ?></a>
+                </div>
+            </form>
+        </div>
+    </div>
+    <?php
+    $content = ob_get_clean();
+    require __DIR__ . '/../layout.php';
+    exit;
+}
+
+// --- EDIT WEBHOOK ---
+if ($action === 'edit') {
+    $webhookId = (int)($_GET['id'] ?? 0);
+    $wh = loadWebhookForUser($db, $webhookId, $userId);
+    if (!$wh) {
+        setFlash('error', __('webhook.not_found'));
+        header('Location: ' . BASE_URL . '/?page=project');
+        exit;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+            setFlash('error', __('msg.csrf_error'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=edit&id=' . $webhookId);
+            exit;
+        }
+
+        $name = trim($_POST['name'] ?? '');
+        if ($name === '') {
+            setFlash('error', __('msg.required') . ' ' . __('webhook.name'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=edit&id=' . $webhookId);
+            exit;
+        }
+
+        $db->prepare('UPDATE webhooks SET name = ? WHERE id = ?')->execute([$name, $webhookId]);
+        setFlash('success', __('msg.saved'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
+        exit;
+    }
+
+    $page_title = __('webhook.edit');
+    ob_start();
+    ?>
+    <div class="page-container">
+        <div class="page-header">
+            <h1><?= __('webhook.edit') ?></h1>
+            <a href="<?= BASE_URL ?>/?page=webhook&action=detail&id=<?= $webhookId ?>" class="btn btn-outline"><?= __('form.back') ?></a>
+        </div>
+        <div class="card">
+            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=edit&id=<?= $webhookId ?>" class="form">
+                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                <div class="form-group">
+                    <label for="name"><?= __('webhook.name') ?></label>
+                    <input type="text" id="name" name="name" maxlength="100" value="<?= e($wh['name']) ?>" placeholder="Webhook" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary"><?= __('form.save') ?></button>
+                    <a href="<?= BASE_URL ?>/?page=webhook&action=detail&id=<?= $webhookId ?>" class="btn btn-outline"><?= __('form.cancel') ?></a>
                 </div>
             </form>
         </div>
@@ -313,6 +371,8 @@ $recentEvents = $evtStmt->fetchAll();
 
 $webhookUrl = webhookUrl($wh['slug'] ?? $wh['project_slug'] ?? '', $wh['token']);
 $page_title = e($wh['name']);
+$lastEventId = !empty($recentEvents) ? (int)$recentEvents[0]['id'] : 0;
+$eventsAjaxBase = '?page=api&action=events&webhook_id=' . $webhookId;
 
 ob_start();
 ?>
@@ -324,7 +384,10 @@ ob_start();
                 <span class="breadcrumb-sep">›</span>
                 <span><?= e($wh['name']) ?></span>
             </div>
-            <h1><?= e($wh['name']) ?></h1>
+            <div class="title-inline">
+                <h1><?= e($wh['name']) ?></h1>
+                <a href="<?= BASE_URL ?>/?page=webhook&action=edit&id=<?= $webhookId ?>" class="title-edit-link" aria-label="<?= __('webhook.edit') ?>" title="<?= __('webhook.edit') ?>">✎</a>
+            </div>
         </div>
         <div class="header-actions">
             <span class="badge <?= $wh['active'] ? 'badge-success' : 'badge-muted' ?>">
@@ -450,29 +513,29 @@ ob_start();
             <a href="<?= BASE_URL ?>/?page=dashboard" class="btn btn-sm btn-outline">View All in Dashboard</a>
         </div>
         <?php if (empty($recentEvents)): ?>
-        <div class="empty-state-sm">
+        <div class="empty-state-sm" id="recentEventsEmpty">
             <p><?= __('event.no_events') ?></p>
             <p class="text-muted">Try sending: <code>curl -X POST <?= e($webhookUrl) ?></code></p>
         </div>
         <?php else: ?>
-        <table class="events-table events-table-compact">
+        <table class="events-table" id="recentEventsTable">
             <thead>
                 <tr>
-                    <th><?= __('event.method') ?></th>
-                    <th><?= __('event.received_at') ?></th>
-                    <th><?= __('event.path') ?></th>
-                    <th><?= __('event.ip') ?></th>
-                    <th>Status</th>
+                    <th class="col-method"><?= __('event.method') ?></th>
+                    <th class="col-time"><?= __('event.received_at') ?></th>
+                    <th class="col-path"><?= __('event.path') ?></th>
+                    <th class="col-ip"><?= __('event.ip') ?></th>
+                    <th class="col-status">Status</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="recentEventsBody">
                 <?php foreach ($recentEvents as $ev): ?>
                 <tr class="event-row" onclick="window.location='<?= BASE_URL ?>/?page=event&id=<?= $ev['id'] ?>'">
-                    <td><span class="badge-method <?= strtolower($ev['method']) ?>"><?= e($ev['method']) ?></span></td>
-                    <td><span title="<?= e($ev['received_at']) ?>"><?= e(date('H:i:s', strtotime($ev['received_at']))) ?></span></td>
-                    <td class="mono"><?= e($ev['path']) ?></td>
-                    <td class="mono"><?= e($ev['ip']) ?></td>
-                    <td><?= $ev['validated'] ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>' ?></td>
+                    <td class="col-method"><span class="badge-method <?= strtolower($ev['method']) ?>"><?= e($ev['method']) ?></span></td>
+                    <td class="col-time"><span title="<?= e($ev['received_at']) ?>"><?= e(date('H:i:s', strtotime($ev['received_at']))) ?></span></td>
+                    <td class="col-path mono"><?= e($ev['path']) ?></td>
+                    <td class="col-ip mono"><?= e($ev['ip']) ?></td>
+                    <td class="col-status"><?= $ev['validated'] ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>' ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -480,6 +543,118 @@ ob_start();
         <?php endif; ?>
     </section>
 </div>
+
+<script>
+(function() {
+    let lastId = <?= $lastEventId ?>;
+    const ajaxBase = '<?= $eventsAjaxBase ?>';
+    const refreshInterval = 3000;
+    let isRefreshing = false;
+
+    function escapeHtml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function renderTime(value) {
+        if (!value) return '';
+        const ts = new Date(value.replace(' ', 'T'));
+        const ago = Math.floor((Date.now() - ts.getTime()) / 1000);
+        if (ago < 60) return ago + 's ago';
+        if (ago < 3600) return Math.round(ago / 60) + 'm ago';
+        if (ago < 86400) return Math.round(ago / 3600) + 'h ago';
+        return ts.toLocaleTimeString();
+    }
+
+    function ensureTable() {
+        let table = document.getElementById('recentEventsTable');
+        if (table) return table;
+
+        const section = document.querySelector('#recentEventsEmpty')?.parentElement;
+        if (!section) return null;
+
+        const empty = document.getElementById('recentEventsEmpty');
+        if (empty) empty.remove();
+
+        section.insertAdjacentHTML('beforeend', `
+            <table class="events-table" id="recentEventsTable">
+                <thead>
+                    <tr>
+                        <th class="col-method"><?= __('event.method') ?></th>
+                        <th class="col-time"><?= __('event.received_at') ?></th>
+                        <th class="col-path"><?= __('event.path') ?></th>
+                        <th class="col-ip"><?= __('event.ip') ?></th>
+                        <th class="col-status">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="recentEventsBody"></tbody>
+            </table>
+        `);
+
+        return document.getElementById('recentEventsTable');
+    }
+
+    function poll() {
+        if (isRefreshing) return;
+        isRefreshing = true;
+
+        fetch(ajaxBase + '&after_id=' + lastId + '&limit=20', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) return;
+                const newEvents = Array.isArray(data) ? data : (data.events || []);
+                if (!newEvents.length) return;
+
+                const table = ensureTable();
+                const tbody = document.getElementById('recentEventsBody');
+                if (!table || !tbody) return;
+
+                table.classList.remove('hidden');
+
+                newEvents.forEach(ev => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'event-row event-new';
+                    tr.setAttribute('data-id', ev.id);
+                    tr.onclick = () => window.location = '<?= BASE_URL ?>/?page=event&id=' + ev.id;
+
+                    const method = (ev.method || 'POST').toUpperCase();
+                    const methodLower = method.toLowerCase();
+                    const statusBadge = ev.validated == 1
+                        ? '<span class="badge badge-success">Valid</span>'
+                        : '<span class="badge badge-error">Guard</span>';
+
+                    tr.innerHTML = `
+                        <td class="col-method"><span class="badge-method ${methodLower}">${escapeHtml(method)}</span></td>
+                        <td class="col-time"><span title="${escapeHtml(ev.received_at || '')}">${escapeHtml(renderTime(ev.received_at || ''))}</span></td>
+                        <td class="col-path mono">${escapeHtml(ev.path || '/')}</td>
+                        <td class="col-ip mono">${escapeHtml(ev.ip || '')}</td>
+                        <td class="col-status">${statusBadge}</td>
+                    `;
+
+                    tbody.insertBefore(tr, tbody.firstChild);
+                    setTimeout(() => tr.classList.remove('event-new'), 500);
+                });
+
+                lastId = Math.max(...newEvents.map(e => parseInt(e.id, 10)), lastId);
+
+                const rows = tbody.querySelectorAll('tr');
+                if (rows.length > 20) {
+                    for (let i = 20; i < rows.length; i++) rows[i].remove();
+                }
+            })
+            .catch(() => {})
+            .finally(() => {
+                isRefreshing = false;
+            });
+    }
+
+    setInterval(poll, refreshInterval);
+})();
+</script>
 
 <!-- Delete Webhook Modal -->
 <div id="deleteWebhookModal" class="modal" style="display:none" aria-hidden="true">
