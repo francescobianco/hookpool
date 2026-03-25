@@ -85,10 +85,6 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
                 <span class="meta-value"><?= e($event['received_at']) ?></span>
             </div>
             <div class="meta-item">
-                <span class="meta-label"><?= __('event.ip') ?></span>
-                <span class="meta-value mono"><?= e($event['ip']) ?></span>
-            </div>
-            <div class="meta-item">
                 <span class="meta-label"><?= __('event.content_type') ?></span>
                 <span class="meta-value mono"><?= e($event['content_type'] ?: '—') ?></span>
             </div>
@@ -110,6 +106,10 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
                 <span class="meta-value mono"><?= e($event['path'] . ($queryString ? '?' . $queryString : '')) ?></span>
             </div>
             <?php endif; ?>
+            <div class="meta-item meta-item-full">
+                <span class="meta-label"><?= __('event.ip') ?></span>
+                <span class="meta-value mono"><?= e($event['ip'] ?: '—') ?></span>
+            </div>
         </div>
     </div>
 

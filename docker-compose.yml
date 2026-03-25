@@ -39,7 +39,9 @@ services:
           if [ -n "$$CRON_SECRET" ]; then
             URL="$$URL&secret=$$CRON_SECRET";
           fi;
-          curl -sf "$$URL" > /dev/null;
+          echo "[cron] $$(date "+%Y-%m-%d %H:%M:%S") calling $$URL";
+          curl -s "$$URL";
+          echo "";
           sleep 60;
         done
       '

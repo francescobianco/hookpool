@@ -258,7 +258,7 @@ if ($action === 'detail') {
                 <div class="card card-webhook">
                     <div class="card-header">
                         <div class="card-title-group">
-                            <span class="webhook-dot<?= $wh['active'] ? '' : ' inactive' ?>">↪</span>
+                            <span class="webhook-dot<?= $wh['active'] ? '' : ' inactive' ?>">🌐</span>
                             <h3 class="card-title"><?= e($wh['name']) ?></h3>
                         </div>
                         <span class="badge <?= $wh['active'] ? 'badge-success' : 'badge-muted' ?>"><?= $wh['active'] ? 'Active' : 'Inactive' ?></span>

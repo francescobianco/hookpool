@@ -146,6 +146,7 @@ $ajaxBase = '?' . http_build_query($ajaxParams);
                     <th class="col-path"><?= __('event.path') ?></th>
                     <th class="col-ip"><?= __('event.ip') ?></th>
                     <th class="col-status">Status</th>
+                    <th class="col-info">Info</th>
                 </tr>
             </thead>
             <tbody id="eventsBody">
@@ -195,6 +196,7 @@ function renderEventRow(array $event): string {
     $eWh         = htmlspecialchars($webhookName, ENT_QUOTES, 'UTF-8');
     $eTime       = htmlspecialchars($timeDisplay, ENT_QUOTES, 'UTF-8');
     $eTimeTitle  = htmlspecialchars($time, ENT_QUOTES, 'UTF-8');
+    $eInfo       = $isAlarm ? htmlspecialchars($event['body'] ?? '', ENT_QUOTES, 'UTF-8') : '';
 
     return "<tr class=\"event-row\" onclick=\"window.location='$base/?page=event&id=$id'\" data-id=\"$id\">
         <td class=\"col-method\"><span class=\"badge-method $method\">$methodUpper</span></td>
@@ -204,6 +206,7 @@ function renderEventRow(array $event): string {
         <td class=\"col-path mono\">$ePath</td>
         <td class=\"col-ip mono\">$eIp</td>
         <td class=\"col-status\">$statusBadge</td>
+        <td class=\"col-info\">$eInfo</td>
     </tr>\n";
 }
 ?>
@@ -253,6 +256,7 @@ function renderEventRow(array $event): string {
                             ? '<span class="badge badge-warning">Alarm</span>'
                             : (ev.validated == 1 ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>');
 
+                        const infoCell = method === 'ALARM' ? escapeHtml(ev.body || '') : '';
                         tr.innerHTML = `
                             <td class="col-method"><span class="badge-method ${methodLower}">${escapeHtml(method)}</span></td>
                             <td class="col-time"><span title="${escapeHtml(ev.received_at||'')}">${escapeHtml(timeStr)}</span></td>
@@ -261,6 +265,7 @@ function renderEventRow(array $event): string {
                             <td class="col-path mono">${escapeHtml(ev.path||'/')}</td>
                             <td class="col-ip mono">${escapeHtml(ev.ip||'')}</td>
                             <td class="col-status">${statusBadge}</td>
+                            <td class="col-info">${infoCell}</td>
                         `;
 
                         tbody.insertBefore(tr, tbody.firstChild);

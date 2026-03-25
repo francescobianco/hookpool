@@ -400,9 +400,15 @@ details > summary { cursor: pointer; user-select: none; }
     width: 30px;
     height: 30px;
     border-radius: 999px;
-    color: var(--text-muted);
+    color: transparent;
     text-decoration: none;
-    transition: background 0.15s, color 0.15s;
+    opacity: 0;
+    transition: color 0.2s, background 0.2s, opacity 0.2s;
+}
+.title-inline:hover .title-edit-link,
+.title-edit-link:focus {
+    opacity: 1;
+    color: var(--text-muted);
 }
 .title-edit-link:hover { background: var(--bg-hover); color: var(--text-primary); text-decoration: none; }
 .inline-rename-input {
@@ -761,12 +767,12 @@ tr:last-child td { border-bottom: none; }
 
 .col-method  { width: 70px; }
 .col-time    { width: 90px; }
-.col-project { width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
-.col-webhook { width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100px; }
+.col-project { width: 144px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 144px; }
+.col-webhook { width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
 .col-path    { }
 .col-ip      { width: 110px; }
 .col-status  { width: 70px; text-align: center; }
-.col-info    { font-size: 12px; color: var(--text-muted, #888); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-info    { font-size: 12px; color: var(--text-muted, #888); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .events-table-compact td { padding: 5px 10px; }
 
@@ -1007,6 +1013,12 @@ tr:last-child td { border-bottom: none; }
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
+}
+.event-title .badge-method {
+    font-size: 1.25rem;
+    padding: 7px 18px;
+    border-radius: var(--radius);
+    letter-spacing: 0.06em;
 }
 
 .event-meta-grid {

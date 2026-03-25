@@ -163,27 +163,30 @@ if ($validated) {
         $alarmName = $alarm['name'] !== '' ? $alarm['name'] : $webhook['name'];
         $msg       = "Chiamata ricevuta nell'intervallo {$start}–{$end}.";
 
-        // Insert as ALARM event
-        $db->prepare("
+        // Insert as ALARM event (use same path as the triggering request)
+        $alarmInsert = $db->prepare("
             INSERT INTO events (webhook_id, method, path, query_string, headers, body, content_type, ip, validated)
-            VALUES (?, 'ALARM', '/', '', ?, ?, 'application/alarm', '', 1)
-        ")->execute([
+            VALUES (?, 'ALARM', ?, '', ?, ?, 'application/alarm', '', 1)
+        ");
+        $alarmInsert->execute([
             $webhook['id'],
+            $path,
             json_encode(['X-Alarm-Id' => (string)$alarm['id'], 'X-Alarm-Name' => $alarmName, 'X-Alarm-Type' => 'called_in_interval']),
             $msg,
         ]);
+        $alarmEventId = (int)$db->lastInsertId();
 
         $userEmail = $alarm['user_email'] ?? '';
         if ($userEmail) {
-            $subject  = "Allarme: {$alarmName} — chiamata nell'intervallo";
-            $htmlBody = buildEmailTemplate(
-                "Allarme Webhook — {$alarmName}",
-                "<strong>Webhook:</strong> " . htmlspecialchars($webhook['name']) . "<br><br>" . htmlspecialchars($msg),
+            sendAlarmEmail(
+                $userEmail,
+                $webhook['name'],
+                $alarmName,
+                'called_in_interval',
+                $msg,
                 BASE_URL . '/?page=webhook&action=detail&id=' . $webhook['id'],
-                'Vai al Webhook',
-                '#f39c12'
+                BASE_URL . '/?page=event&id=' . $alarmEventId
             );
-            sendEmail($userEmail, $subject, $htmlBody);
         }
     }
 }

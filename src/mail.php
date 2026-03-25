@@ -91,6 +91,87 @@ function sendViaSMTP(string $to, string $subject, string $htmlBody): bool {
 }
 
 /**
+ * Send an alarm notification email with webhook link + event log link.
+ */
+function sendAlarmEmail(
+    string $to,
+    string $webhookName,
+    string $alarmName,
+    string $alarmType,
+    string $message,
+    string $webhookUrl,
+    string $eventUrl
+): bool {
+    $typeLabel = match($alarmType) {
+        'not_called_since'       => 'Nessuna chiamata ricevuta',
+        'not_called_in_interval' => 'Nessuna chiamata nell\'intervallo',
+        'called_in_interval'     => 'Chiamata ricevuta nell\'intervallo',
+        default                  => $alarmType,
+    };
+
+    $safeWebhook = htmlspecialchars($webhookName, ENT_QUOTES, 'UTF-8');
+    $safeAlarm   = htmlspecialchars($alarmName,   ENT_QUOTES, 'UTF-8');
+    $safeType    = htmlspecialchars($typeLabel,    ENT_QUOTES, 'UTF-8');
+    $safeMsg     = htmlspecialchars($message,      ENT_QUOTES, 'UTF-8');
+    $safeWUrl    = htmlspecialchars($webhookUrl,   ENT_QUOTES, 'UTF-8');
+    $safeEUrl    = htmlspecialchars($eventUrl,     ENT_QUOTES, 'UTF-8');
+
+    $htmlBody = "<!DOCTYPE html>
+<html>
+<head><meta charset='UTF-8'><title>Allarme Webhook — {$safeAlarm}</title></head>
+<body style='margin:0;padding:0;background:#0d0d14;font-family:Arial,sans-serif;'>
+  <div style='max-width:600px;margin:40px auto;background:#1a1a2e;border-radius:12px;overflow:hidden;'>
+
+    <div style='background:#e74c3c;padding:24px 32px;'>
+      <h1 style='color:#fff;margin:0;font-size:22px;letter-spacing:.5px;'>&#9888; Allarme Webhook</h1>
+      <p style='color:#ffd5d5;margin:6px 0 0;font-size:14px;'>" . APP_NAME . "</p>
+    </div>
+
+    <div style='padding:32px;color:#e8e8f0;'>
+      <h2 style='color:#f87171;margin-top:0;font-size:20px;'>{$safeAlarm}</h2>
+
+      <table style='width:100%;border-collapse:collapse;margin-bottom:24px;'>
+        <tr>
+          <td style='padding:8px 12px;background:#252540;border-radius:6px 6px 0 0;color:#8888aa;font-size:12px;text-transform:uppercase;letter-spacing:.8px;width:120px;'>Webhook</td>
+          <td style='padding:8px 12px;background:#252540;border-radius:6px 6px 0 0;color:#e8e8f0;font-weight:600;'>{$safeWebhook}</td>
+        </tr>
+        <tr>
+          <td style='padding:8px 12px;background:#1e1e38;color:#8888aa;font-size:12px;text-transform:uppercase;letter-spacing:.8px;'>Tipo</td>
+          <td style='padding:8px 12px;background:#1e1e38;color:#e8e8f0;'>{$safeType}</td>
+        </tr>
+        <tr>
+          <td style='padding:8px 12px;background:#252540;border-radius:0 0 6px 6px;color:#8888aa;font-size:12px;text-transform:uppercase;letter-spacing:.8px;'>Dettaglio</td>
+          <td style='padding:8px 12px;background:#252540;border-radius:0 0 6px 6px;color:#fbbf24;'>{$safeMsg}</td>
+        </tr>
+      </table>
+
+      <div style='text-align:center;margin:28px 0 16px;'>
+        <a href='{$safeWUrl}'
+           style='background:#4361ee;color:#fff;padding:13px 26px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block;'>
+          Vai al Webhook
+        </a>
+      </div>
+
+      <div style='text-align:center;margin-bottom:8px;'>
+        <a href='{$safeEUrl}'
+           style='color:#8888aa;font-size:13px;text-decoration:underline;'>
+          Vuoi sapere di pi&ugrave; su questo allarme? Clicca qui per vedere il log dell\'evento.
+        </a>
+      </div>
+    </div>
+
+    <div style='padding:16px 32px;border-top:1px solid #252540;text-align:center;'>
+      <p style='color:#8888aa;font-size:12px;margin:0;'>&copy; " . date('Y') . " " . APP_NAME . ". All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>";
+
+    $subject = "Allarme: {$alarmName} — {$typeLabel}";
+    return sendEmail($to, $subject, $htmlBody);
+}
+
+/**
  * Build a standard HTML email template.
  */
 function buildEmailTemplate(

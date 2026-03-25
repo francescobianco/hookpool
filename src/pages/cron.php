@@ -31,12 +31,13 @@ $nowTime   = date('H:i');
 /**
  * Insert an alarm event into the events table (method = 'ALARM').
  */
-function insertAlarmEvent(PDO $db, int $webhookId, int $alarmId, string $alarmName, string $alarmType, string $message): int {
+function insertAlarmEvent(PDO $db, int $webhookId, int $alarmId, string $alarmName, string $alarmType, string $message, string $webhookPath): int {
     $db->prepare("
         INSERT INTO events (webhook_id, method, path, query_string, headers, body, content_type, ip, validated)
-        VALUES (?, 'ALARM', '/', '', ?, ?, 'application/alarm', '', 1)
+        VALUES (?, 'ALARM', ?, '', ?, ?, 'application/alarm', '', 1)
     ")->execute([
         $webhookId,
+        $webhookPath,
         json_encode(['X-Alarm-Id' => (string)$alarmId, 'X-Alarm-Name' => $alarmName, 'X-Alarm-Type' => $alarmType]),
         $message,
     ]);
@@ -45,7 +46,7 @@ function insertAlarmEvent(PDO $db, int $webhookId, int $alarmId, string $alarmNa
 
 // Load all active cron-based alarms for active webhooks, including owner email
 $stmt = $db->query("
-    SELECT a.*, w.name AS webhook_name, u.email AS user_email
+    SELECT a.*, w.name AS webhook_name, w.token AS webhook_token, p.slug AS project_slug, u.email AS user_email
     FROM alarms a
     JOIN webhooks w ON w.id  = a.webhook_id
     JOIN projects p ON p.id  = w.project_id
@@ -66,6 +67,7 @@ foreach ($alarms as $alarm) {
     $userEmail   = $alarm['user_email'] ?? '';
     $webhookName = $alarm['webhook_name'] ?? '';
     $alarmName   = $alarm['name'] !== '' ? $alarm['name'] : $webhookName;
+    $webhookPath = '/' . rawurlencode($alarm['project_slug']) . '/' . rawurlencode($alarm['webhook_token']);
 
     if ($alarm['type'] === 'not_called_since') {
         $hours         = max(0, (int)($config['hours']   ?? 0));
@@ -105,19 +107,19 @@ foreach ($alarms as $alarm) {
         }
 
         if ($shouldFire) {
-            insertAlarmEvent($db, $webhookId, $alarmId, $alarmName, $alarm['type'], $message);
+            $eventId = insertAlarmEvent($db, $webhookId, $alarmId, $alarmName, $alarm['type'], $message, $webhookPath);
             $triggered[] = ['alarm_id' => $alarmId, 'type' => $alarm['type'], 'webhook' => $webhookName, 'message' => $message];
 
             if ($userEmail) {
-                $subject  = "Allarme: {$alarmName} non riceve chiamate";
-                $htmlBody = buildEmailTemplate(
-                    "Allarme Webhook — {$alarmName}",
-                    "<strong>Webhook:</strong> " . htmlspecialchars($webhookName) . "<br><br>" . htmlspecialchars($message),
+                sendAlarmEmail(
+                    $userEmail,
+                    $webhookName,
+                    $alarmName,
+                    $alarm['type'],
+                    $message,
                     BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId,
-                    'Vai al Webhook',
-                    '#e74c3c'
+                    BASE_URL . '/?page=event&id=' . $eventId
                 );
-                sendEmail($userEmail, $subject, $htmlBody);
             }
         }
 
@@ -148,19 +150,19 @@ foreach ($alarms as $alarm) {
 
         if ($count === 0) {
             $message = "Nessuna chiamata nell'intervallo {$start}–{$end} di oggi.";
-            insertAlarmEvent($db, $webhookId, $alarmId, $alarmName, $alarm['type'], $message);
+            $eventId = insertAlarmEvent($db, $webhookId, $alarmId, $alarmName, $alarm['type'], $message, $webhookPath);
             $triggered[] = ['alarm_id' => $alarmId, 'type' => $alarm['type'], 'webhook' => $webhookName, 'message' => $message];
 
             if ($userEmail) {
-                $subject  = "Allarme: {$alarmName} — nessuna chiamata nell'intervallo";
-                $htmlBody = buildEmailTemplate(
-                    "Allarme Webhook — {$alarmName}",
-                    "<strong>Webhook:</strong> " . htmlspecialchars($webhookName) . "<br><br>" . htmlspecialchars($message),
+                sendAlarmEmail(
+                    $userEmail,
+                    $webhookName,
+                    $alarmName,
+                    $alarm['type'],
+                    $message,
                     BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId,
-                    'Vai al Webhook',
-                    '#e74c3c'
+                    BASE_URL . '/?page=event&id=' . $eventId
                 );
-                sendEmail($userEmail, $subject, $htmlBody);
             }
         }
     }
