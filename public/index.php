@@ -7,6 +7,11 @@ require __DIR__ . '/../src/auth.php';
 require __DIR__ . '/../src/lang.php';
 require __DIR__ . '/../src/mail.php';
 
+function asset(string $path): string {
+    $normalizedPath = ltrim($path, '/');
+    return (defined('ROOT_MODE') && ROOT_MODE ? 'public/' : '') . $normalizedPath;
+}
+
 $db = Database::get();
 $current_user = getCurrentUser($db);
 

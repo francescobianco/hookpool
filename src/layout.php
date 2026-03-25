@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= e(generateCsrfToken()) ?>">
     <title><?= e($page_title ?? APP_NAME) ?> — <?= APP_NAME ?></title>
-    <link rel="stylesheet" href="<?= BASE_URL ?>/style.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/<?= e(asset('style.css')) ?>">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪝</text></svg>">
 </head>
 <body<?= isset($current_user) ? ' class="authenticated"' : '' ?>>
