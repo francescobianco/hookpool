@@ -47,7 +47,7 @@ return [
     'webhook.edit'          => 'Edit Webhook',
     'webhook.delete'        => 'Delete Webhook',
     'webhook.name'          => 'Webhook Name',
-    'webhook.token'         => 'Token',
+    'webhook.token'         => 'Code',
     'webhook.endpoint'      => 'Endpoint URL',
     'webhook.copy'          => 'Copy URL',
     'webhook.copied'        => 'Copied!',

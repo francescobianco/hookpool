@@ -133,7 +133,7 @@ $ajaxBase = '?' . http_build_query($ajaxParams);
             <?php
             // Show first available webhook URL as example
             $exStmt = $db->prepare('
-                SELECT w.token FROM webhooks w
+                SELECT w.token, p.slug FROM webhooks w
                 JOIN projects p ON p.id = w.project_id
                 WHERE p.user_id = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
                 LIMIT 1
@@ -141,13 +141,14 @@ $ajaxBase = '?' . http_build_query($ajaxParams);
             $exStmt->execute([$userId]);
             $exWh = $exStmt->fetch();
             if ($exWh): ?>
+            <?php $exampleUrl = webhookUrl($exWh['slug'], $exWh['token']); ?>
             <p class="empty-hint">Try sending a request to your webhook endpoint:</p>
             <div class="code-block copy-container">
-                <code id="exampleUrl"><?= e(BASE_URL . '/hook/' . $exWh['token']) ?></code>
+                <code id="exampleUrl"><?= e($exampleUrl) ?></code>
                 <button class="btn btn-sm btn-outline copy-btn" onclick="copyToClipboard(document.getElementById('exampleUrl').textContent, this)">Copy</button>
             </div>
             <div class="code-block">
-                <pre><code>curl -X POST <?= e(BASE_URL . '/hook/' . $exWh['token']) ?> \
+                <pre><code>curl -X POST <?= e($exampleUrl) ?> \
   -H "Content-Type: application/json" \
   -d '{"hello":"world"}'</code></pre>
             </div>

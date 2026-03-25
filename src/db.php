@@ -32,8 +32,16 @@ function generateToken(): string {
 }
 
 /**
- * Generate a shorter webhook token (32 hex chars = 128-bit entropy), URL-friendly.
+ * Generate a short base36 webhook code.
  */
 function generateWebhookToken(): string {
-    return bin2hex(random_bytes(16));
+    $alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    $maxIndex = strlen($alphabet) - 1;
+    $token = '';
+
+    for ($i = 0; $i < WEBHOOK_CODE_LENGTH; $i++) {
+        $token .= $alphabet[random_int(0, $maxIndex)];
+    }
+
+    return $token;
 }

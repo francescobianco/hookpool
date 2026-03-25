@@ -352,16 +352,55 @@ function slugify(string $text): string {
 }
 
 /**
- * Generate a unique slug for a project, scoped to the user.
+ * Reserved path segments that cannot be used as public project slugs.
  */
-function uniqueProjectSlug(PDO $db, int $userId, string $name, ?int $excludeId = null): string {
-    $base = slugify($name);
+function reservedProjectSlugs(): array {
+    return [
+        'admin',
+        'api',
+        'auth',
+        'dashboard',
+        'event',
+        'hook',
+        'home',
+        'index',
+        'login',
+        'logout',
+        'migrate',
+        'project',
+        'projects',
+        'public',
+        'settings',
+        'style',
+        'webhook',
+        'webhooks',
+    ];
+}
+
+function isReservedProjectSlug(string $slug): bool {
+    return in_array($slug, reservedProjectSlugs(), true);
+}
+
+/**
+ * Generate a globally unique slug for a project.
+ */
+function uniqueProjectSlug(PDO $db, string $nameOrSlug, ?int $excludeId = null): string {
+    $base = slugify($nameOrSlug);
+    if (isReservedProjectSlug($base)) {
+        $base .= '-1';
+    }
     $slug = $base;
-    $i    = 2;
+    $i    = 1;
 
     while (true) {
-        $q = 'SELECT id FROM projects WHERE user_id = ? AND slug = ? AND deleted_at IS NULL';
-        $params = [$userId, $slug];
+        if (isReservedProjectSlug($slug)) {
+            $i++;
+            $slug = $base . '-' . $i;
+            continue;
+        }
+
+        $q = 'SELECT id FROM projects WHERE slug = ? AND deleted_at IS NULL';
+        $params = [$slug];
         if ($excludeId !== null) {
             $q .= ' AND id != ?';
             $params[] = $excludeId;
@@ -369,9 +408,24 @@ function uniqueProjectSlug(PDO $db, int $userId, string $name, ?int $excludeId =
         $stmt = $db->prepare($q);
         $stmt->execute($params);
         if (!$stmt->fetch()) break;
-        $slug = $base . '-' . $i;
         $i++;
+        $slug = $base . '-' . $i;
     }
 
     return $slug;
+}
+
+function webhookUrl(string $projectSlug, string $webhookToken): string {
+    return BASE_URL . '/' . rawurlencode($projectSlug) . '/' . rawurlencode($webhookToken);
+}
+
+function generateUniqueWebhookToken(PDO $db, int $projectId): string {
+    do {
+        $token = generateWebhookToken();
+        $stmt = $db->prepare('SELECT id FROM webhooks WHERE project_id = ? AND token = ? AND deleted_at IS NULL');
+        $stmt->execute([$projectId, $token]);
+        $exists = $stmt->fetch();
+    } while ($exists);
+
+    return $token;
 }

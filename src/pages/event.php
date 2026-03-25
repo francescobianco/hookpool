@@ -7,7 +7,7 @@ $eventId      = (int)($_GET['id'] ?? 0);
 $evtStmt = $db->prepare('
     SELECT e.*,
            w.name AS webhook_name, w.id AS webhook_id, w.token AS webhook_token,
-           p.name AS project_name, p.id AS project_id
+           p.name AS project_name, p.id AS project_id, p.slug AS project_slug
     FROM events e
     JOIN webhooks w ON w.id = e.webhook_id
     JOIN projects p ON p.id = w.project_id
@@ -47,7 +47,7 @@ if (json_last_error() === JSON_ERROR_NONE && (is_array($bodyJson) || is_object($
 }
 
 $page_title = 'Event #' . $eventId;
-$webhookUrl = BASE_URL . '/hook/' . $event['webhook_token'];
+$webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
 ?>
 
 <div class="page-container">

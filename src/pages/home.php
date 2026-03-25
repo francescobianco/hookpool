@@ -35,31 +35,31 @@ $page_title = __('nav.home');
                     <div class="logcat-row">
                         <span class="badge-method get">GET</span>
                         <span class="logcat-time">12:34:01</span>
-                        <span class="logcat-path">/hook/abc123</span>
+                        <span class="logcat-path">/test/a7da8d</span>
                         <span class="badge-status ok">200</span>
                     </div>
                     <div class="logcat-row">
                         <span class="badge-method post">POST</span>
                         <span class="logcat-time">12:34:05</span>
-                        <span class="logcat-path">/hook/xyz789</span>
+                        <span class="logcat-path">/chess/q1w2e3</span>
                         <span class="badge-status ok">200</span>
                     </div>
                     <div class="logcat-row new">
                         <span class="badge-method post">POST</span>
                         <span class="logcat-time">12:34:09</span>
-                        <span class="logcat-path">/hook/abc123</span>
+                        <span class="logcat-path">/test/a7da8d</span>
                         <span class="badge-status ok">200</span>
                     </div>
                     <div class="logcat-row">
                         <span class="badge-method put">PUT</span>
                         <span class="logcat-time">12:34:12</span>
-                        <span class="logcat-path">/hook/def456</span>
+                        <span class="logcat-path">/iot/f9k2p1</span>
                         <span class="badge-status rejected">Guard</span>
                     </div>
                     <div class="logcat-row new">
                         <span class="badge-method post">POST</span>
                         <span class="logcat-time">12:34:15</span>
-                        <span class="logcat-path">/hook/abc123</span>
+                        <span class="logcat-path">/test/a7da8d</span>
                         <span class="badge-status ok">200</span>
                     </div>
                 </div>

@@ -29,5 +29,6 @@ define('HOOKPOOL_AUTH_ENABLED', in_array(HOOKPOOL_AUTH, ['1', 'true', 'yes', 'on
 
 define('SUPPORTED_LANGS',    ['en']);
 define('HOOK_TOKEN_LENGTH',  32);
+define('WEBHOOK_CODE_LENGTH', 6);
 define('APP_NAME',           'HookPool');
 define('APP_VERSION',        '1.0.0');

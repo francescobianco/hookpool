@@ -5,36 +5,47 @@ require __DIR__ . '/../src/db.php';
 require __DIR__ . '/../src/utils.php';
 
 $token = $_GET['token'] ?? '';
+$projectSlug = trim((string)($_GET['project'] ?? ''));
 if (!$token) {
     http_response_code(404);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'Not found']);
+    echo json_encode(['error' => 'Not found']) . "\n";
     exit;
 }
 
 $db = Database::get();
 
-// Look up webhook (validate token via prepared statement)
-$stmt = $db->prepare('
-    SELECT w.*, p.active as project_active, p.user_id, p.id as pid
-    FROM webhooks w
-    JOIN projects p ON p.id = w.project_id
-    WHERE w.token = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
-');
-$stmt->execute([$token]);
+if ($projectSlug !== '') {
+    $stmt = $db->prepare('
+        SELECT w.*, p.active as project_active, p.user_id, p.id as pid, p.slug as project_slug
+        FROM webhooks w
+        JOIN projects p ON p.id = w.project_id
+        WHERE p.slug = ? AND w.token = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
+    ');
+    $stmt->execute([$projectSlug, $token]);
+} else {
+    // Legacy compatibility for /hook/<token>
+    $stmt = $db->prepare('
+        SELECT w.*, p.active as project_active, p.user_id, p.id as pid, p.slug as project_slug
+        FROM webhooks w
+        JOIN projects p ON p.id = w.project_id
+        WHERE w.token = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
+    ');
+    $stmt->execute([$token]);
+}
 $webhook = $stmt->fetch();
 
 if (!$webhook) {
     http_response_code(404);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'Webhook not found']);
+    echo json_encode(['error' => 'Webhook not found']) . "\n";
     exit;
 }
 
 if (!$webhook['active'] || !$webhook['project_active']) {
     http_response_code(410);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'Webhook is disabled']);
+    echo json_encode(['error' => 'Webhook is disabled']) . "\n";
     exit;
 }
 
@@ -43,9 +54,10 @@ $method      = $_SERVER['REQUEST_METHOD'];
 $path        = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
 $queryString = $_SERVER['QUERY_STRING'] ?? '';
 
-// Remove token from logged query string
+// Remove legacy routing params from logged query string
 $queryParams = $_GET;
 unset($queryParams['token']);
+unset($queryParams['project']);
 $queryStringClean = http_build_query($queryParams);
 
 // Parse headers from $_SERVER
@@ -121,7 +133,7 @@ if ($validated) {
 // Respond quickly
 http_response_code(200);
 header('Content-Type: application/json');
-echo json_encode(['ok' => true, 'event_id' => $eventId]);
+echo json_encode(['ok' => true, 'event_id' => $eventId]) . "\n";
 exit;
 
 /**

@@ -3,6 +3,9 @@ RewriteEngine On
 # Route /hook/TOKEN to hook.php
 RewriteRule ^hook/([a-zA-Z0-9]+)$ hook.php?token=$1 [QSA,L]
 
+# Route /project-slug/hookcode to hook.php
+RewriteRule ^([a-z0-9-]+)/([a-z0-9]+)$ hook.php?project=$1&token=$2 [QSA,L]
+
 # Route everything else to index.php (skip real files and directories)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

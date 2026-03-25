@@ -5,7 +5,7 @@ header('Content-Type: application/json');
 $user = getCurrentUser($db);
 if (!$user) {
     http_response_code(401);
-    echo json_encode(['error' => 'unauthorized']);
+    echo json_encode(['error' => 'unauthorized']) . "\n";
     exit;
 }
 
@@ -72,7 +72,7 @@ switch ($action) {
         $stmt->execute($params);
         $events = $stmt->fetchAll();
 
-        echo json_encode($events);
+        echo json_encode($events) . "\n";
         break;
 
     // --- GET EVENT DETAIL ---
@@ -93,7 +93,7 @@ switch ($action) {
 
         if (!$event) {
             http_response_code(404);
-            echo json_encode(['error' => 'not_found']);
+            echo json_encode(['error' => 'not_found']) . "\n";
             break;
         }
 
@@ -109,14 +109,14 @@ switch ($action) {
         $event['forward_attempts'] = $attStmt->fetchAll();
         $event['headers_decoded']  = json_decode($event['headers'] ?? '{}', true) ?: [];
 
-        echo json_encode($event);
+        echo json_encode($event) . "\n";
         break;
 
     // --- TOGGLE WEBHOOK STATUS (POST) ---
     case 'toggle_webhook':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
-            echo json_encode(['error' => 'method_not_allowed']);
+            echo json_encode(['error' => 'method_not_allowed']) . "\n";
             break;
         }
 
@@ -133,17 +133,17 @@ switch ($action) {
 
         if (!$wh) {
             http_response_code(404);
-            echo json_encode(['error' => 'not_found']);
+            echo json_encode(['error' => 'not_found']) . "\n";
             break;
         }
 
         $newActive = $wh['active'] ? 0 : 1;
         $db->prepare('UPDATE webhooks SET active = ? WHERE id = ?')->execute([$newActive, $webhookId]);
-        echo json_encode(['ok' => true, 'active' => $newActive]);
+        echo json_encode(['ok' => true, 'active' => $newActive]) . "\n";
         break;
 
     default:
         http_response_code(404);
-        echo json_encode(['error' => 'not_found']);
+        echo json_encode(['error' => 'not_found']) . "\n";
 }
 exit;

@@ -124,7 +124,7 @@ if ($action === 'create') {
         $name = trim($_POST['name'] ?? '');
         if ($name === '') $name = 'Webhook ' . date('YmdHis');
 
-        $token = generateWebhookToken();
+        $token = generateUniqueWebhookToken($db, $projectId);
         $db->prepare('INSERT INTO webhooks (project_id, name, token) VALUES (?, ?, ?)')->execute([$projectId, $name, $token]);
         $webhookId = (int)$db->lastInsertId();
 
@@ -311,7 +311,7 @@ $evtStmt = $db->prepare('SELECT * FROM events WHERE webhook_id = ? ORDER BY rece
 $evtStmt->execute([$webhookId]);
 $recentEvents = $evtStmt->fetchAll();
 
-$webhookUrl = BASE_URL . '/hook/' . $wh['token'];
+$webhookUrl = webhookUrl($wh['slug'] ?? $wh['project_slug'] ?? '', $wh['token']);
 $page_title = e($wh['name']);
 
 ob_start();

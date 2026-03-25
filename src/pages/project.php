@@ -14,6 +14,7 @@ if ($action === 'create') {
         }
 
         $name        = trim($_POST['name'] ?? '');
+        $slugInput   = trim($_POST['slug'] ?? '');
         $description = trim($_POST['description'] ?? '');
         $categoryId  = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? (int)$_POST['category_id'] : null;
         $active      = isset($_POST['active']) ? 1 : 0;
@@ -31,7 +32,7 @@ if ($action === 'create') {
             if (!$catCheck->fetch()) $categoryId = null;
         }
 
-        $slug = uniqueProjectSlug($db, $userId, $name);
+        $slug = uniqueProjectSlug($db, $slugInput !== '' ? $slugInput : $name);
 
         // Insert project
         $ins = $db->prepare(
@@ -41,7 +42,7 @@ if ($action === 'create') {
         $projectId = (int)$db->lastInsertId();
 
         // Auto-create first webhook
-        $token = generateWebhookToken();
+        $token = generateUniqueWebhookToken($db, $projectId);
         $db->prepare('INSERT INTO webhooks (project_id, name, token) VALUES (?, ?, ?)')->execute([$projectId, 'Default', $token]);
 
         setFlash('success', __('project.created'));
@@ -72,6 +73,13 @@ if ($action === 'create') {
                     <label for="name"><?= __('project.name') ?> <span class="required">*</span></label>
                     <input type="text" id="name" name="name" value="<?= e($_POST['name'] ?? '') ?>"
                            required maxlength="100" placeholder="My IoT Project">
+                </div>
+
+                <div class="form-group">
+                    <label for="slug"><?= __('project.slug') ?></label>
+                    <input type="text" id="slug" name="slug" value="<?= e($_POST['slug'] ?? '') ?>"
+                           maxlength="100" pattern="[a-z0-9-]+" placeholder="auto from project name">
+                    <p class="form-hint">Public project path. Lowercase letters, numbers, dashes. Reserved words are blocked and collisions become `slug-2`, `slug-3`, ...</p>
                 </div>
 
                 <div class="form-group">
@@ -248,9 +256,9 @@ if ($action === 'detail') {
                         <span class="badge <?= $wh['active'] ? 'badge-success' : 'badge-muted' ?>"><?= $wh['active'] ? 'Active' : 'Inactive' ?></span>
                     </div>
                     <div class="webhook-url-row">
-                        <code class="webhook-url"><?= e(BASE_URL . '/hook/' . $wh['token']) ?></code>
+                        <code class="webhook-url"><?= e(webhookUrl($project['slug'], $wh['token'])) ?></code>
                         <button class="btn btn-sm btn-outline copy-btn"
-                                onclick="copyToClipboard('<?= e(BASE_URL . '/hook/' . $wh['token']) ?>', this)">
+                                onclick="copyToClipboard('<?= e(webhookUrl($project['slug'], $wh['token'])) ?>', this)">
                             <?= __('webhook.copy') ?>
                         </button>
                     </div>
@@ -362,6 +370,7 @@ if ($action === 'edit') {
             exit;
         }
         $name        = trim($_POST['name'] ?? '');
+        $slugInput   = trim($_POST['slug'] ?? '');
         $description = trim($_POST['description'] ?? '');
         $categoryId  = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? (int)$_POST['category_id'] : null;
         $active      = isset($_POST['active']) ? 1 : 0;
@@ -377,7 +386,7 @@ if ($action === 'edit') {
             if (!$catCheck->fetch()) $categoryId = null;
         }
 
-        $slug = uniqueProjectSlug($db, $userId, $name, $projectId);
+        $slug = uniqueProjectSlug($db, $slugInput !== '' ? $slugInput : $name, $projectId);
         $db->prepare('UPDATE projects SET name = ?, slug = ?, description = ?, category_id = ?, active = ? WHERE id = ? AND user_id = ?')
            ->execute([$name, $slug, $description, $categoryId, $active, $projectId, $userId]);
 
@@ -404,6 +413,11 @@ if ($action === 'edit') {
                 <div class="form-group">
                     <label for="name"><?= __('project.name') ?> <span class="required">*</span></label>
                     <input type="text" id="name" name="name" value="<?= e($project['name']) ?>" required maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="slug"><?= __('project.slug') ?></label>
+                    <input type="text" id="slug" name="slug" value="<?= e($project['slug']) ?>" required maxlength="100" pattern="[a-z0-9-]+">
+                    <p class="form-hint">Public project path used in webhook URLs.</p>
                 </div>
                 <div class="form-group">
                     <label for="description"><?= __('project.description') ?></label>
