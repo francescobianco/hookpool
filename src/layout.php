@@ -99,8 +99,23 @@
                 $grouped[$catName][] = $proj;
             }
 
-            $currentProjectId = (int)($_GET['id'] ?? 0);
-            $currentPage = $_GET['page'] ?? '';
+            $currentPage      = $_GET['page'] ?? '';
+            $currentProjectId = 0;
+            $currentWebhookId = 0;
+
+            if ($currentPage === 'project' && isset($_GET['id'])) {
+                $currentProjectId = (int)$_GET['id'];
+            } elseif ($currentPage === 'webhook' && ($_GET['action'] ?? '') === 'detail' && isset($_GET['id'])) {
+                $currentWebhookId = (int)$_GET['id'];
+                if ($currentWebhookId > 0) {
+                    $whLookup = $sidebarDb->prepare(
+                        'SELECT project_id FROM webhooks WHERE id = ? AND deleted_at IS NULL LIMIT 1'
+                    );
+                    $whLookup->execute([$currentWebhookId]);
+                    $wl = $whLookup->fetch();
+                    if ($wl) $currentProjectId = (int)$wl['project_id'];
+                }
+            }
             ?>
 
             <?php if (empty($sidebarProjects)): ?>
