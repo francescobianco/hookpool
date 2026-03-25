@@ -38,6 +38,9 @@ function execSQL(PDO $db, string $sql): void {
         $sql = preg_replace('/\bTEXT(\s+UNIQUE\b)/i', 'VARCHAR(500)$1', $sql);
         // MySQL < 8.0.13: TEXT/BLOB columns cannot have DEFAULT values — strip them
         $sql = preg_replace("/\bTEXT(\s+NOT\s+NULL)?\s+DEFAULT\s+'[^']*'/i", 'TEXT$1', $sql);
+        // MySQL: TEXT columns cannot be used in index keys — convert known short-value columns to VARCHAR
+        $sql = preg_replace('/\bslug\s+TEXT\b/i',     'slug VARCHAR(255)',  $sql);
+        $sql = preg_replace('/\bip\s+TEXT\b/i',       'ip VARCHAR(45)',     $sql);
         // MySQL does not support IF NOT EXISTS on CREATE INDEX — silently skip duplicate
         if (preg_match('/\bCREATE\s+(?:UNIQUE\s+)?INDEX\b/i', $sql)) {
             $sql = preg_replace('/\bIF\s+NOT\s+EXISTS\s+/i', '', $sql);
