@@ -18,8 +18,7 @@
         </button>
         <?php endif; ?>
         <a href="<?= BASE_URL ?>/" class="logo">
-            <span class="logo-icon">🪝</span>
-            <span class="logo-text"><?= APP_NAME ?></span>
+            <img src="<?= BASE_URL ?>/assets/images/logo.png" alt="<?= APP_NAME ?>" class="logo-img">
         </a>
     </div>
     <nav class="header-nav">

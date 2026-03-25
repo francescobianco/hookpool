@@ -146,6 +146,7 @@ details > summary { cursor: pointer; user-select: none; }
     letter-spacing: -0.02em;
 }
 .logo:hover { text-decoration: none; color: var(--text-primary); }
+.logo-img { height: 32px; width: auto; display: block; }
 .logo-icon { font-size: 1.2rem; }
 .logo-text { color: var(--text-primary); }
 
