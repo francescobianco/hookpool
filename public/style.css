@@ -26,9 +26,9 @@
     --error-bg:     rgba(217, 77, 55, 0.12);
     --info:         #3073d6;
     --info-bg:      rgba(48, 115, 214, 0.12);
-    --radius:       16px;
-    --radius-sm:    10px;
-    --radius-lg:    26px;
+    --radius:       8px;
+    --radius-sm:    5px;
+    --radius-lg:    12px;
     --shadow:       0 24px 60px rgba(185, 124, 99, 0.14);
     --shadow-sm:    0 10px 24px rgba(185, 124, 99, 0.1);
     --font-mono:    'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
@@ -1100,6 +1100,23 @@ tr:last-child td { border-bottom: none; }
 }
 .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
 .stat-label { font-size: 0.78rem; color: var(--text-muted); }
+
+/* Language switcher */
+.lang-switcher { display: flex; gap: 8px; flex-wrap: wrap; }
+.lang-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    font-size: 0.95rem;
+}
+.lang-option:hover { border-color: var(--accent); color: var(--text-primary); text-decoration: none; }
+.lang-option.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 
 /* Categories management (settings) */
 .categories-manage-list { display: flex; flex-direction: column; gap: 6px; }

@@ -160,6 +160,7 @@ return [
     'settings.delete_account_desc'  => 'Permanently delete your account and all associated data. This action cannot be undone.',
     'settings.confirm_delete_account'=> 'Type your username to confirm deletion:',
     'settings.account_deleted'      => 'Your account has been deleted.',
+    'settings.language'     => 'Language',
 
     // Dashboard
     'dashboard.title'       => 'Event Dashboard',

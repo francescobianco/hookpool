@@ -27,7 +27,7 @@ define('GITHUB_CLIENT_SECRET', getenv('GITHUB_CLIENT_SECRET') ?: '');
 define('HOOKPOOL_AUTH',      strtolower(trim((string)(getenv('HOOKPOOL_AUTH') ?: 'no'))));
 define('HOOKPOOL_AUTH_ENABLED', in_array(HOOKPOOL_AUTH, ['1', 'true', 'yes', 'on'], true));
 
-define('SUPPORTED_LANGS',    ['en']);
+define('SUPPORTED_LANGS',    ['en', 'it']);
 define('HOOK_TOKEN_LENGTH',  32);
 define('WEBHOOK_CODE_LENGTH', 6);
 define('APP_NAME',           'HookPool');

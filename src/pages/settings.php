@@ -189,6 +189,28 @@ $stats = $statsStmt->fetch();
         </div>
     </section>
 
+    <!-- Language -->
+    <section class="section">
+        <div class="section-header">
+            <h2><?= __('settings.language') ?></h2>
+        </div>
+        <div class="card">
+            <div class="lang-switcher">
+                <?php
+                $currentLang = $_COOKIE['lang'] ?? DEFAULT_LANG;
+                $langs = ['en' => '🇬🇧 English', 'it' => '🇮🇹 Italiano'];
+                foreach ($langs as $code => $label):
+                    $active = ($currentLang === $code);
+                ?>
+                <a href="<?= BASE_URL ?>/?lang=<?= $code ?>&page=settings"
+                   class="lang-option<?= $active ? ' active' : '' ?>">
+                    <?= $label ?>
+                </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
     <!-- Categories -->
     <section class="section" id="categories">
         <div class="section-header">
