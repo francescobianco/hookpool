@@ -40,7 +40,7 @@
                 <?php if (!empty($current_user['avatar_url'])): ?>
                 <img src="<?= e($current_user['avatar_url']) ?>" alt="<?= e($current_user['username'] ?? '') ?>" class="user-avatar">
                 <?php else: ?>
-                <div class="user-avatar user-avatar-placeholder"><?= e(strtoupper(substr((string)($current_user['display_name'] ?: $current_user['username']), 0, 1))) ?></div>
+                <div class="user-avatar user-avatar-placeholder">🤖</div>
                 <?php endif; ?>
                 <span class="user-name"><?= e($current_user['display_name'] ?: $current_user['username']) ?></span>
                 <?php if (authEnabled()): ?>
