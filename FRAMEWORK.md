@@ -123,6 +123,36 @@ $content = ob_get_clean();
 require __DIR__ . '/../src/layout.php';
 ```
 
+### Root entrypoint e `ROOT_MODE`
+
+Il progetto supporta due modalità di bootstrap:
+
+- `public/index.php` come entrypoint diretto, quando il web server punta già a `public/` come `DocumentRoot`
+- `index.php` nella root del progetto, come fallback per hosting condivisi che non permettono di cambiare la `DocumentRoot`
+
+In questo secondo caso, `index.php` definisce la costante `ROOT_MODE` prima di delegare a `public/index.php`:
+
+```php
+// index.php
+define('ROOT_MODE', true);
+require_once __DIR__ . '/public/index.php';
+```
+
+Dentro `public/index.php` la funzione helper `asset()` controlla questa costante:
+
+```php
+function asset($path) {
+    return (defined('ROOT_MODE') && ROOT_MODE ? 'public/' : '') . $path;
+}
+```
+
+Effetto pratico:
+
+- se l'app parte da `/public/index.php`, `ROOT_MODE` non è definita e gli asset restano `style.css`, `logo.png`, `favicon.ico`
+- se l'app parte da `/index.php` nella root, `ROOT_MODE` vale `true` e gli asset diventano `public/style.css`, `public/logo.png`, `public/favicon.ico`
+
+Questo evita di duplicare template o configurazioni tra ambienti diversi: cambia solo il prefisso degli asset statici, mentre router, pagine e logica applicativa restano identici.
+
 ### URL Structure
 
 ```
