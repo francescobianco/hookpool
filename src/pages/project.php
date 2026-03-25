@@ -1,7 +1,8 @@
 <?php
-$current_user = requireAuth($db);
-$userId       = (int)$current_user['id'];
-$action       = $_GET['action'] ?? '';
+$current_user  = requireAuth($db);
+$userId        = (int)$current_user['id'];
+$action        = $_GET['action'] ?? '';
+$projectEmojis = ['📁','🌐','🤖','📡','🔌','💡','🏠','🚗','🌡️','📊','🔔','⚡','🛒','💬','🔐','🧪','🚀','📱','☁️','🎮'];
 
 // --- CREATE PROJECT ---
 if ($action === 'create') {
@@ -18,6 +19,7 @@ if ($action === 'create') {
         $description = trim($_POST['description'] ?? '');
         $categoryId  = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? (int)$_POST['category_id'] : null;
         $active      = isset($_POST['active']) ? 1 : 0;
+        $emoji       = in_array($_POST['emoji'] ?? '', $projectEmojis, true) ? $_POST['emoji'] : '📁';
 
         if ($name === '') {
             setFlash('error', __('msg.required') . ' ' . __('project.name'));
@@ -36,9 +38,9 @@ if ($action === 'create') {
 
         // Insert project
         $ins = $db->prepare(
-            'INSERT INTO projects (user_id, category_id, name, slug, description, active) VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO projects (user_id, category_id, name, emoji, slug, description, active) VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
-        $ins->execute([$userId, $categoryId, $name, $slug, $description, $active]);
+        $ins->execute([$userId, $categoryId, $name, $emoji, $slug, $description, $active]);
         $projectId = (int)$db->lastInsertId();
 
         // Auto-create first webhook
@@ -71,8 +73,15 @@ if ($action === 'create') {
 
                 <div class="form-group">
                     <label for="name"><?= __('project.name') ?> <span class="required">*</span></label>
-                    <input type="text" id="name" name="name" value="<?= e($_POST['name'] ?? '') ?>"
-                           required maxlength="100" placeholder="My IoT Project">
+                    <div class="name-with-emoji">
+                        <select id="emoji" name="emoji" class="emoji-picker" title="Choose a project icon">
+                            <?php foreach ($projectEmojis as $em): ?>
+                            <option value="<?= e($em) ?>"<?= (($_POST['emoji'] ?? '📁') === $em) ? ' selected' : '' ?>><?= $em ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" id="name" name="name" value="<?= e($_POST['name'] ?? '') ?>"
+                               required maxlength="100" placeholder="My IoT Project">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -222,7 +231,7 @@ if ($action === 'detail') {
     <div class="page-container">
         <div class="page-header">
             <div class="header-title-group">
-                <h1><?= e($project['name']) ?></h1>
+                <h1><?= e($project['emoji'] ?: '📁') ?> <?= e($project['name']) ?></h1>
                 <?php if ($project['description']): ?>
                 <p class="text-muted"><?= e($project['description']) ?></p>
                 <?php endif; ?>
@@ -374,6 +383,7 @@ if ($action === 'edit') {
         $description = trim($_POST['description'] ?? '');
         $categoryId  = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? (int)$_POST['category_id'] : null;
         $active      = isset($_POST['active']) ? 1 : 0;
+        $emoji       = in_array($_POST['emoji'] ?? '', $projectEmojis, true) ? $_POST['emoji'] : '📁';
 
         if ($name === '') {
             setFlash('error', __('msg.required'));
@@ -387,8 +397,8 @@ if ($action === 'edit') {
         }
 
         $slug = uniqueProjectSlug($db, $slugInput !== '' ? $slugInput : $name, $projectId);
-        $db->prepare('UPDATE projects SET name = ?, slug = ?, description = ?, category_id = ?, active = ? WHERE id = ? AND user_id = ?')
-           ->execute([$name, $slug, $description, $categoryId, $active, $projectId, $userId]);
+        $db->prepare('UPDATE projects SET name = ?, emoji = ?, slug = ?, description = ?, category_id = ?, active = ? WHERE id = ? AND user_id = ?')
+           ->execute([$name, $emoji, $slug, $description, $categoryId, $active, $projectId, $userId]);
 
         setFlash('success', __('project.updated'));
         header('Location: ' . BASE_URL . '/?page=project&action=detail&id=' . $projectId);
@@ -412,7 +422,14 @@ if ($action === 'edit') {
                 <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
                 <div class="form-group">
                     <label for="name"><?= __('project.name') ?> <span class="required">*</span></label>
-                    <input type="text" id="name" name="name" value="<?= e($project['name']) ?>" required maxlength="100">
+                    <div class="name-with-emoji">
+                        <select id="emoji" name="emoji" class="emoji-picker" title="Choose a project icon">
+                            <?php foreach ($projectEmojis as $em): ?>
+                            <option value="<?= e($em) ?>"<?= (($project['emoji'] ?: '📁') === $em) ? ' selected' : '' ?>><?= $em ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" id="name" name="name" value="<?= e($project['name']) ?>" required maxlength="100">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="slug"><?= __('project.slug') ?></label>

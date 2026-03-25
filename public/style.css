@@ -304,14 +304,13 @@ details > summary { cursor: pointer; user-select: none; }
 .sidebar-project-link:hover { background: var(--bg-hover); color: var(--text-primary); text-decoration: none; }
 .sidebar-project.active > .sidebar-project-link { background: var(--accent-light); color: var(--text-primary); }
 
-.project-indicator {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--success);
+.project-emoji {
+    font-size: 1rem;
+    line-height: 1;
     flex-shrink: 0;
+    user-select: none;
 }
-.project-indicator.inactive { background: var(--text-dim); }
+.project-emoji.inactive { opacity: 0.4; }
 
 .project-name {
     flex: 1;
@@ -345,10 +344,8 @@ details > summary { cursor: pointer; user-select: none; }
     transition: background 0.1s, color 0.1s;
 }
 .sidebar-webhook a:hover { background: var(--bg-hover); color: var(--text-primary); }
-.sidebar-webhook.active a { color: var(--accent); }
-
-.webhook-dot { font-size: 0.6rem; color: var(--success); }
-.webhook-dot.inactive { color: var(--text-dim); }
+.sidebar-webhook.active a { color: var(--accent); font-weight: 500; }
+.sidebar-webhook.inactive a { opacity: 0.5; }
 
 /* --- Main Content ---------------------------------------------------------- */
 .main-content {
@@ -589,6 +586,19 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
 
 .form-hint { font-size: 0.84rem; color: var(--text-muted); margin: 0; }
 .required { color: var(--error); }
+
+.name-with-emoji { display: flex; gap: 8px; align-items: stretch; }
+.name-with-emoji input { flex: 1; }
+.emoji-picker {
+    width: auto;
+    min-width: 52px;
+    font-size: 1.4rem;
+    padding: 0 4px;
+    text-align: center;
+    background-image: none;
+    cursor: pointer;
+    flex-shrink: 0;
+}
 
 .checkbox-label {
     display: flex;
@@ -1090,6 +1100,21 @@ tr:last-child td { border-bottom: none; }
 }
 .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
 .stat-label { font-size: 0.78rem; color: var(--text-muted); }
+
+/* Categories management (settings) */
+.categories-manage-list { display: flex; flex-direction: column; gap: 6px; }
+.category-manage-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    gap: 12px;
+}
+.category-info { display: flex; align-items: center; gap: 10px; }
+.cat-color-swatch { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.category-actions { display: flex; gap: 6px; align-items: center; }
+.form-row-inline { display: flex; gap: 8px; align-items: center; }
+.form-row-inline input[type="text"] { flex: 1; }
 
 /* Danger Zone */
 .danger-zone h2 { color: var(--error); }

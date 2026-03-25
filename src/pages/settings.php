@@ -61,6 +61,61 @@ if ($action === 'delete_account' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// --- CREATE CATEGORY ---
+if ($action === 'create_category' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=settings#categories');
+        exit;
+    }
+    $catName  = trim($_POST['cat_name'] ?? '');
+    $catColor = preg_match('/^#[0-9a-fA-F]{6}$/', $_POST['cat_color'] ?? '') ? $_POST['cat_color'] : '#4361ee';
+    if ($catName !== '') {
+        $db->prepare('INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)')->execute([$userId, $catName, $catColor]);
+        setFlash('success', __('msg.saved'));
+    }
+    header('Location: ' . BASE_URL . '/?page=settings#categories');
+    exit;
+}
+
+// --- EDIT CATEGORY ---
+if ($action === 'edit_category' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $catId = (int)($_GET['id'] ?? 0);
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=settings#categories');
+        exit;
+    }
+    $catName  = trim($_POST['cat_name'] ?? '');
+    $catColor = preg_match('/^#[0-9a-fA-F]{6}$/', $_POST['cat_color'] ?? '') ? $_POST['cat_color'] : '#4361ee';
+    if ($catName !== '' && $catId > 0) {
+        $db->prepare('UPDATE categories SET name = ?, color = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL')
+           ->execute([$catName, $catColor, $catId, $userId]);
+        setFlash('success', __('msg.saved'));
+    }
+    header('Location: ' . BASE_URL . '/?page=settings#categories');
+    exit;
+}
+
+// --- DELETE CATEGORY ---
+if ($action === 'delete_category' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $catId = (int)($_GET['id'] ?? 0);
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=settings#categories');
+        exit;
+    }
+    if ($catId > 0) {
+        $db->prepare("UPDATE categories SET deleted_at = datetime('now') WHERE id = ? AND user_id = ?")
+           ->execute([$catId, $userId]);
+        $db->prepare('UPDATE projects SET category_id = NULL WHERE category_id = ? AND user_id = ?')
+           ->execute([$catId, $userId]);
+        setFlash('success', __('msg.deleted'));
+    }
+    header('Location: ' . BASE_URL . '/?page=settings#categories');
+    exit;
+}
+
 // Get statistics for display
 $statsStmt = $db->prepare('
     SELECT
@@ -134,7 +189,81 @@ $stats = $statsStmt->fetch();
         </div>
     </section>
 
-    <!-- Danger Zone -->
+    <!-- Categories -->
+    <section class="section" id="categories">
+        <div class="section-header">
+            <h2>Categories</h2>
+        </div>
+        <?php
+        $catListStmt = $db->prepare('SELECT * FROM categories WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order, name');
+        $catListStmt->execute([$userId]);
+        $userCategories = $catListStmt->fetchAll();
+        ?>
+        <?php if (!empty($userCategories)): ?>
+        <div class="categories-manage-list">
+            <?php foreach ($userCategories as $cat): ?>
+            <div class="category-manage-item card">
+                <div class="category-info">
+                    <span class="cat-color-swatch" style="background:<?= e($cat['color']) ?>"></span>
+                    <span><?= e($cat['name']) ?></span>
+                </div>
+                <div class="category-actions">
+                    <button onclick="openModal('editCatModal<?= (int)$cat['id'] ?>')" class="btn btn-xs btn-outline">Edit</button>
+                    <form method="post" action="<?= BASE_URL ?>/?page=settings&action=delete_category&id=<?= (int)$cat['id'] ?>" class="inline">
+                        <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                        <button type="submit" class="btn btn-xs btn-danger"
+                                onclick="return confirm('Delete category? Projects will become uncategorized.')">Delete</button>
+                    </form>
+                </div>
+            </div>
+            <!-- Edit modal -->
+            <div id="editCatModal<?= (int)$cat['id'] ?>" class="modal" style="display:none" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-header">
+                        <h3>Edit Category</h3>
+                        <button onclick="closeModal('editCatModal<?= (int)$cat['id'] ?>')" class="modal-close">&times;</button>
+                    </div>
+                    <form method="post" action="<?= BASE_URL ?>/?page=settings&action=edit_category&id=<?= (int)$cat['id'] ?>">
+                        <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input type="text" name="cat_name" value="<?= e($cat['name']) ?>" required maxlength="50">
+                            </div>
+                            <div class="form-group">
+                                <label>Color</label>
+                                <input type="color" name="cat_color" value="<?= e($cat['color']) ?>">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary"><?= __('form.save') ?></button>
+                            <button type="button" onclick="closeModal('editCatModal<?= (int)$cat['id'] ?>')" class="btn btn-outline"><?= __('form.cancel') ?></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+        <p class="text-muted" style="margin-bottom:12px">No categories yet. Create one to organize your projects.</p>
+        <?php endif; ?>
+
+        <!-- Create new category -->
+        <div class="card" style="margin-top:12px">
+            <form method="post" action="<?= BASE_URL ?>/?page=settings&action=create_category" class="form">
+                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                <div class="form-row-inline">
+                    <input type="color" name="cat_color" value="#4361ee" title="Category color"
+                           style="width:44px;height:38px;padding:2px;border-radius:var(--radius-sm);cursor:pointer;flex-shrink:0">
+                    <input type="text" name="cat_name" placeholder="New category name" required maxlength="50">
+                    <button type="submit" class="btn btn-primary" style="white-space:nowrap">+ Add</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Danger Zone (hidden for local single-user mode) -->
+    <?php if (authEnabled()): ?>
     <section class="section danger-zone">
         <h2 class="text-error"><?= __('settings.danger_zone') ?></h2>
         <div class="card card-danger">
@@ -149,8 +278,10 @@ $stats = $statsStmt->fetch();
             </div>
         </div>
     </section>
+    <?php endif; ?>
 </div>
 
+<?php if (authEnabled()): ?>
 <!-- Delete Account Modal -->
 <div id="deleteAccountModal" class="modal" style="display:none" aria-hidden="true">
     <div class="modal-dialog">
@@ -187,3 +318,4 @@ $stats = $statsStmt->fetch();
         </form>
     </div>
 </div>
+<?php endif; ?>

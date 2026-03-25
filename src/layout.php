@@ -129,28 +129,25 @@
                     </div>
                     <ul class="sidebar-projects">
                         <?php foreach ($projects as $proj): ?>
-                        <li class="sidebar-project<?= ($currentProjectId === (int)$proj['id'] && $currentPage === 'project') ? ' active' : '' ?>">
+                        <li class="sidebar-project<?= ($currentProjectId === (int)$proj['id']) ? ' active' : '' ?>">
                             <a href="<?= BASE_URL ?>/?page=project&action=detail&id=<?= $proj['id'] ?>" class="sidebar-project-link">
-                                <span class="project-indicator<?= $proj['active'] ? '' : ' inactive' ?>"></span>
+                                <span class="project-emoji<?= $proj['active'] ? '' : ' inactive' ?>"><?= e($proj['emoji'] ?: '📁') ?></span>
                                 <span class="project-name"><?= e($proj['name']) ?></span>
                                 <span class="project-count"><?= (int)$proj['webhook_count'] ?></span>
                             </a>
-                            <?php if ($currentProjectId === (int)$proj['id'] && $currentPage === 'project'): ?>
+                            <?php if ($currentProjectId === (int)$proj['id']): ?>
                             <?php
-                            // Load webhooks for current project
                             $whStmt = $sidebarDb->prepare(
                                 'SELECT * FROM webhooks WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at'
                             );
                             $whStmt->execute([(int)$proj['id']]);
                             $sidebarWebhooks = $whStmt->fetchAll();
-                            $currentWebhookId = (int)($_GET['id'] ?? 0);
                             ?>
                             <?php if (!empty($sidebarWebhooks)): ?>
                             <ul class="sidebar-webhooks">
                                 <?php foreach ($sidebarWebhooks as $wh): ?>
-                                <li class="sidebar-webhook<?= ($currentWebhookId === (int)$wh['id'] && isset($_GET['action']) && $_GET['action'] === 'detail' && isset($_GET['type']) && $_GET['type'] === 'webhook') ? ' active' : '' ?>">
+                                <li class="sidebar-webhook<?= ($currentWebhookId === (int)$wh['id']) ? ' active' : '' ?><?= $wh['active'] ? '' : ' inactive' ?>">
                                     <a href="<?= BASE_URL ?>/?page=webhook&action=detail&id=<?= $wh['id'] ?>">
-                                        <span class="webhook-dot<?= $wh['active'] ? '' : ' inactive' ?>">●</span>
                                         <?= e($wh['name']) ?>
                                     </a>
                                 </li>
