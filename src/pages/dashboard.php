@@ -129,32 +129,9 @@ $ajaxBase = '?' . http_build_query($ajaxParams);
         <div class="empty-state" id="emptyState">
             <div class="empty-icon">📭</div>
             <h3><?= __('dashboard.no_events') ?></h3>
-            <?php if (!empty($allProjects)): ?>
-            <?php
-            // Show first available webhook URL as example
-            $exStmt = $db->prepare('
-                SELECT w.token, p.slug FROM webhooks w
-                JOIN projects p ON p.id = w.project_id
-                WHERE p.user_id = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
-                LIMIT 1
-            ');
-            $exStmt->execute([$userId]);
-            $exWh = $exStmt->fetch();
-            if ($exWh): ?>
-            <?php $exampleUrl = webhookUrl($exWh['slug'], $exWh['token']); ?>
-            <p class="empty-hint">Try sending a request to your webhook endpoint:</p>
-            <div class="code-block copy-container">
-                <code id="exampleUrl"><?= e($exampleUrl) ?></code>
-                <button class="btn btn-sm btn-outline copy-btn" onclick="copyToClipboard(document.getElementById('exampleUrl').textContent, this)">Copy</button>
-            </div>
-            <div class="code-block">
-                <pre><code>curl -X POST <?= e($exampleUrl) ?> \
-  -H "Content-Type: application/json" \
-  -d '{"hello":"world"}'</code></pre>
-            </div>
-            <?php endif; ?>
-            <?php else: ?>
-            <p><a href="<?= BASE_URL ?>/?page=project&action=create" class="btn btn-primary">Create your first project</a></p>
+            <p class="text-muted">Send a request to one of your webhook endpoints to get started.</p>
+            <?php if (empty($allProjects)): ?>
+            <p style="margin-top:1rem"><a href="<?= BASE_URL ?>/?page=project&action=create" class="btn btn-primary">Create your first project</a></p>
             <?php endif; ?>
         </div>
         <?php endif; ?>
