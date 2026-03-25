@@ -153,10 +153,10 @@ details > summary { cursor: pointer; user-select: none; }
     font-weight: 700;
     letter-spacing: -0.01em;
     line-height: 1;
-    display: inline-flex;
+    vertical-align: middle;
 }
-.logo-hook { color: #4361ee; }
-.logo-pool { color: #e63946; }
+.logo-hook { color: #4361ee; vertical-align: baseline; }
+.logo-pool { color: #e63946; vertical-align: baseline; }
 .logo-icon { font-size: 1.2rem; }
 .logo-text { color: var(--text-primary); }
 
