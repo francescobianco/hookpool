@@ -1226,7 +1226,7 @@ tr:last-child td { border-bottom: none; }
     margin-bottom: 1rem;
     color: var(--text-primary);
 }
-.logo-hook { font-size: 2rem; }
+
 .hero-sub {
     font-size: 1.85rem;
     font-weight: 700;
