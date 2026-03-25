@@ -4,4 +4,5 @@ $migrations = [
     __DIR__ . '/migrations/20260325000001_create_initial_schema.php',
     __DIR__ . '/migrations/20260325000002_make_github_id_nullable.php',
     __DIR__ . '/migrations/20260325000003_make_project_slugs_global_unique.php',
+    __DIR__ . '/migrations/20260325000004_add_emoji_to_projects.php',
 ];

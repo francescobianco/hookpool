@@ -8,7 +8,7 @@ $action       = $_GET['action'] ?? 'detail';
  */
 function loadWebhookForUser(PDO $db, int $webhookId, int $userId): ?array {
     $stmt = $db->prepare('
-        SELECT w.*, p.user_id, p.name as project_name, p.id as project_id
+        SELECT w.*, p.user_id, p.name as project_name, p.id as project_id, p.slug as project_slug
         FROM webhooks w
         JOIN projects p ON p.id = w.project_id
         WHERE w.id = ? AND p.user_id = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
