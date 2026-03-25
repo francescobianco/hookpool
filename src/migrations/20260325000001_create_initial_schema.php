@@ -1,7 +1,7 @@
 <?php
 return static function (PDO $db): void {
     // users
-    $db->exec("
+    execSQL($db, "
         CREATE TABLE IF NOT EXISTS users (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             github_id    INTEGER UNIQUE,
@@ -15,7 +15,7 @@ return static function (PDO $db): void {
     ");
 
     // categories
-    $db->exec("
+    execSQL($db, "
         CREATE TABLE IF NOT EXISTS categories (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id    INTEGER NOT NULL REFERENCES users(id),
@@ -28,7 +28,7 @@ return static function (PDO $db): void {
     ");
 
     // projects
-    $db->exec("
+    execSQL($db, "
         CREATE TABLE IF NOT EXISTS projects (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id     INTEGER NOT NULL REFERENCES users(id),
@@ -43,7 +43,7 @@ return static function (PDO $db): void {
     ");
 
     // webhooks
-    $db->exec("
+    execSQL($db, "
         CREATE TABLE IF NOT EXISTS webhooks (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL REFERENCES projects(id),
@@ -56,7 +56,7 @@ return static function (PDO $db): void {
     ");
 
     // events
-    $db->exec("
+    execSQL($db, "
         CREATE TABLE IF NOT EXISTS events (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,
             webhook_id       INTEGER NOT NULL REFERENCES webhooks(id),
@@ -74,7 +74,7 @@ return static function (PDO $db): void {
     ");
 
     // guards
-    $db->exec("
+    execSQL($db, "
         CREATE TABLE IF NOT EXISTS guards (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER REFERENCES projects(id),
@@ -88,7 +88,7 @@ return static function (PDO $db): void {
     ");
 
     // forward_actions
-    $db->exec("
+    execSQL($db, "
         CREATE TABLE IF NOT EXISTS forward_actions (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
             webhook_id     INTEGER NOT NULL REFERENCES webhooks(id),
@@ -106,7 +106,7 @@ return static function (PDO $db): void {
     ");
 
     // forward_attempts
-    $db->exec("
+    execSQL($db, "
         CREATE TABLE IF NOT EXISTS forward_attempts (
             id                INTEGER PRIMARY KEY AUTOINCREMENT,
             event_id          INTEGER NOT NULL REFERENCES events(id),
@@ -121,7 +121,7 @@ return static function (PDO $db): void {
     ");
 
     // rate_limits
-    $db->exec("
+    execSQL($db, "
         CREATE TABLE IF NOT EXISTS rate_limits (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             ip         TEXT NOT NULL,
@@ -130,16 +130,16 @@ return static function (PDO $db): void {
     ");
 
     // Indexes for performance
-    $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_webhooks_token     ON webhooks(token)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_events_webhook_id         ON events(webhook_id)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_events_received_at        ON events(received_at)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_forward_attempts_event_id ON forward_attempts(event_id)");
-    $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_github_id    ON users(github_id)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_projects_user_id          ON projects(user_id)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_projects_slug             ON projects(slug)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_categories_user_id        ON categories(user_id)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_guards_project_id         ON guards(project_id)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_guards_webhook_id         ON guards(webhook_id)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_forward_actions_webhook_id ON forward_actions(webhook_id)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_rate_limits_ip            ON rate_limits(ip)");
+    execSQL($db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_webhooks_token     ON webhooks(token)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_events_webhook_id         ON events(webhook_id)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_events_received_at        ON events(received_at)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_forward_attempts_event_id ON forward_attempts(event_id)");
+    execSQL($db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_github_id    ON users(github_id)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_projects_user_id          ON projects(user_id)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_projects_slug             ON projects(slug)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_categories_user_id        ON categories(user_id)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_guards_project_id         ON guards(project_id)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_guards_webhook_id         ON guards(webhook_id)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_forward_actions_webhook_id ON forward_actions(webhook_id)");
+    execSQL($db, "CREATE INDEX IF NOT EXISTS idx_rate_limits_ip            ON rate_limits(ip)");
 };

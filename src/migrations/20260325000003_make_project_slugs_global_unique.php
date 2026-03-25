@@ -49,9 +49,14 @@ function migrationSlugify(string $text): string {
 
 function createProjectSlugIndexes(PDO $db): void {
     try {
-        $db->exec('DROP INDEX IF EXISTS idx_projects_slug');
+        if (DB_TYPE === 'mysql') {
+            $db->exec('DROP INDEX idx_projects_slug ON projects');
+        } else {
+            $db->exec('DROP INDEX IF EXISTS idx_projects_slug');
+        }
     } catch (Throwable $e) {
+        // Index may not exist yet — ignore
     }
 
-    $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug ON projects(slug)');
+    execSQL($db, 'CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_slug ON projects(slug)');
 }

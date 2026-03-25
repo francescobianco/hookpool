@@ -25,6 +25,43 @@ class Database {
 }
 
 /**
+ * Execute a SQL statement with automatic SQLite→MySQL dialect translation.
+ * Handles: AUTOINCREMENT, datetime('now'), IF NOT EXISTS on indexes, duplicate index errors.
+ */
+function execSQL(PDO $db, string $sql): void {
+    if (DB_TYPE === 'mysql') {
+        $sql = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INT AUTO_INCREMENT PRIMARY KEY', $sql);
+        $sql = str_replace("DEFAULT (datetime('now'))",         'DEFAULT CURRENT_TIMESTAMP',      $sql);
+        // MySQL does not support IF NOT EXISTS on CREATE INDEX — silently skip duplicate
+        if (preg_match('/\bCREATE\s+(?:UNIQUE\s+)?INDEX\b/i', $sql)) {
+            $sql = preg_replace('/\bIF\s+NOT\s+EXISTS\s+/i', '', $sql);
+        }
+    }
+    try {
+        $db->exec($sql);
+    } catch (PDOException $e) {
+        // Ignore duplicate index/key errors so migrations are idempotent
+        $msg = $e->getMessage();
+        $isDuplicateIndex = (DB_TYPE === 'mysql' && stripos($msg, 'Duplicate key name') !== false)
+                         || (DB_TYPE === 'sqlite' && stripos($msg, 'already exists') !== false);
+        if (!$isDuplicateIndex) {
+            throw $e;
+        }
+    }
+}
+
+/**
+ * Cross-DB ORDER BY expression that sorts NULLs last.
+ * SQLite supports NULLS LAST natively; MySQL uses the IS NULL trick.
+ */
+function orderNullsLast(string $col, string $dir = 'ASC'): string {
+    if (DB_TYPE === 'mysql') {
+        return "$col IS NULL, $col $dir";
+    }
+    return "$col $dir NULLS LAST";
+}
+
+/**
  * Generate a cryptographically secure token (64 hex chars = 256-bit entropy).
  */
 function generateToken(): string {

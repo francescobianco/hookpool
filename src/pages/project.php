@@ -506,7 +506,7 @@ $projStmt = $db->prepare('
     FROM projects p
     LEFT JOIN categories c ON c.id = p.category_id AND c.deleted_at IS NULL
     WHERE p.user_id = ? AND p.deleted_at IS NULL
-    ORDER BY c.sort_order NULLS LAST, c.name NULLS LAST, p.name
+    ORDER BY COALESCE(c.sort_order, 2147483647), COALESCE(c.name, ''), p.name
 ');
 $projStmt->execute([__('category.uncategorized'), $userId]);
 $projects = $projStmt->fetchAll();

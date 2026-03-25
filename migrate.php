@@ -31,8 +31,8 @@ try {
     exit(1);
 }
 
-// Bootstrap migrations table
-$db->exec("CREATE TABLE IF NOT EXISTS migrations (
+// Bootstrap migrations table (dialect-aware)
+execSQL($db, "CREATE TABLE IF NOT EXISTS migrations (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     migration TEXT UNIQUE NOT NULL,
     ran_at    DATETIME DEFAULT (datetime('now'))
