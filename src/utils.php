@@ -429,3 +429,37 @@ function generateUniqueWebhookToken(PDO $db, int $projectId): string {
 
     return $token;
 }
+
+/**
+ * Map of project icon key → emoji glyph.
+ * Keys are stored in the DB; glyphs are only used for rendering.
+ */
+const PROJECT_ICONS = [
+    'robot'       => '🤖',
+    'folder'      => '📁',
+    'globe'       => '🌐',
+    'radar'       => '📡',
+    'plug'        => '🔌',
+    'idea'        => '💡',
+    'home'        => '🏠',
+    'car'         => '🚗',
+    'thermometer' => '🌡️',
+    'chart'       => '📊',
+    'bell'        => '🔔',
+    'lightning'   => '⚡',
+    'cart'        => '🛒',
+    'chat'        => '💬',
+    'lock'        => '🔐',
+    'lab'         => '🧪',
+    'rocket'      => '🚀',
+    'mobile'      => '📱',
+    'cloud'       => '☁️',
+    'game'        => '🎮',
+];
+
+/**
+ * Render an emoji from its stored key. Falls back to robot emoji.
+ */
+function projectEmoji(string $key): string {
+    return PROJECT_ICONS[$key] ?? PROJECT_ICONS['robot'];
+}

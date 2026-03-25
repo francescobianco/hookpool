@@ -2,7 +2,7 @@
 $current_user  = requireAuth($db);
 $userId        = (int)$current_user['id'];
 $action        = $_GET['action'] ?? '';
-$projectEmojis = ['🤖','📁','🌐','📡','🔌','💡','🏠','🚗','🌡️','📊','🔔','⚡','🛒','💬','🔐','🧪','🚀','📱','☁️','🎮'];
+$projectEmojis = array_keys(PROJECT_ICONS);
 
 // --- CREATE PROJECT ---
 if ($action === 'create') {
@@ -19,7 +19,7 @@ if ($action === 'create') {
         $description = trim($_POST['description'] ?? '');
         $categoryId  = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? (int)$_POST['category_id'] : null;
         $active      = isset($_POST['active']) ? 1 : 0;
-        $emoji       = in_array($_POST['emoji'] ?? '', $projectEmojis, true) ? $_POST['emoji'] : '🤖';
+        $emoji       = in_array($_POST['emoji'] ?? '', $projectEmojis, true) ? $_POST['emoji'] : 'robot';
 
         if ($name === '') {
             setFlash('error', __('msg.required') . ' ' . __('project.name'));
@@ -75,8 +75,8 @@ if ($action === 'create') {
                     <label for="name"><?= __('project.name') ?> <span class="required">*</span></label>
                     <div class="name-with-emoji">
                         <select id="emoji" name="emoji" class="emoji-picker" title="Choose a project icon">
-                            <?php foreach ($projectEmojis as $em): ?>
-                            <option value="<?= e($em) ?>"<?= (($_POST['emoji'] ?? '🤖') === $em) ? ' selected' : '' ?>><?= $em ?></option>
+                            <?php foreach ($projectEmojis as $key): ?>
+                            <option value="<?= e($key) ?>"<?= (($_POST['emoji'] ?? 'robot') === $key) ? ' selected' : '' ?>><?= projectEmoji($key) ?> <?= e($key) ?></option>
                             <?php endforeach; ?>
                         </select>
                         <input type="text" id="name" name="name" value="<?= e($_POST['name'] ?? '') ?>"
@@ -231,7 +231,7 @@ if ($action === 'detail') {
     <div class="page-container">
         <div class="page-header">
             <div class="header-title-group">
-                <h1><?= e(($project['emoji'] ?? '') ?: '🤖') ?> <?= e($project['name']) ?></h1>
+                <h1><?= projectEmoji(($project['emoji'] ?? '') ?: 'robot') ?> <?= e($project['name']) ?></h1>
                 <?php if ($project['description']): ?>
                 <p class="text-muted"><?= e($project['description']) ?></p>
                 <?php endif; ?>
@@ -383,7 +383,7 @@ if ($action === 'edit') {
         $description = trim($_POST['description'] ?? '');
         $categoryId  = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? (int)$_POST['category_id'] : null;
         $active      = isset($_POST['active']) ? 1 : 0;
-        $emoji       = in_array($_POST['emoji'] ?? '', $projectEmojis, true) ? $_POST['emoji'] : '🤖';
+        $emoji       = in_array($_POST['emoji'] ?? '', $projectEmojis, true) ? $_POST['emoji'] : 'robot';
 
         if ($name === '') {
             setFlash('error', __('msg.required'));
@@ -424,8 +424,8 @@ if ($action === 'edit') {
                     <label for="name"><?= __('project.name') ?> <span class="required">*</span></label>
                     <div class="name-with-emoji">
                         <select id="emoji" name="emoji" class="emoji-picker" title="Choose a project icon">
-                            <?php foreach ($projectEmojis as $em): ?>
-                            <option value="<?= e($em) ?>"<?= ((($project['emoji'] ?? '') ?: '🤖') === $em) ? ' selected' : '' ?>><?= $em ?></option>
+                            <?php foreach ($projectEmojis as $key): ?>
+                            <option value="<?= e($key) ?>"<?= ((($project['emoji'] ?? '') ?: 'robot') === $key) ? ' selected' : '' ?>><?= projectEmoji($key) ?> <?= e($key) ?></option>
                             <?php endforeach; ?>
                         </select>
                         <input type="text" id="name" name="name" value="<?= e($project['name']) ?>" required maxlength="100">

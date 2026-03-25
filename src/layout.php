@@ -131,7 +131,7 @@
                         <?php foreach ($projects as $proj): ?>
                         <li class="sidebar-project<?= ($currentProjectId === (int)$proj['id']) ? ' active' : '' ?>">
                             <a href="<?= BASE_URL ?>/?page=project&action=detail&id=<?= $proj['id'] ?>" class="sidebar-project-link">
-                                <span class="project-emoji<?= $proj['active'] ? '' : ' inactive' ?>"><?= e(($proj['emoji'] ?? '') ?: '🤖') ?></span>
+                                <span class="project-emoji<?= $proj['active'] ? '' : ' inactive' ?>"><?= projectEmoji(($proj['emoji'] ?? '') ?: 'robot') ?></span>
                                 <span class="project-name"><?= e($proj['name']) ?></span>
                                 <span class="project-count"><?= (int)$proj['webhook_count'] ?></span>
                             </a>
