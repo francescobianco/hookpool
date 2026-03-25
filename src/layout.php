@@ -68,14 +68,36 @@
                     + <?= __('project.create') ?>
                 </a>
             </div>
+            <?php
+            // Load saved filter presets for this user
+            $fpDb     = Database::get();
+            $fpUserId = (int)$current_user['id'];
+            $fpStmt   = $fpDb->prepare('SELECT id, name, params FROM filter_presets WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at');
+            $fpStmt->execute([$fpUserId]);
+            $filterPresets = $fpStmt->fetchAll();
+            ?>
             <div class="sidebar-category sidebar-links-group">
                 <div class="sidebar-category-header">
                     <span class="cat-name">Links</span>
                 </div>
-                <ul class="sidebar-webhooks sidebar-static-links">
-                    <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'dashboard') ? ' active' : '' ?>">
+                <ul class="sidebar-webhooks sidebar-static-links" id="sidebarFilterList">
+                    <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'dashboard' && empty(array_filter(array_intersect_key($_GET, array_flip(['category_id','project_id','method','status','time']))))) ? ' active' : '' ?>">
                         <a href="<?= BASE_URL ?>/?page=dashboard">Dashboard</a>
                     </li>
+                    <?php foreach ($filterPresets as $fp): ?>
+                    <?php
+                        $fpParams = json_decode($fp['params'], true) ?: [];
+                        $fpParams = array_filter($fpParams, fn($v) => $v !== '' && $v !== null);
+                        $fpParams['page'] = 'dashboard';
+                        $fpUrl = BASE_URL . '/?' . http_build_query($fpParams);
+                        // Is this preset active?
+                        $fpActive = (($_GET['page'] ?? '') === 'dashboard') && !empty(array_filter(array_intersect_key($_GET, array_flip(['category_id','project_id','method','status','time']))));
+                    ?>
+                    <li class="sidebar-webhook sidebar-filter-item<?= $fpActive ? ' active' : '' ?>" data-filter-id="<?= (int)$fp['id'] ?>">
+                        <a href="<?= e($fpUrl) ?>"><?= e($fp['name']) ?></a>
+                        <button class="sidebar-filter-delete" onclick="deleteFilter(<?= (int)$fp['id'] ?>, this)" title="Rimuovi">&times;</button>
+                    </li>
+                    <?php endforeach; ?>
                     <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'settings') ? ' active' : '' ?>">
                         <a href="<?= BASE_URL ?>/?page=settings"><?= __('nav.settings') ?></a>
                     </li>

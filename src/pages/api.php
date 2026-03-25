@@ -17,6 +17,7 @@ switch ($action) {
     // --- GET EVENTS (for dashboard auto-refresh polling) ---
     case 'events':
         $afterId       = isset($_GET['after_id']) ? (int)$_GET['after_id'] : 0;
+        $filterCatId   = isset($_GET['category_id']) && $_GET['category_id'] !== '' ? (int)$_GET['category_id'] : null;
         $filterProjId  = isset($_GET['project_id']) && $_GET['project_id'] !== '' ? (int)$_GET['project_id'] : null;
         $filterWebhookId = isset($_GET['webhook_id']) && $_GET['webhook_id'] !== '' ? (int)$_GET['webhook_id'] : null;
         $filterMethod  = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM'], true) ? $_GET['method'] : '';
@@ -30,6 +31,10 @@ switch ($action) {
         if ($afterId > 0) {
             $whereClauses[] = 'e.id > ?';
             $params[] = $afterId;
+        }
+        if ($filterCatId !== null) {
+            $whereClauses[] = 'p.category_id = ?';
+            $params[] = $filterCatId;
         }
         if ($filterProjId !== null) {
             $whereClauses[] = 'p.id = ?';
@@ -145,6 +150,43 @@ switch ($action) {
         $newActive = $wh['active'] ? 0 : 1;
         $db->prepare('UPDATE webhooks SET active = ? WHERE id = ?')->execute([$newActive, $webhookId]);
         echo json_encode(['ok' => true, 'active' => $newActive]) . "\n";
+        break;
+
+    // --- SAVE FILTER PRESET (POST) ---
+    case 'save_filter':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) { http_response_code(403); echo json_encode(['error' => 'csrf']); break; }
+
+        $name   = trim($_POST['name'] ?? '');
+        $params = $_POST['params'] ?? '{}';
+        if ($name === '') { http_response_code(400); echo json_encode(['error' => 'name_required']); break; }
+
+        // Validate params is valid JSON
+        $decoded = json_decode($params, true);
+        if (!is_array($decoded)) { $params = '{}'; $decoded = []; }
+
+        // Build the dashboard URL from params
+        $qp = array_filter($decoded, fn($v) => $v !== '' && $v !== null);
+        $qp['page'] = 'dashboard';
+        $url = BASE_URL . '/?' . http_build_query($qp);
+
+        $ins = $db->prepare('INSERT INTO filter_presets (user_id, name, params, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)');
+        $ins->execute([$userId, $name, $params]);
+        $newId = (int)$db->lastInsertId();
+
+        echo json_encode(['ok' => true, 'id' => $newId, 'name' => $name, 'url' => $url]) . "\n";
+        break;
+
+    // --- DELETE FILTER PRESET (POST) ---
+    case 'delete_filter':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) { http_response_code(403); echo json_encode(['error' => 'csrf']); break; }
+
+        $presetId = (int)($_POST['id'] ?? 0);
+        $del = $db->prepare('UPDATE filter_presets SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?');
+        $del->execute([$presetId, $userId]);
+
+        echo json_encode(['ok' => true]) . "\n";
         break;
 
     default:

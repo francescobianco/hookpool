@@ -359,6 +359,22 @@ details > summary { cursor: pointer; user-select: none; }
 .sidebar-webhook.inactive a { opacity: 0.5; }
 .sidebar-links-group { margin-bottom: 0.5rem; }
 .sidebar-static-links { margin-left: 0; }
+.sidebar-filter-item { display: flex; align-items: center; }
+.sidebar-filter-item a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-filter-delete {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 4px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+.sidebar-filter-item:hover .sidebar-filter-delete { opacity: 1; }
+.sidebar-filter-delete:hover { color: var(--danger, #e74c3c); }
 
 /* --- Main Content ---------------------------------------------------------- */
 .main-content {

@@ -4,15 +4,20 @@ $page_title   = __('nav.dashboard');
 $userId       = (int)$current_user['id'];
 
 // Filters from GET
-$filterProjectId = isset($_GET['project_id']) && $_GET['project_id'] !== '' ? (int)$_GET['project_id'] : null;
-$filterMethod    = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM'], true) ? $_GET['method'] : '';
-$filterStatus    = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
-$filterTime      = isset($_GET['time']) && in_array($_GET['time'], ['1h','24h','7d','30d'], true) ? $_GET['time'] : '';
+$filterCategoryId = isset($_GET['category_id']) && $_GET['category_id'] !== '' ? (int)$_GET['category_id'] : null;
+$filterProjectId  = isset($_GET['project_id'])  && $_GET['project_id']  !== '' ? (int)$_GET['project_id']  : null;
+$filterMethod     = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM'], true) ? $_GET['method'] : '';
+$filterStatus     = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
+$filterTime       = isset($_GET['time'])   && in_array($_GET['time'],   ['1h','24h','7d','30d'], true)  ? $_GET['time']   : '';
 
 // Build query
 $whereClauses = ['p.user_id = ?', 'p.deleted_at IS NULL', 'w.deleted_at IS NULL'];
 $params       = [$userId];
 
+if ($filterCategoryId !== null) {
+    $whereClauses[] = 'p.category_id = ?';
+    $params[] = $filterCategoryId;
+}
 if ($filterProjectId !== null) {
     $whereClauses[] = 'p.id = ?';
     $params[] = $filterProjectId;
@@ -59,6 +64,11 @@ $events = $eventsStmt->fetchAll();
 // Get last event id for polling
 $lastId = !empty($events) ? (int)$events[0]['id'] : 0;
 
+// Get categories for filter dropdown
+$catStmt = $db->prepare('SELECT id, name FROM categories WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order, name');
+$catStmt->execute([$userId]);
+$allCategories = $catStmt->fetchAll();
+
 // Get projects for filter dropdown (scoped to user)
 $projStmt = $db->prepare('SELECT id, name FROM projects WHERE user_id = ? AND deleted_at IS NULL ORDER BY name');
 $projStmt->execute([$userId]);
@@ -66,14 +76,25 @@ $allProjects = $projStmt->fetchAll();
 
 // Build query params for AJAX polling
 $ajaxParams = array_filter([
-    'page'       => 'api',
-    'action'     => 'events',
-    'project_id' => $filterProjectId !== null ? $filterProjectId : '',
-    'method'     => $filterMethod,
-    'status'     => $filterStatus,
-    'time'       => $filterTime,
+    'page'        => 'api',
+    'action'      => 'events',
+    'category_id' => $filterCategoryId !== null ? $filterCategoryId : '',
+    'project_id'  => $filterProjectId  !== null ? $filterProjectId  : '',
+    'method'      => $filterMethod,
+    'status'      => $filterStatus,
+    'time'        => $filterTime,
 ]);
 $ajaxBase = '?' . http_build_query($ajaxParams);
+
+// Current active filter params (for save)
+$activeFilterParams = array_filter([
+    'category_id' => $filterCategoryId !== null ? $filterCategoryId : '',
+    'project_id'  => $filterProjectId  !== null ? $filterProjectId  : '',
+    'method'      => $filterMethod,
+    'status'      => $filterStatus,
+    'time'        => $filterTime,
+]);
+$hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''));
 ?>
 
 <div class="dashboard">
@@ -84,6 +105,17 @@ $ajaxBase = '?' . http_build_query($ajaxParams);
     <!-- Filters -->
     <form class="filters-bar" method="get" action="">
         <input type="hidden" name="page" value="dashboard">
+
+        <?php if (!empty($allCategories)): ?>
+        <select name="category_id" onchange="this.form.submit()">
+            <option value="">Categoria</option>
+            <?php foreach ($allCategories as $cat): ?>
+            <option value="<?= $cat['id'] ?>"<?= $filterCategoryId === (int)$cat['id'] ? ' selected' : '' ?>>
+                <?= e($cat['name']) ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+        <?php endif; ?>
 
         <select name="project_id" onchange="this.form.submit()">
             <option value=""><?= __('dashboard.filter_project') ?></option>
@@ -117,6 +149,11 @@ $ajaxBase = '?' . http_build_query($ajaxParams);
 
         <div class="filter-actions">
             <a href="<?= BASE_URL ?>/?page=dashboard" class="btn btn-sm btn-outline">Reset</a>
+            <?php if ($hasActiveFilters): ?>
+            <button type="button" class="btn btn-sm btn-outline" onclick="openModal('saveFilterModal')" title="Salva filtro">
+                ＋ Salva filtro
+            </button>
+            <?php endif; ?>
             <span class="auto-refresh-indicator" id="refreshIndicator" title="Auto-refresh every 3s">
                 <span class="pulse-dot"></span> Live
             </span>
@@ -155,6 +192,29 @@ $ajaxBase = '?' . http_build_query($ajaxParams);
                 <?php endforeach; ?>
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Save Filter Modal -->
+<div class="modal" id="saveFilterModal" style="display:none" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3 class="modal-title">Salva filtro</h3>
+            <button class="modal-close" onclick="closeModal('saveFilterModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="text-muted" style="margin-bottom:1rem;font-size:0.88rem;">
+                Il filtro verrà aggiunto alla barra laterale come collegamento rapido.
+            </p>
+            <div class="form-group">
+                <label class="form-label">Nome</label>
+                <input type="text" id="saveFilterName" class="form-control" placeholder="es. Errori POST ultimi 7gg" maxlength="60" autofocus>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeModal('saveFilterModal')">Annulla</button>
+            <button type="button" class="btn btn-primary" onclick="saveFilter()">Salva</button>
+        </div>
     </div>
 </div>
 
@@ -300,4 +360,64 @@ function renderEventRow(array $event): string {
 
     setInterval(poll, refreshInterval);
 })();
+
+// Save filter
+const filterParams = <?= json_encode($activeFilterParams) ?>;
+
+function saveFilter() {
+    const name = document.getElementById('saveFilterName').value.trim();
+    if (!name) { document.getElementById('saveFilterName').focus(); return; }
+
+    fetch('<?= BASE_URL ?>/?page=api&action=save_filter', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({
+            _csrf: csrfToken,
+            name: name,
+            params: JSON.stringify(filterParams),
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            closeModal('saveFilterModal');
+            // Add to sidebar without reload
+            addFilterToSidebar(data.id, name, data.url);
+        }
+    })
+    .catch(() => {});
+}
+
+function addFilterToSidebar(id, name, url) {
+    const list = document.getElementById('sidebarFilterList');
+    if (!list) return;
+    const li = document.createElement('li');
+    li.className = 'sidebar-webhook sidebar-filter-item';
+    li.setAttribute('data-filter-id', id);
+    li.innerHTML = `<a href="${escSidebar(url)}">${escSidebar(name)}</a><button class="sidebar-filter-delete" onclick="deleteFilter(${id}, this)" title="Rimuovi">&times;</button>`;
+    // Insert before Settings (last li)
+    const items = list.querySelectorAll('li');
+    const settingsLi = items[items.length - 1];
+    list.insertBefore(li, settingsLi);
+}
+
+function escSidebar(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function deleteFilter(id, btn) {
+    fetch('<?= BASE_URL ?>/?page=api&action=delete_filter', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({ _csrf: csrfToken, id: id }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            const li = btn.closest('li');
+            if (li) li.remove();
+        }
+    })
+    .catch(() => {});
+}
 </script>
