@@ -480,7 +480,7 @@ details > summary { cursor: pointer; user-select: none; }
     margin-bottom: 0.75rem;
 }
 .card-title-group { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
-.card-title { margin: 0; font-size: 1.02rem; font-weight: 700; }
+.card-title { margin: 0; font-size: 1.2rem !important; font-weight: 700; }
 .card-subtitle { margin: 0.3rem 0 0; font-size: 0.9rem; }
 .card-meta { color: var(--text-muted); font-size: 0.9rem; margin: 0.65rem 0; }
 .card-actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
@@ -870,7 +870,9 @@ tr:last-child td { border-bottom: none; }
     margin-bottom: 1rem;
     font-size: 0.94rem;
     border: 1px solid transparent;
-    transition: opacity 0.3s;
+    overflow: hidden;
+    max-height: 200px;
+    transition: opacity 0.35s ease, max-height 0.35s ease, padding 0.35s ease, margin 0.35s ease, border-width 0.35s ease;
 }
 .alert-message { flex: 1; }
 

@@ -536,7 +536,7 @@ $projects = $projStmt->fetchAll();
         <div class="card card-project">
             <div class="card-header">
                 <div class="card-title-group">
-                    <span class="project-indicator<?= $proj['active'] ? '' : ' inactive' ?>"></span>
+                    <span class="project-emoji<?= $proj['active'] ? '' : ' inactive' ?>" style="font-size:1.6rem;line-height:1;"><?= projectEmoji(($proj['emoji'] ?? '') ?: 'robot') ?></span>
                     <div>
                         <h3 class="card-title"><a href="<?= BASE_URL ?>/?page=project&action=detail&id=<?= $proj['id'] ?>"><?= e($proj['name']) ?></a></h3>
                         <?php if ($proj['description']): ?>
@@ -552,7 +552,7 @@ $projects = $projStmt->fetchAll();
                 <span><strong><?= (int)$proj['webhook_count'] ?></strong> webhooks</span>
                 <span><strong><?= (int)$proj['event_count'] ?></strong> events</span>
                 <?php if ($proj['cat_name'] !== __('category.uncategorized')): ?>
-                <span style="color:<?= e($proj['cat_color']) ?>">● <?= e($proj['cat_name']) ?></span>
+                <span style="color:var(--text-muted)">📁 <?= e($proj['cat_name']) ?></span>
                 <?php endif; ?>
             </div>
             <div class="card-actions">

@@ -299,8 +299,16 @@ function showCopyFeedback(btn) {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.alert').forEach(alert => {
         setTimeout(() => {
+            // Phase 1: fade out
             alert.style.opacity = '0';
-            setTimeout(() => alert.remove(), 300);
+            setTimeout(() => {
+                // Phase 2: collapse height
+                alert.style.maxHeight = '0';
+                alert.style.padding = '0 16px';
+                alert.style.marginBottom = '0';
+                alert.style.borderWidth = '0';
+                setTimeout(() => alert.remove(), 370);
+            }, 370);
         }, 5000);
     });
 });
