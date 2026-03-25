@@ -32,6 +32,10 @@ function execSQL(PDO $db, string $sql): void {
     if (DB_TYPE === 'mysql') {
         $sql = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INT AUTO_INCREMENT PRIMARY KEY', $sql);
         $sql = str_replace("DEFAULT (datetime('now'))",         'DEFAULT CURRENT_TIMESTAMP',      $sql);
+        // MySQL: TEXT columns cannot be used in UNIQUE keys — convert to VARCHAR(500)
+        $sql = str_replace('TEXT UNIQUE NOT NULL', 'VARCHAR(500) NOT NULL UNIQUE', $sql);
+        $sql = str_replace('TEXT NOT NULL UNIQUE', 'VARCHAR(500) NOT NULL UNIQUE', $sql);
+        $sql = preg_replace('/\bTEXT(\s+UNIQUE\b)/i', 'VARCHAR(500)$1', $sql);
         // MySQL does not support IF NOT EXISTS on CREATE INDEX — silently skip duplicate
         if (preg_match('/\bCREATE\s+(?:UNIQUE\s+)?INDEX\b/i', $sql)) {
             $sql = preg_replace('/\bIF\s+NOT\s+EXISTS\s+/i', '', $sql);
