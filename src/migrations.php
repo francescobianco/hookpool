@@ -7,4 +7,5 @@ $migrations = [
     __DIR__ . '/migrations/20260325000004_add_emoji_to_projects.php',
     __DIR__ . '/migrations/20260325000005_create_alarms.php',
     __DIR__ . '/migrations/20260325000006_add_webhook_paused_until.php',
+    __DIR__ . '/migrations/20260325000007_create_filter_presets.php',
 ];
