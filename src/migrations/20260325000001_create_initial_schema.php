@@ -129,6 +129,13 @@ return static function (PDO $db): void {
         )
     ");
 
+    // MySQL: ensure columns used in indexes are VARCHAR (idempotent — safe to re-run)
+    if (DB_TYPE === 'mysql') {
+        $db->exec("ALTER TABLE projects    MODIFY COLUMN slug  VARCHAR(255) NOT NULL");
+        $db->exec("ALTER TABLE rate_limits MODIFY COLUMN ip    VARCHAR(45)  NOT NULL");
+        $db->exec("ALTER TABLE webhooks    MODIFY COLUMN token VARCHAR(500) NOT NULL");
+    }
+
     // Indexes for performance
     execSQL($db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_webhooks_token     ON webhooks(token)");
     execSQL($db, "CREATE INDEX IF NOT EXISTS idx_events_webhook_id         ON events(webhook_id)");
