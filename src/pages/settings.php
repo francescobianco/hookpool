@@ -1,0 +1,189 @@
+<?php
+$current_user = requireAuth($db);
+$userId       = (int)$current_user['id'];
+$action       = $_GET['action'] ?? '';
+$page_title   = __('settings.title');
+
+// --- DELETE ACCOUNT ---
+if ($action === 'delete_account' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=settings');
+        exit;
+    }
+
+    // Require user to type their current username to confirm
+    $confirmUsername = trim($_POST['confirm_username'] ?? '');
+    if ($confirmUsername !== $current_user['username']) {
+        setFlash('error', 'Username confirmation did not match. Account was NOT deleted.');
+        header('Location: ' . BASE_URL . '/?page=settings');
+        exit;
+    }
+
+    // Soft delete user and all their data
+    $now = "datetime('now')";
+
+    // Get all user project IDs
+    $projIds = $db->prepare('SELECT id FROM projects WHERE user_id = ? AND deleted_at IS NULL');
+    $projIds->execute([$userId]);
+    $allProjectIds = $projIds->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!empty($allProjectIds)) {
+        // Get webhook IDs for those projects
+        $whIds = $db->query(
+            'SELECT id FROM webhooks WHERE project_id IN (' . implode(',', array_map('intval', $allProjectIds)) . ') AND deleted_at IS NULL'
+        )->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!empty($whIds)) {
+            // Soft-delete forward actions
+            $db->exec('UPDATE forward_actions SET deleted_at = CURRENT_TIMESTAMP WHERE webhook_id IN (' . implode(',', array_map('intval', $whIds)) . ')');
+            // Soft-delete guards at webhook level
+            $db->exec('UPDATE guards SET deleted_at = CURRENT_TIMESTAMP WHERE webhook_id IN (' . implode(',', array_map('intval', $whIds)) . ')');
+            // Soft-delete webhooks
+            $db->exec('UPDATE webhooks SET deleted_at = CURRENT_TIMESTAMP WHERE id IN (' . implode(',', array_map('intval', $whIds)) . ')');
+        }
+
+        // Soft-delete project-level guards
+        $db->exec('UPDATE guards SET deleted_at = CURRENT_TIMESTAMP WHERE project_id IN (' . implode(',', array_map('intval', $allProjectIds)) . ')');
+        // Soft-delete projects
+        $db->exec('UPDATE projects SET deleted_at = CURRENT_TIMESTAMP WHERE user_id = ' . $userId);
+    }
+
+    // Soft-delete categories
+    $db->prepare("UPDATE categories SET deleted_at = datetime('now') WHERE user_id = ?")->execute([$userId]);
+
+    // Soft-delete user
+    $db->prepare("UPDATE users SET deleted_at = datetime('now') WHERE id = ?")->execute([$userId]);
+
+    // Destroy session and redirect
+    setFlash('success', __('settings.account_deleted'));
+    logout();
+    exit;
+}
+
+// Get statistics for display
+$statsStmt = $db->prepare('
+    SELECT
+        (SELECT COUNT(*) FROM projects WHERE user_id = ? AND deleted_at IS NULL) as project_count,
+        (SELECT COUNT(*) FROM webhooks w JOIN projects p ON p.id = w.project_id WHERE p.user_id = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL) as webhook_count,
+        (SELECT COUNT(*) FROM events e JOIN webhooks w2 ON w2.id = e.webhook_id JOIN projects p2 ON p2.id = w2.project_id WHERE p2.user_id = ? AND w2.deleted_at IS NULL AND p2.deleted_at IS NULL) as event_count
+');
+$statsStmt->execute([$userId, $userId, $userId]);
+$stats = $statsStmt->fetch();
+?>
+
+<div class="page-container">
+    <div class="page-header">
+        <h1><?= __('settings.title') ?></h1>
+    </div>
+
+    <!-- Profile Card -->
+    <section class="section">
+        <div class="card">
+            <div class="profile-header">
+                <?php if (!empty($current_user['avatar_url'])): ?>
+                <img src="<?= e($current_user['avatar_url']) ?>"
+                     alt="<?= e($current_user['username']) ?>"
+                     class="profile-avatar">
+                <?php else: ?>
+                <div class="profile-avatar profile-avatar-placeholder"><?= e(strtoupper(substr((string)($current_user['display_name'] ?: $current_user['username']), 0, 1))) ?></div>
+                <?php endif; ?>
+                <div class="profile-info">
+                    <h2 class="profile-name"><?= e($current_user['display_name'] ?: $current_user['username']) ?></h2>
+                    <div class="profile-meta">
+                        <span class="text-muted">@<?= e($current_user['username']) ?></span>
+                        <?php if ($current_user['email']): ?>
+                        <span class="text-muted"><?= e($current_user['email']) ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <?php if (!empty($current_user['github_id'])): ?>
+                    <div class="profile-github">
+                        <a href="https://github.com/<?= e($current_user['username']) ?>" target="_blank" rel="noopener" class="link-muted">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:middle">
+                                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                            </svg>
+                            github.com/<?= e($current_user['username']) ?>
+                        </a>
+                    </div>
+                    <?php else: ?>
+                    <div class="profile-github">
+                        <span class="link-muted"><?= __('settings.local_mode') ?></span>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="section">
+        <h2>Your Data</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value"><?= (int)$stats['project_count'] ?></div>
+                <div class="stat-label">Projects</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value"><?= (int)$stats['webhook_count'] ?></div>
+                <div class="stat-label">Webhooks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value"><?= number_format((int)$stats['event_count']) ?></div>
+                <div class="stat-label">Events Received</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Danger Zone -->
+    <section class="section danger-zone">
+        <h2 class="text-error"><?= __('settings.danger_zone') ?></h2>
+        <div class="card card-danger">
+            <div class="danger-item">
+                <div>
+                    <h4><?= __('settings.delete_account') ?></h4>
+                    <p class="text-muted"><?= __('settings.delete_account_desc') ?></p>
+                </div>
+                <button onclick="openModal('deleteAccountModal')" class="btn btn-danger">
+                    <?= __('settings.delete_account') ?>
+                </button>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Delete Account Modal -->
+<div id="deleteAccountModal" class="modal" style="display:none" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3 class="text-error">Delete Account</h3>
+            <button onclick="closeModal('deleteAccountModal')" class="modal-close">&times;</button>
+        </div>
+        <form method="post" action="<?= BASE_URL ?>/?page=settings&action=delete_account">
+            <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+            <div class="modal-body">
+                <p><?= __('settings.delete_account_desc') ?></p>
+                <div class="form-group">
+                    <label><?= __('settings.confirm_delete_account') ?></label>
+                    <input type="text" name="confirm_username"
+                           placeholder="<?= e($current_user['username']) ?>"
+                           required
+                           autocomplete="off">
+                    <p class="form-hint text-error">Type <strong><?= e($current_user['username']) ?></strong> to confirm.</p>
+                </div>
+                <div class="warning-box">
+                    <strong>This will permanently delete:</strong>
+                    <ul>
+                        <li><?= (int)$stats['project_count'] ?> projects</li>
+                        <li><?= (int)$stats['webhook_count'] ?> webhooks</li>
+                        <li><?= number_format((int)$stats['event_count']) ?> events</li>
+                        <li>All forward actions and guard rules</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-danger"><?= __('form.yes_delete') ?> My Account</button>
+                <button type="button" onclick="closeModal('deleteAccountModal')" class="btn btn-outline"><?= __('form.cancel') ?></button>
+            </div>
+        </form>
+    </div>
+</div>

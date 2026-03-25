@@ -1,0 +1,11 @@
+Dockerfile            export-ignore
+docker-compose.yml    export-ignore
+docker-entrypoint.sh  export-ignore
+.env.example          export-ignore
+env.php.example       export-ignore
+Makefile              export-ignore
+*.lftp                export-ignore
+.gitignore            export-ignore
+*.md                  export-ignore
+DESIGN.md             export-ignore
+FRAMEWORK.md          export-ignore

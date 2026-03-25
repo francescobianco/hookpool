@@ -1,0 +1,377 @@
+<?php
+
+/**
+ * Store a flash message in session.
+ */
+function setFlash(string $type, string $message): void {
+    $_SESSION['flash'] = ['type' => $type, 'message' => $message];
+}
+
+/**
+ * Retrieve and clear the flash message from session.
+ */
+function getFlash(): ?array {
+    if (!isset($_SESSION['flash'])) return null;
+    $flash = $_SESSION['flash'];
+    unset($_SESSION['flash']);
+    return $flash;
+}
+
+/**
+ * Safely escape a string for HTML output.
+ */
+function e(string $s): string {
+    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Generate a CSRF token and store it in session.
+ */
+function generateCsrfToken(): string {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+/**
+ * Verify a CSRF token against the session value (timing-safe).
+ */
+function verifyCsrfToken(string $token): bool {
+    $stored = $_SESSION['csrf_token'] ?? '';
+    if (!$stored) return false;
+    return hash_equals($stored, $token);
+}
+
+/**
+ * Perform an HTTP POST request using curl.
+ */
+function httpPost(string $url, array $data, array $headers = []): string|false {
+    $ch = curl_init($url);
+    if ($ch === false) return false;
+
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+    $curlHeaders = [];
+    foreach ($headers as $k => $v) {
+        $curlHeaders[] = "$k: $v";
+    }
+    if (!empty($curlHeaders)) {
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $curlHeaders);
+    }
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+    return $response;
+}
+
+/**
+ * Perform an HTTP POST request with a JSON body using curl.
+ */
+function httpPostJson(string $url, string $jsonBody, array $headers = []): string|false {
+    $ch = curl_init($url);
+    if ($ch === false) return false;
+
+    $headers['Content-Type'] = 'application/json';
+    $headers['Content-Length'] = strlen($jsonBody);
+
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonBody);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+    $curlHeaders = [];
+    foreach ($headers as $k => $v) {
+        $curlHeaders[] = "$k: $v";
+    }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $curlHeaders);
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+    return $response;
+}
+
+/**
+ * Perform an HTTP GET request using curl.
+ */
+function httpGet(string $url, array $headers = []): string|false {
+    $ch = curl_init($url);
+    if ($ch === false) return false;
+
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+    $curlHeaders = [];
+    foreach ($headers as $k => $v) {
+        $curlHeaders[] = "$k: $v";
+    }
+    if (!empty($curlHeaders)) {
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $curlHeaders);
+    }
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+    return $response;
+}
+
+/**
+ * Access a nested array value using dot-notation key (e.g. "device.id").
+ */
+function dotGet(array $data, string $key): mixed {
+    $parts = explode('.', $key);
+    $current = $data;
+    foreach ($parts as $part) {
+        if (!is_array($current) || !array_key_exists($part, $current)) {
+            return null;
+        }
+        $current = $current[$part];
+    }
+    return $current;
+}
+
+/**
+ * Evaluate a single forwarding condition against a received event.
+ * Condition structure: {type, field, operator, value}
+ * Types: method, header, query, body_json
+ * Operators: equals, not_equals, contains, exists
+ */
+function evaluateCondition(array $condition, string $method, array $headers, array $queryParams, string $body): bool {
+    $type     = $condition['type']     ?? '';
+    $field    = $condition['field']    ?? '';
+    $operator = $condition['operator'] ?? 'equals';
+    $value    = $condition['value']    ?? '';
+
+    switch ($type) {
+        case 'method':
+            $actual = strtoupper($method);
+            $expected = strtoupper($value);
+            return match($operator) {
+                'equals'     => $actual === $expected,
+                'not_equals' => $actual !== $expected,
+                default      => false,
+            };
+
+        case 'header':
+            $headerKey = strtoupper(str_replace('-', '_', $field));
+            $actual = $headers[$headerKey] ?? null;
+            return match($operator) {
+                'exists'     => $actual !== null,
+                'equals'     => $actual === $value,
+                'not_equals' => $actual !== $value,
+                'contains'   => $actual !== null && str_contains($actual, $value),
+                default      => false,
+            };
+
+        case 'query':
+            $actual = $queryParams[$field] ?? null;
+            return match($operator) {
+                'exists'     => $actual !== null,
+                'equals'     => $actual === $value,
+                'not_equals' => $actual !== $value,
+                'contains'   => $actual !== null && str_contains((string)$actual, $value),
+                default      => false,
+            };
+
+        case 'body_json':
+            $parsed = json_decode($body, true);
+            if (!is_array($parsed)) return false;
+            $actual = dotGet($parsed, $field);
+            return match($operator) {
+                'exists'     => $actual !== null,
+                'equals'     => (string)$actual === (string)$value,
+                'not_equals' => (string)$actual !== (string)$value,
+                'contains'   => $actual !== null && str_contains((string)$actual, $value),
+                default      => false,
+            };
+
+        default:
+            return true;
+    }
+}
+
+/**
+ * Execute all active forward_actions for a given webhook event.
+ * Evaluates conditions (ALL must match), makes HTTP calls, saves forward_attempts.
+ */
+function executeForwarding(PDO $db, int $eventId, int $webhookId): void {
+    // Fetch the event details
+    $evtStmt = $db->prepare('SELECT * FROM events WHERE id = ?');
+    $evtStmt->execute([$eventId]);
+    $event = $evtStmt->fetch();
+    if (!$event) return;
+
+    $method      = $event['method'];
+    $headers     = json_decode($event['headers'] ?? '{}', true) ?: [];
+    $body        = $event['body'] ?? '';
+    $queryString = $event['query_string'] ?? '';
+    parse_str($queryString, $queryParams);
+
+    // Fetch active forward actions for this webhook
+    $faStmt = $db->prepare(
+        'SELECT * FROM forward_actions WHERE webhook_id = ? AND active = 1 AND deleted_at IS NULL'
+    );
+    $faStmt->execute([$webhookId]);
+    $actions = $faStmt->fetchAll();
+
+    foreach ($actions as $action) {
+        $conditions = json_decode($action['conditions'] ?? '[]', true) ?: [];
+
+        // Check ALL conditions (AND logic)
+        $conditionsPassed = true;
+        foreach ($conditions as $condition) {
+            if (!evaluateCondition($condition, $method, $headers, $queryParams, $body)) {
+                $conditionsPassed = false;
+                break;
+            }
+        }
+
+        if (!$conditionsPassed) {
+            continue;
+        }
+
+        // Build outgoing request
+        $targetUrl    = $action['url'];
+        $targetMethod = strtoupper($action['method'] ?? 'POST');
+        $timeout      = (int)($action['timeout'] ?? 10);
+
+        // Parse custom headers (one "Key: Value" per line)
+        $customHeaders = [];
+        $customHeadersRaw = $action['custom_headers'] ?? '{}';
+        $parsedCustom = json_decode($customHeadersRaw, true);
+        if (is_array($parsedCustom)) {
+            $customHeaders = $parsedCustom;
+        }
+
+        // Build request body
+        $bodyTemplate = $action['body_template'] ?? '';
+        if ($bodyTemplate !== '') {
+            $requestBody = str_replace('{{body}}', $body, $bodyTemplate);
+        } else {
+            $requestBody = $body;
+        }
+
+        // Ensure User-Agent header
+        $customHeaders['User-Agent'] = 'HookPool/1.0';
+
+        // Execute the forwarding HTTP request
+        $responseStatus = null;
+        $responseBody   = null;
+        $error          = null;
+
+        try {
+            $ch = curl_init($targetUrl);
+            if ($ch === false) {
+                $error = 'curl_init failed';
+            } else {
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+                $curlHeaders = [];
+                foreach ($customHeaders as $k => $v) {
+                    $curlHeaders[] = "$k: $v";
+                }
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $curlHeaders);
+
+                switch ($targetMethod) {
+                    case 'GET':
+                        curl_setopt($ch, CURLOPT_HTTPGET, true);
+                        break;
+                    case 'POST':
+                        curl_setopt($ch, CURLOPT_POST, true);
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
+                        break;
+                    case 'PUT':
+                        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
+                        break;
+                    case 'PATCH':
+                        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
+                        break;
+                    case 'DELETE':
+                        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+                        break;
+                    default:
+                        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $targetMethod);
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
+                }
+
+                $responseBody   = curl_exec($ch);
+                $responseStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                if ($responseBody === false) {
+                    $error = curl_error($ch);
+                    $responseBody = null;
+                }
+                curl_close($ch);
+            }
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
+
+        // Build serialized request headers for logging
+        $requestHeadersLog = json_encode($customHeaders);
+
+        // Save attempt
+        $attemptStmt = $db->prepare(
+            'INSERT INTO forward_attempts
+             (event_id, forward_action_id, request_headers, request_body, response_status, response_body, error)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+        $attemptStmt->execute([
+            $eventId,
+            $action['id'],
+            $requestHeadersLog,
+            $requestBody,
+            $responseStatus,
+            $responseBody,
+            $error,
+        ]);
+    }
+}
+
+/**
+ * Generate a URL-friendly slug from a string.
+ */
+function slugify(string $text): string {
+    $text = mb_strtolower($text, 'UTF-8');
+    $text = preg_replace('/[^a-z0-9\s-]/', '', $text);
+    $text = preg_replace('/[\s-]+/', '-', $text);
+    $text = trim($text, '-');
+    return $text ?: 'project';
+}
+
+/**
+ * Generate a unique slug for a project, scoped to the user.
+ */
+function uniqueProjectSlug(PDO $db, int $userId, string $name, ?int $excludeId = null): string {
+    $base = slugify($name);
+    $slug = $base;
+    $i    = 2;
+
+    while (true) {
+        $q = 'SELECT id FROM projects WHERE user_id = ? AND slug = ? AND deleted_at IS NULL';
+        $params = [$userId, $slug];
+        if ($excludeId !== null) {
+            $q .= ' AND id != ?';
+            $params[] = $excludeId;
+        }
+        $stmt = $db->prepare($q);
+        $stmt->execute($params);
+        if (!$stmt->fetch()) break;
+        $slug = $base . '-' . $i;
+        $i++;
+    }
+
+    return $slug;
+}

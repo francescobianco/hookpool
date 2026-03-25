@@ -1,0 +1,132 @@
+<?php
+
+/**
+ * Send an email. In dev mode (SMTP_HOST = smtp.example.com), saves to file.
+ */
+function sendEmail(string $to, string $subject, string $htmlBody): bool {
+    $prefix = APP_ENV ? '[' . strtoupper(APP_ENV) . '] ' : '';
+    $fullSubject = $prefix . APP_NAME . ' - ' . $subject;
+
+    if (SMTP_HOST === 'smtp.example.com') {
+        // Dev mode: save to file
+        $filename = date('YmdHis') . '_' . md5($to . $subject . microtime()) . '.html';
+        $dir = __DIR__ . '/../data/emails/';
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        file_put_contents(
+            $dir . $filename,
+            "To: $to\nSubject: $fullSubject\n\n$htmlBody"
+        );
+        return true;
+    }
+
+    return sendViaSMTP($to, $fullSubject, $htmlBody);
+}
+
+/**
+ * Send email via SMTP using PHP sockets (no external library).
+ */
+function sendViaSMTP(string $to, string $subject, string $htmlBody): bool {
+    $host    = SMTP_HOST;
+    $port    = SMTP_PORT;
+    $user    = SMTP_USER;
+    $pass    = SMTP_PASS;
+    $from    = MAIL_FROM;
+    $fromName = MAIL_FROM_NAME;
+
+    $errno  = 0;
+    $errstr = '';
+    $socket = @fsockopen('ssl://' . $host, $port, $errno, $errstr, 15);
+    if (!$socket) {
+        error_log("SMTP connection failed: $errstr ($errno)");
+        return false;
+    }
+
+    $boundary = md5(uniqid('', true));
+
+    $read = fgets($socket, 515);
+    if (strpos($read, '220') !== 0) { fclose($socket); return false; }
+
+    $commands = [
+        "EHLO " . gethostname() . "\r\n",
+        "AUTH LOGIN\r\n",
+        base64_encode($user) . "\r\n",
+        base64_encode($pass) . "\r\n",
+        "MAIL FROM:<$from>\r\n",
+        "RCPT TO:<$to>\r\n",
+        "DATA\r\n",
+    ];
+
+    foreach ($commands as $cmd) {
+        fwrite($socket, $cmd);
+        $resp = fgets($socket, 515);
+        $code = (int)substr($resp, 0, 3);
+        if ($code >= 500) {
+            fclose($socket);
+            return false;
+        }
+    }
+
+    $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+    $encodedFrom    = '=?UTF-8?B?' . base64_encode($fromName) . '?=';
+    $date           = date('r');
+
+    $message  = "Date: $date\r\n";
+    $message .= "From: $encodedFrom <$from>\r\n";
+    $message .= "To: $to\r\n";
+    $message .= "Subject: $encodedSubject\r\n";
+    $message .= "MIME-Version: 1.0\r\n";
+    $message .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $message .= "Content-Transfer-Encoding: base64\r\n";
+    $message .= "\r\n";
+    $message .= chunk_split(base64_encode($htmlBody));
+    $message .= "\r\n.\r\n";
+
+    fwrite($socket, $message);
+    $resp = fgets($socket, 515);
+
+    fwrite($socket, "QUIT\r\n");
+    fclose($socket);
+
+    return strpos($resp, '250') === 0;
+}
+
+/**
+ * Build a standard HTML email template.
+ */
+function buildEmailTemplate(
+    string $title,
+    string $body,
+    string $buttonUrl = '',
+    string $buttonText = '',
+    string $buttonColor = '#4361ee'
+): string {
+    $button = '';
+    if ($buttonUrl && $buttonText) {
+        $button = "<div style='text-align:center;margin:32px 0;'>
+            <a href='" . htmlspecialchars($buttonUrl, ENT_QUOTES) . "'
+               style='background:$buttonColor;color:#fff;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;'>
+               " . htmlspecialchars($buttonText) . "
+            </a>
+        </div>";
+    }
+
+    return "<!DOCTYPE html>
+<html>
+<head><meta charset='UTF-8'><title>" . htmlspecialchars($title) . "</title></head>
+<body style='margin:0;padding:0;background:#0d0d14;font-family:Arial,sans-serif;'>
+  <div style='max-width:600px;margin:40px auto;background:#1a1a2e;border-radius:12px;overflow:hidden;'>
+    <div style='background:#4361ee;padding:24px 32px;'>
+      <h1 style='color:#fff;margin:0;font-size:24px;'>" . APP_NAME . "</h1>
+    </div>
+    <div style='padding:32px;color:#e8e8f0;'>
+      <h2 style='color:#e8e8f0;margin-top:0;'>" . htmlspecialchars($title) . "</h2>
+      <p style='line-height:1.6;color:#b8b8cc;'>" . $body . "</p>
+      $button
+    </div>
+    <div style='padding:16px 32px;border-top:1px solid #252540;text-align:center;'>
+      <p style='color:#8888aa;font-size:12px;margin:0;'>&copy; " . date('Y') . " " . APP_NAME . ". All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>";
+}
