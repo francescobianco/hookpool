@@ -6,6 +6,9 @@
     <meta name="csrf-token" content="<?= e(generateCsrfToken()) ?>">
     <title><?= e($page_title ?? APP_NAME) ?> — <?= APP_NAME ?></title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/<?= e(asset('style.css')) ?>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪝</text></svg>">
 </head>
 <body<?= isset($current_user) ? ' class="authenticated"' : '' ?>>

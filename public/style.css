@@ -145,8 +145,18 @@ details > summary { cursor: pointer; user-select: none; }
     font-weight: 800;
     letter-spacing: -0.02em;
 }
-.logo:hover { text-decoration: none; color: var(--text-primary); }
-.logo-img { height: 32px; width: auto; display: block; }
+.logo:hover { text-decoration: none; }
+.logo-img { height: 34px; width: auto; display: block; }
+.logo-name {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    display: inline-flex;
+}
+.logo-hook { color: #4361ee; }
+.logo-pool { color: #e63946; }
 .logo-icon { font-size: 1.2rem; }
 .logo-text { color: var(--text-primary); }
 
