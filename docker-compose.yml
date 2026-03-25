@@ -25,3 +25,22 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
     restart: unless-stopped
+
+  cron:
+    image: alpine/curl:latest
+    depends_on:
+      - app
+    environment:
+      CRON_SECRET: ${CRON_SECRET:-}
+    entrypoint: >
+      sh -c '
+        while true; do
+          URL="http://app/?page=cron";
+          if [ -n "$$CRON_SECRET" ]; then
+            URL="$$URL&secret=$$CRON_SECRET";
+          fi;
+          curl -sf "$$URL" > /dev/null;
+          sleep 60;
+        done
+      '
+    restart: unless-stopped
