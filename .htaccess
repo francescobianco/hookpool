@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# Keep ACME/http-01 challenges reachable from the repo root.
+RewriteRule ^\.well-known/ - [L]
+
+# Requests that already target the public document root should pass through.
+RewriteRule ^public(?:/|$) - [L]
+
+# Shared hosting fallback: internally serve everything through public/
+# so /, /?page=..., /hook/<token> and /project/token all resolve correctly
+# even when Apache points at the repository root instead of public/.
+RewriteRule ^(.*)$ public/$1 [L,QSA]
