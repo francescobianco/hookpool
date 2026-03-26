@@ -22,6 +22,11 @@ if (!$event) {
     exit;
 }
 
+// Load attached files (if any)
+$filesStmt = $db->prepare('SELECT * FROM event_files WHERE event_id = ? ORDER BY id');
+$filesStmt->execute([$eventId]);
+$eventFiles = $filesStmt->fetchAll();
+
 // Load forward attempts
 $attStmt = $db->prepare('
     SELECT fa2.*, fa.name AS action_name, fa.url AS action_url, fa.method AS action_method
@@ -188,6 +193,36 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
             <?php endif; ?>
         </div>
     </div>
+
+    <!-- Attached Files -->
+    <?php if (!empty($eventFiles)): ?>
+    <section class="section">
+        <h2>
+            <?= __('event.files') ?>
+            <span class="badge badge-muted" style="font-size:0.8rem;margin-left:6px"><?= count($eventFiles) ?></span>
+        </h2>
+        <div class="files-list">
+            <?php foreach ($eventFiles as $f): ?>
+            <div class="file-attachment">
+                <div class="file-attachment-icon">📎</div>
+                <div class="file-attachment-info">
+                    <span class="file-attachment-name"><?= e($f['filename']) ?></span>
+                    <span class="file-attachment-meta">
+                        <?= e($f['field_name']) ?> &middot;
+                        <?= e($f['mime_type']) ?> &middot;
+                        <?= round($f['size'] / 1024, 1) ?> KB
+                    </span>
+                </div>
+                <a href="<?= BASE_URL ?>/?page=api&action=download_file&id=<?= (int)$f['id'] ?>"
+                   class="btn btn-sm btn-outline"
+                   download="<?= e($f['filename']) ?>">
+                    ↓ <?= __('event.download') ?>
+                </a>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+    <?php endif; ?>
 
     <!-- Forwarding Attempts -->
     <?php if (!empty($attempts)): ?>

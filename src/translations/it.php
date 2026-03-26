@@ -201,6 +201,27 @@ return [
     'home.selfhost_label'        => 'Self-Hostable',
     'home.opensource_label'      => 'Open Source',
 
+    // Webhook special functions
+    'webhook.special_functions'      => 'Funzioni Speciali',
+    'webhook.special_functions_desc' => 'Attiva un comportamento speciale esclusivo per questo webhook. Solo una funzione può essere attiva alla volta.',
+    'webhook.sfn_none'               => 'Nessuna',
+    'webhook.sfn_none_desc'          => 'Comportamento standard del webhook.',
+    'webhook.sfn_pixel'              => 'Pixel Image',
+    'webhook.sfn_pixel_desc'         => 'Trasforma questo webhook in un pixel di tracciamento 1×1 trasparente. Visitare l\'URL .png registra un evento PIXEL.',
+    'webhook.sfn_file_upload'        => 'Caricamento File',
+    'webhook.sfn_file_upload_desc'   => 'Permette l\'invio di file via multipart/form-data POST. I file vengono conservati assieme al log dell\'evento.',
+    'webhook.sfn_pixel_url_label'    => 'URL del pixel di tracciamento (termina con .png)',
+    'webhook.sfn_copy_url'           => 'Copia ▾',
+    'webhook.sfn_copy_url_plain'     => 'URL',
+    'webhook.sfn_copy_img_tag'       => 'Tag <img>',
+    'webhook.sfn_copy_markdown'      => 'Markdown',
+    'webhook.sfn_file_note_title'    => 'Modalità buffer — non per hosting',
+    'webhook.sfn_file_note_body'     => 'I file vengono conservati assieme al log degli eventi come buffer temporaneo per i tuoi flussi. Non è prevista alcuna forma di backup. Non usare questo sistema per l\'hosting permanente di file.',
+
+    // Event files
+    'event.files'     => 'File Allegati',
+    'event.download'  => 'Scarica',
+
     // Webhook extra
     'webhook.settings'      => 'Impostazioni Webhook',
     'webhook.status'        => 'Stato',

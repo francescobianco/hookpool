@@ -201,6 +201,27 @@ return [
     'home.selfhost_label'        => 'Self-Hostable',
     'home.opensource_label'      => 'Open Source',
 
+    // Webhook special functions
+    'webhook.special_functions'      => 'Special Functions',
+    'webhook.special_functions_desc' => 'Activate an exclusive special behavior for this webhook. Only one function can be active at a time.',
+    'webhook.sfn_none'               => 'None',
+    'webhook.sfn_none_desc'          => 'Standard webhook behavior.',
+    'webhook.sfn_pixel'              => 'Pixel Image',
+    'webhook.sfn_pixel_desc'         => 'Transforms this webhook into a 1×1 transparent tracking pixel. Visiting the .png URL logs a PIXEL event.',
+    'webhook.sfn_file_upload'        => 'File Upload',
+    'webhook.sfn_file_upload_desc'   => 'Allows files to be sent via multipart/form-data POST. Files are logged alongside the event.',
+    'webhook.sfn_pixel_url_label'    => 'Pixel tracking URL (ends with .png)',
+    'webhook.sfn_copy_url'           => 'Copy ▾',
+    'webhook.sfn_copy_url_plain'     => 'URL',
+    'webhook.sfn_copy_img_tag'       => '<img> tag',
+    'webhook.sfn_copy_markdown'      => 'Markdown',
+    'webhook.sfn_file_note_title'    => 'Buffer mode — not for hosting',
+    'webhook.sfn_file_note_body'     => 'Files are stored alongside the event log as a temporary buffer for your workflows. No backup is provided. Do not use this for permanent file hosting.',
+
+    // Event files
+    'event.files'     => 'Attached Files',
+    'event.download'  => 'Download',
+
     // Webhook extra
     'webhook.settings'      => 'Webhook Settings',
     'webhook.status'        => 'Status',

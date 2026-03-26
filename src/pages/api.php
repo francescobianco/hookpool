@@ -20,7 +20,7 @@ switch ($action) {
         $filterCatId   = isset($_GET['category_id']) && $_GET['category_id'] !== '' ? (int)$_GET['category_id'] : null;
         $filterProjId  = isset($_GET['project_id']) && $_GET['project_id'] !== '' ? (int)$_GET['project_id'] : null;
         $filterWebhookId = isset($_GET['webhook_id']) && $_GET['webhook_id'] !== '' ? (int)$_GET['webhook_id'] : null;
-        $filterMethod  = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM'], true) ? $_GET['method'] : '';
+        $filterMethod  = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM','PIXEL','FILE'], true) ? $_GET['method'] : '';
         $filterStatus  = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
         $filterTime    = isset($_GET['time']) && in_array($_GET['time'], ['1h','24h','7d','30d'], true) ? $_GET['time'] : '';
         $limit         = min(100, max(1, (int)($_GET['limit'] ?? 50)));
@@ -188,6 +188,34 @@ switch ($action) {
 
         echo json_encode(['ok' => true]) . "\n";
         break;
+
+    // --- DOWNLOAD ATTACHED FILE ---
+    case 'download_file':
+        $fileId = (int)($_GET['id'] ?? 0);
+        // Verify ownership through event → webhook → project → user
+        $fStmt = $db->prepare('
+            SELECT ef.*, e.webhook_id
+            FROM event_files ef
+            JOIN events e ON e.id = ef.event_id
+            JOIN webhooks w ON w.id = e.webhook_id
+            JOIN projects p ON p.id = w.project_id
+            WHERE ef.id = ? AND p.user_id = ? AND p.deleted_at IS NULL AND w.deleted_at IS NULL
+        ');
+        $fStmt->execute([$fileId, $userId]);
+        $fileRow = $fStmt->fetch();
+        if (!$fileRow || !file_exists($fileRow['storage_path'])) {
+            http_response_code(404);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'not_found']) . "\n";
+            break;
+        }
+        $mime = $fileRow['mime_type'] ?: 'application/octet-stream';
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: attachment; filename="' . addslashes($fileRow['filename']) . '"');
+        header('Content-Length: ' . $fileRow['size']);
+        header('Cache-Control: no-store');
+        readfile($fileRow['storage_path']);
+        exit;
 
     default:
         http_response_code(404);

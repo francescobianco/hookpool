@@ -1319,12 +1319,13 @@ tr:last-child td { border-bottom: none; }
 .hero-github-btn { display: inline-flex; align-items: center; font-size: 0.96rem; }
 .hero-name {
     font-family: var(--font-mono);
-    font-size: 3rem;
+    font-size: 6rem;
     font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1;
     display: inline-block;
     vertical-align: middle;
+    margin: 0 0 8px -5px;
 }
 .hero-logo-img { height: 56px; width: auto; vertical-align: middle; margin-right: 0.6rem; }
 .hero-opensource-strip {
@@ -1418,6 +1419,91 @@ tr:last-child td { border-bottom: none; }
 }
 .landing-cta h2 { font-size: 2.1rem; margin-bottom: 0.85rem; }
 .landing-cta p { color: var(--text-muted); margin-bottom: 1.5rem; font-size: 1rem; }
+
+/* --- Special Functions ---------------------------------------------------- */
+.special-fn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.9rem;
+    margin-bottom: 1rem;
+}
+.special-fn-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    background: var(--bg-card);
+    position: relative;
+}
+.special-fn-card input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+.special-fn-card:hover  { border-color: var(--accent); background: var(--bg-hover); }
+.special-fn-card.active { border-color: var(--accent); background: var(--accent-light); }
+.special-fn-icon  { font-size: 1.5rem; line-height: 1; margin-bottom: 0.25rem; }
+.special-fn-title { font-weight: 700; font-size: 0.9rem; color: var(--text-primary); }
+.special-fn-desc  { font-size: 0.8rem; color: var(--text-muted); line-height: 1.45; margin: 0; }
+
+.special-fn-detail { border-top: 1px solid var(--border); padding-top: 1.25rem; }
+.pixel-url-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.pixel-url-code {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 0.8rem;
+}
+.pixel-copy-dropdown { position: relative; }
+.pixel-copy-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    min-width: 140px;
+    z-index: 50;
+    overflow: hidden;
+}
+.pixel-copy-option {
+    display: block; width: 100%; text-align: left;
+    background: none; border: none;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 14px; font-size: 0.86rem;
+    cursor: pointer; color: var(--text-primary);
+    transition: background 0.12s;
+}
+.pixel-copy-option:last-child { border-bottom: none; }
+.pixel-copy-option:hover { background: var(--bg-hover); }
+
+.special-fn-note {
+    display: flex; gap: 0.75rem; align-items: flex-start;
+    background: var(--warning-bg);
+    border: 1px solid rgba(213,138,17,.28);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+}
+.special-fn-note-icon { font-size: 1.3rem; flex-shrink: 0; }
+
+/* --- Event file attachments ----------------------------------------------- */
+.files-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.file-attachment {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+}
+.file-attachment-icon { font-size: 1.25rem; flex-shrink: 0; }
+.file-attachment-info { flex: 1; min-width: 0; }
+.file-attachment-name { font-weight: 600; font-size: 0.88rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-attachment-meta { font-size: 0.78rem; color: var(--text-muted); }
+
+/* PIXEL / FILE method badge variants */
+.badge-method.pixel { background: rgba(100,180,100,.15); color: #2d8a4e; }
+.badge-method.file  { background: rgba(130,90,200,.15);  color: #6b3fa0; }
 
 /* --- Utility Classes ------------------------------------------------------- */
 .text-muted  { color: var(--text-muted); }

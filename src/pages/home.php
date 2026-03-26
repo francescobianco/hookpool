@@ -29,7 +29,6 @@ $github_url = 'https://github.com/francescobianco/hookpool';
             </div>
 
             <h1 class="hero-title">
-                <img src="<?= BASE_URL ?>/<?= asset('assets/images/logo.png') ?>" alt="hookpool" class="hero-logo-img">
                 <span class="hero-name"><span class="logo-hook">hook</span><span class="logo-pool">pool</span></span>
                 <br><span class="hero-sub"><?= __('home.hero_title') ?></span>
             </h1>

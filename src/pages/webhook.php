@@ -592,6 +592,79 @@ if ($action === 'settings') {
             </div>
         </div>
 
+        <!-- Special Functions -->
+        <?php
+        $currentFn  = $wh['special_function'] ?? '';
+        $pixelUrl   = BASE_URL . '/' . rawurlencode($wh['project_slug']) . '/' . rawurlencode($wh['token']) . '.png';
+        $pixelImg   = '<img src="' . $pixelUrl . '" width="1" height="1" alt="" style="display:none">';
+        $pixelMd    = '![track](' . $pixelUrl . ')';
+        ?>
+        <div class="card">
+            <h3 style="margin-top:0"><?= __('webhook.special_functions') ?></h3>
+            <p class="text-muted" style="margin-bottom:1.25rem"><?= __('webhook.special_functions_desc') ?></p>
+
+            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>">
+                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                <input type="hidden" name="_action" value="set_special_function">
+                <div class="special-fn-grid">
+
+                    <label class="special-fn-card<?= $currentFn === '' ? ' active' : '' ?>">
+                        <input type="radio" name="special_function" value="" <?= $currentFn === '' ? 'checked' : '' ?> onchange="this.form.submit()">
+                        <div class="special-fn-icon">🔌</div>
+                        <div class="special-fn-title"><?= __('webhook.sfn_none') ?></div>
+                        <div class="special-fn-desc"><?= __('webhook.sfn_none_desc') ?></div>
+                    </label>
+
+                    <label class="special-fn-card<?= $currentFn === 'pixel' ? ' active' : '' ?>">
+                        <input type="radio" name="special_function" value="pixel" <?= $currentFn === 'pixel' ? 'checked' : '' ?> onchange="this.form.submit()">
+                        <div class="special-fn-icon">🎯</div>
+                        <div class="special-fn-title"><?= __('webhook.sfn_pixel') ?></div>
+                        <div class="special-fn-desc"><?= __('webhook.sfn_pixel_desc') ?></div>
+                    </label>
+
+                    <label class="special-fn-card<?= $currentFn === 'file_upload' ? ' active' : '' ?>">
+                        <input type="radio" name="special_function" value="file_upload" <?= $currentFn === 'file_upload' ? 'checked' : '' ?> onchange="this.form.submit()">
+                        <div class="special-fn-icon">📎</div>
+                        <div class="special-fn-title"><?= __('webhook.sfn_file_upload') ?></div>
+                        <div class="special-fn-desc"><?= __('webhook.sfn_file_upload_desc') ?></div>
+                    </label>
+
+                </div>
+            </form>
+
+            <?php if ($currentFn === 'pixel'): ?>
+            <div class="special-fn-detail" style="margin-top:1.5rem">
+                <p class="text-muted" style="font-size:0.88rem;margin-bottom:0.75rem"><?= __('webhook.sfn_pixel_url_label') ?></p>
+                <div class="pixel-url-row">
+                    <code class="pixel-url-code"><?= e($pixelUrl) ?></code>
+                    <div class="pixel-copy-dropdown" id="pixelCopyDropdown">
+                        <button type="button" class="btn btn-sm btn-outline pixel-copy-trigger" onclick="togglePixelDropdown(event)">
+                            <?= __('webhook.sfn_copy_url') ?> ▾
+                        </button>
+                        <div class="pixel-copy-menu" id="pixelCopyMenu" style="display:none">
+                            <button class="pixel-copy-option" onclick="doCopy(<?= json_encode($pixelUrl) ?>, this, 'URL')"><?= __('webhook.sfn_copy_url_plain') ?></button>
+                            <button class="pixel-copy-option" onclick="doCopy(<?= json_encode($pixelImg) ?>, this, '&lt;img&gt;')"><?= __('webhook.sfn_copy_img_tag') ?></button>
+                            <button class="pixel-copy-option" onclick="doCopy(<?= json_encode($pixelMd) ?>, this, 'Markdown')"><?= __('webhook.sfn_copy_markdown') ?></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($currentFn === 'file_upload'): ?>
+            <div class="special-fn-detail special-fn-note" style="margin-top:1.5rem">
+                <div class="special-fn-note-icon">⚠️</div>
+                <div>
+                    <strong><?= __('webhook.sfn_file_note_title') ?></strong>
+                    <p style="margin:0.35rem 0 0"><?= __('webhook.sfn_file_note_body') ?></p>
+                    <p style="margin:0.5rem 0 0;font-family:var(--font-mono);font-size:0.8rem;color:var(--text-muted)">
+                        Content-Type: <code>multipart/form-data</code>
+                    </p>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+
         <!-- Danger Zone -->
         <div class="card" style="border-color:var(--color-danger,#e74c3c)">
             <h3 style="margin-top:0;color:var(--color-danger,#e74c3c)"><?= __('settings.danger_zone') ?></h3>
@@ -599,6 +672,23 @@ if ($action === 'settings') {
             <button onclick="openModal('deleteWebhookModal')" class="btn btn-danger"><?= __('webhook.delete') ?></button>
         </div>
     </div>
+
+    <script>
+    function togglePixelDropdown(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('pixelCopyMenu');
+        if (menu) menu.style.display = menu.style.display === 'none' ? '' : 'none';
+    }
+    document.addEventListener('click', function() {
+        const menu = document.getElementById('pixelCopyMenu');
+        if (menu) menu.style.display = 'none';
+    });
+    function doCopy(text, btn, label) {
+        copyToClipboard(text, btn);
+        const menu = document.getElementById('pixelCopyMenu');
+        if (menu) menu.style.display = 'none';
+    }
+    </script>
 
     <!-- Delete Modal -->
     <div id="deleteWebhookModal" class="modal" style="display:none" aria-hidden="true">
