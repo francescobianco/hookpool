@@ -246,6 +246,9 @@
         <a href="?lang=<?= $l ?>" class="footer-lang-btn<?= $active ?>"><?= $langLabels[$l] ?? strtoupper($l) ?></a>
         <?php endforeach; ?>
     </div>
+    <div class="footer-pwa">
+        <a href="#" id="footerPwaLink" class="footer-pwa-link" style="display:none">⊕ Install App</a>
+    </div>
 </footer>
 
 <script>
@@ -362,48 +365,75 @@ if ('serviceWorker' in navigator) {
 
 // PWA install prompt
 (function() {
-    const banner   = document.getElementById('pwaInstallBanner');
+    const banner     = document.getElementById('pwaInstallBanner');
     const installBtn = document.getElementById('pwaInstallBtn');
     const dismissBtn = document.getElementById('pwaInstallDismiss');
-    if (!banner) return;
+    const footerLink = document.getElementById('footerPwaLink');
 
-    // Don't show if already dismissed or already installed
-    if (localStorage.getItem('pwaInstallDismissed') === '1') return;
-    if (window.matchMedia('(display-mode: standalone)').matches) return;
-    if (navigator.standalone) return; // iOS Safari standalone
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (isStandalone) return; // already installed, hide everything
 
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
     let deferredPrompt = null;
 
+    // Footer link: always visible on iOS, visible on Android once prompt is ready
+    function showFooterLink() {
+        if (footerLink) footerLink.style.display = '';
+    }
+
+    // --- Android / Chrome install flow ---
     window.addEventListener('beforeinstallprompt', e => {
         e.preventDefault();
         deferredPrompt = e;
-        banner.style.display = 'flex';
+        showFooterLink();
+        // Show banner only if not dismissed
+        if (banner && localStorage.getItem('pwaInstallDismissed') !== '1') {
+            banner.style.display = '';
+        }
     });
 
-    installBtn.addEventListener('click', async () => {
+    async function triggerInstall() {
         if (!deferredPrompt) return;
         await deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         deferredPrompt = null;
-        banner.style.display = 'none';
-        localStorage.setItem('pwaInstallDismissed', '1');
-    });
+        if (banner) banner.style.display = 'none';
+        if (outcome === 'accepted' && footerLink) footerLink.style.display = 'none';
+    }
 
-    dismissBtn.addEventListener('click', () => {
-        banner.style.display = 'none';
-        localStorage.setItem('pwaInstallDismissed', '1');
-    });
+    if (installBtn) installBtn.addEventListener('click', triggerInstall);
 
-    // iOS Safari: no beforeinstallprompt, show manual hint
-    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const isInStandalone = window.navigator.standalone;
-    if (isIos && !isInStandalone && localStorage.getItem('pwaInstallDismissed') !== '1') {
-        // Replace install button with instruction text for iOS
-        installBtn.textContent = 'Come fare →';
-        installBtn.addEventListener('click', () => {
-            alert('Su Safari: tocca il tasto Condividi (□↑) e poi "Aggiungi alla schermata Home".');
-        }, { once: true });
-        banner.style.display = 'flex';
+    if (footerLink) {
+        footerLink.addEventListener('click', e => {
+            e.preventDefault();
+            if (deferredPrompt) {
+                triggerInstall();
+            } else if (isIos) {
+                alert('Su Safari: tocca il tasto Condividi (□↑) e poi "Aggiungi alla schermata Home".');
+            }
+        });
+    }
+
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', () => {
+            if (banner) banner.style.display = 'none';
+            localStorage.setItem('pwaInstallDismissed', '1');
+            // footer link remains visible after dismiss
+        });
+    }
+
+    // --- iOS: no beforeinstallprompt, always show footer link and banner (if not dismissed) ---
+    if (isIos) {
+        showFooterLink();
+        if (banner && localStorage.getItem('pwaInstallDismissed') !== '1') {
+            if (installBtn) {
+                installBtn.querySelector('.pwa-install-cta').textContent = 'Come →';
+                installBtn.addEventListener('click', () => {
+                    alert('Su Safari: tocca il tasto Condividi (□↑) e poi "Aggiungi alla schermata Home".');
+                });
+            }
+            banner.style.display = '';
+        }
     }
 })();
 </script>

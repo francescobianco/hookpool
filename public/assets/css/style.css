@@ -437,6 +437,15 @@ details > summary { cursor: pointer; user-select: none; }
 }
 .footer-lang-btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 .footer-lang-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.footer-pwa { display: flex; align-items: center; }
+.footer-pwa-link {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-decoration: none;
+    opacity: 0.55;
+    transition: opacity 0.15s, color 0.15s;
+}
+.footer-pwa-link:hover { opacity: 1; color: var(--primary); text-decoration: none; }
 
 /* --- Page Structure -------------------------------------------------------- */
 .page-container { max-width: 1180px; }
