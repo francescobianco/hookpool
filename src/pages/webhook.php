@@ -97,7 +97,7 @@ if ($action === 'delete_guard' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $db->prepare("UPDATE guards SET deleted_at = datetime('now') WHERE id = ?")->execute([$guardId]);
+    $db->prepare("UPDATE guards SET deleted_at = ? WHERE id = ?")->execute([date('Y-m-d H:i:s'), $guardId]);
     setFlash('success', __('guard.deleted'));
     header('Location: ' . BASE_URL . '/?page=' . $redirect);
     exit;
@@ -230,7 +230,7 @@ if ($action === 'delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $wh = loadWebhookForUser($db, $webhookId, $userId);
     if (!$wh) { setFlash('error', __('msg.unauthorized')); header('Location: ' . BASE_URL . '/?page=project'); exit; }
 
-    $db->prepare("UPDATE webhooks SET deleted_at = datetime('now') WHERE id = ?")->execute([$webhookId]);
+    $db->prepare("UPDATE webhooks SET deleted_at = ? WHERE id = ?")->execute([date('Y-m-d H:i:s'), $webhookId]);
     setFlash('success', __('webhook.deleted'));
     header('Location: ' . BASE_URL . '/?page=project&action=detail&id=' . $wh['project_id']);
     exit;
@@ -339,7 +339,7 @@ if ($action === 'delete_forward' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $fa = $faStmt->fetch();
     if (!$fa) { setFlash('error', __('msg.unauthorized')); header('Location: ' . BASE_URL . '/?page=project'); exit; }
 
-    $db->prepare("UPDATE forward_actions SET deleted_at = datetime('now') WHERE id = ?")->execute([$forwardId]);
+    $db->prepare("UPDATE forward_actions SET deleted_at = ? WHERE id = ?")->execute([date('Y-m-d H:i:s'), $forwardId]);
     setFlash('success', __('forward.deleted'));
     header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $fa['webhook_id']);
     exit;
@@ -481,7 +481,7 @@ if ($action === 'delete_alarm' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $al = $alStmt->fetch();
     if (!$al) { setFlash('error', __('msg.unauthorized')); header('Location: ' . BASE_URL . '/?page=project'); exit; }
 
-    $db->prepare("UPDATE alarms SET deleted_at = datetime('now') WHERE id = ?")->execute([$alarmId]);
+    $db->prepare("UPDATE alarms SET deleted_at = ? WHERE id = ?")->execute([date('Y-m-d H:i:s'), $alarmId]);
     setFlash('success', __('alarm.deleted'));
     header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $al['webhook_id']);
     exit;
@@ -585,7 +585,7 @@ if ($action === 'settings') {
             header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
             exit;
         }
-        $db->prepare("UPDATE webhooks SET deleted_at = datetime('now') WHERE id = ?")->execute([$webhookId]);
+        $db->prepare("UPDATE webhooks SET deleted_at = ? WHERE id = ?")->execute([date('Y-m-d H:i:s'), $webhookId]);
         setFlash('success', __('webhook.deleted'));
         header('Location: ' . BASE_URL . '/?page=project&action=detail&id=' . $wh['project_id']);
         exit;

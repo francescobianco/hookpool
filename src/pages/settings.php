@@ -21,7 +21,6 @@ if ($action === 'delete_account' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Soft delete user and all their data
-    $now = "datetime('now')";
 
     // Get all user project IDs
     $projIds = $db->prepare('SELECT id FROM projects WHERE user_id = ? AND deleted_at IS NULL');
@@ -50,10 +49,10 @@ if ($action === 'delete_account' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Soft-delete categories
-    $db->prepare("UPDATE categories SET deleted_at = datetime('now') WHERE user_id = ?")->execute([$userId]);
+    $db->prepare("UPDATE categories SET deleted_at = ? WHERE user_id = ?")->execute([date('Y-m-d H:i:s'), $userId]);
 
     // Soft-delete user
-    $db->prepare("UPDATE users SET deleted_at = datetime('now') WHERE id = ?")->execute([$userId]);
+    $db->prepare("UPDATE users SET deleted_at = ? WHERE id = ?")->execute([date('Y-m-d H:i:s'), $userId]);
 
     // Destroy session and redirect
     setFlash('success', __('settings.account_deleted'));
@@ -106,8 +105,8 @@ if ($action === 'delete_category' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     if ($catId > 0) {
-        $db->prepare("UPDATE categories SET deleted_at = datetime('now') WHERE id = ? AND user_id = ?")
-           ->execute([$catId, $userId]);
+        $db->prepare("UPDATE categories SET deleted_at = ? WHERE id = ? AND user_id = ?")
+           ->execute([date('Y-m-d H:i:s'), $catId, $userId]);
         $db->prepare('UPDATE projects SET category_id = NULL WHERE category_id = ? AND user_id = ?')
            ->execute([$catId, $userId]);
         setFlash('success', __('msg.deleted'));

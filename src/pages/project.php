@@ -508,8 +508,9 @@ if ($action === 'delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     // Soft delete project and its webhooks
-    $db->prepare("UPDATE projects SET deleted_at = datetime('now') WHERE id = ? AND user_id = ?")->execute([$projectId, $userId]);
-    $db->prepare("UPDATE webhooks SET deleted_at = datetime('now') WHERE project_id = ?")->execute([$projectId]);
+    $now = date('Y-m-d H:i:s');
+    $db->prepare("UPDATE projects SET deleted_at = ? WHERE id = ? AND user_id = ?")->execute([$now, $projectId, $userId]);
+    $db->prepare("UPDATE webhooks SET deleted_at = ? WHERE project_id = ?")->execute([$now, $projectId]);
 
     setFlash('success', __('project.deleted'));
     header('Location: ' . BASE_URL . '/?page=project');
