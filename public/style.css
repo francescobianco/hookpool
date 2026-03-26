@@ -58,6 +58,9 @@ html {
 body {
     margin: 0;
     padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     background:
         radial-gradient(circle at top left, #ffe5d8 0, transparent 28%),
         radial-gradient(circle at top right, #fff0b8 0, transparent 24%),
@@ -247,7 +250,7 @@ details > summary { cursor: pointer; user-select: none; }
 /* --- Layout: App body ----------------------------------------------------- */
 .app-body {
     display: flex;
-    min-height: calc(100vh - var(--header-height) - 40px);
+    flex: 1;
 }
 
 /* --- Sidebar --------------------------------------------------------------- */
