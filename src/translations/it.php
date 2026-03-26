@@ -118,6 +118,8 @@ return [
     'forward.active'        => 'Attivo',
     'forward.created'       => 'Azione di forwarding aggiunta.',
     'forward.deleted'       => 'Azione di forwarding rimossa.',
+    'forward.updated'       => 'Azione di forwarding aggiornata.',
+    'forward.url_required'  => 'L\'URL è obbligatorio.',
     'forward.not_found'     => 'Azione di forwarding non trovata.',
     'forward.attempt_status'=> 'Stato Risposta',
     'forward.attempt_error' => 'Errore',

@@ -1096,19 +1096,36 @@ tr:last-child td { border-bottom: none; }
 .meta-value { font-size: 0.96rem; }
 
 /* --- Forward Action Cards -------------------------------------------------- */
-.forward-actions-list { display: flex; flex-direction: column; gap: 0.75rem; }
-.card-forward .card-header { margin-bottom: 0; }
-.forward-url { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.3rem; flex-wrap: wrap; }
-.forward-url code { font-size: 0.78rem; color: var(--text-muted); }
-.forward-conditions { margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.78rem; color: var(--text-muted); }
+/* Forward actions — compact row list */
+.fa-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.fa-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; background: var(--bg-card); }
+.fa-row + .fa-row { border-top: 1px solid var(--border); }
+.fa-row.fa-inactive { opacity: 0.55; }
+.fa-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; overflow: hidden; }
+.fa-name { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fa-url { font-family: var(--font-mono); font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fa-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* Dropdown */
+.fa-dropdown { position: relative; }
+.fa-dropdown-menu {
+    position: absolute; right: 0; top: calc(100% + 4px); z-index: 200;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: 0 4px 16px rgba(0,0,0,.18); min-width: 140px; padding: 4px 0;
+}
+.fa-menu-item {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    padding: 7px 14px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);
+}
+.fa-menu-item:hover { background: var(--bg-secondary); }
+.fa-menu-item-danger { color: var(--error); }
+.fa-menu-item-danger:hover { background: rgba(239,68,68,.08); }
+.fa-dropdown form { margin: 0; }
+
+/* Legacy (kept for condition tags used elsewhere) */
 .condition-tag {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 2px 8px;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: var(--text-primary);
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 2px 8px;
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-primary);
 }
 .forward-meta { margin-top: 0.4rem; }
 

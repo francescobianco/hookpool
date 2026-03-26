@@ -345,6 +345,75 @@ if ($action === 'delete_forward' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// --- TOGGLE FORWARD ACTION ---
+if ($action === 'toggle_forward' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $forwardId = (int)($_POST['forward_id'] ?? 0);
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=project'); exit;
+    }
+    $faStmt = $db->prepare('
+        SELECT fa.id, fa.webhook_id, fa.active FROM forward_actions fa
+        JOIN webhooks w ON w.id = fa.webhook_id
+        JOIN projects p ON p.id = w.project_id
+        WHERE fa.id = ? AND p.user_id = ? AND fa.deleted_at IS NULL
+    ');
+    $faStmt->execute([$forwardId, $userId]);
+    $fa = $faStmt->fetch();
+    if (!$fa) { setFlash('error', __('msg.unauthorized')); header('Location: ' . BASE_URL . '/?page=project'); exit; }
+    $db->prepare('UPDATE forward_actions SET active = ? WHERE id = ?')->execute([$fa['active'] ? 0 : 1, $forwardId]);
+    header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $fa['webhook_id']);
+    exit;
+}
+
+// --- EDIT FORWARD ACTION ---
+if ($action === 'edit_forward' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $forwardId = (int)($_POST['forward_id'] ?? 0);
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=project'); exit;
+    }
+    $faStmt = $db->prepare('
+        SELECT fa.id, fa.webhook_id FROM forward_actions fa
+        JOIN webhooks w ON w.id = fa.webhook_id
+        JOIN projects p ON p.id = w.project_id
+        WHERE fa.id = ? AND p.user_id = ? AND fa.deleted_at IS NULL
+    ');
+    $faStmt->execute([$forwardId, $userId]);
+    $fa = $faStmt->fetch();
+    if (!$fa) { setFlash('error', __('msg.unauthorized')); header('Location: ' . BASE_URL . '/?page=project'); exit; }
+
+    $name          = trim($_POST['name'] ?? '');
+    $url           = trim($_POST['url'] ?? '');
+    $method        = in_array($_POST['method'] ?? '', ['GET','POST','PUT','PATCH'], true) ? $_POST['method'] : 'POST';
+    $bodyTemplate  = trim($_POST['body_template'] ?? '');
+    $timeout       = max(1, min(60, (int)($_POST['timeout'] ?? 10)));
+    $active        = isset($_POST['active']) ? 1 : 0;
+    $headersRaw    = trim($_POST['custom_headers'] ?? '');
+    $headersJson   = '{}';
+    if ($headersRaw !== '') {
+        $parsedH = [];
+        foreach (explode("\n", $headersRaw) as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+            $parts = explode(':', $line, 2);
+            if (count($parts) === 2) $parsedH[trim($parts[0])] = trim($parts[1]);
+        }
+        $headersJson = json_encode($parsedH);
+    }
+
+    if ($url === '') {
+        setFlash('error', __('forward.url_required'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $fa['webhook_id']); exit;
+    }
+
+    $db->prepare('UPDATE forward_actions SET name=?, url=?, method=?, body_template=?, custom_headers=?, timeout=?, active=? WHERE id=?')
+       ->execute([$name, $url, $method, $bodyTemplate, $headersJson, $timeout, $active, $forwardId]);
+    setFlash('success', __('forward.updated'));
+    header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $fa['webhook_id']);
+    exit;
+}
+
 // --- ADD ALARM ---
 if ($action === 'add_alarm' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
@@ -876,45 +945,62 @@ ob_start();
         <?php if (empty($forwardActions)): ?>
         <p class="text-muted">Nessuna azione configurata. Aggiungine una per inoltrare gli eventi ad altri endpoint.</p>
         <?php else: ?>
-        <div class="forward-actions-list">
+        <div class="fa-list">
             <?php foreach ($forwardActions as $fa): ?>
-            <?php $faConds = json_decode($fa['conditions'] ?? '[]', true) ?: []; ?>
-            <div class="card card-forward">
-                <div class="card-header">
-                    <div>
-                        <h4 class="card-title"><?= e($fa['name'] ?: $fa['url']) ?></h4>
-                        <div class="forward-url">
-                            <span class="badge badge-method-sm <?= strtolower($fa['method']) ?>"><?= e($fa['method']) ?></span>
-                            <code><?= e($fa['url']) ?></code>
+            <?php
+                $faConds      = json_decode($fa['conditions'] ?? '[]', true) ?: [];
+                $faHeadersRaw = '';
+                $faParsed     = json_decode($fa['custom_headers'] ?? '{}', true);
+                if (is_array($faParsed)) {
+                    foreach ($faParsed as $k => $v) $faHeadersRaw .= "$k: $v\n";
+                }
+                $faHeadersRaw = trim($faHeadersRaw);
+            ?>
+            <div class="fa-row<?= $fa['active'] ? '' : ' fa-inactive' ?>">
+                <div class="fa-info">
+                    <span class="badge-method badge-method-sm <?= strtolower($fa['method']) ?>"><?= e($fa['method']) ?></span>
+                    <?php if ($fa['name']): ?>
+                    <span class="fa-name"><?= e($fa['name']) ?></span>
+                    <span class="fa-url text-muted"><?= e($fa['url']) ?></span>
+                    <?php else: ?>
+                    <span class="fa-url"><?= e($fa['url']) ?></span>
+                    <?php endif; ?>
+                </div>
+                <div class="fa-meta">
+                    <span class="badge <?= $fa['active'] ? 'badge-success' : 'badge-muted' ?>"><?= $fa['active'] ? 'Active' : 'Inactive' ?></span>
+                    <div class="fa-dropdown" id="faDrop<?= (int)$fa['id'] ?>">
+                        <button class="btn btn-xs btn-outline fa-dropdown-toggle" onclick="toggleFaMenu(<?= (int)$fa['id'] ?>, event)">
+                            Azioni ▾
+                        </button>
+                        <div class="fa-dropdown-menu" style="display:none">
+                            <button class="fa-menu-item" onclick="openEditForwardModal(
+                                <?= (int)$fa['id'] ?>,
+                                <?= htmlspecialchars(json_encode($fa['name'] ?? '')) ?>,
+                                <?= htmlspecialchars(json_encode($fa['url'])) ?>,
+                                <?= htmlspecialchars(json_encode($fa['method'])) ?>,
+                                <?= htmlspecialchars(json_encode($fa['body_template'] ?? '')) ?>,
+                                <?= htmlspecialchars(json_encode($faHeadersRaw)) ?>,
+                                <?= (int)$fa['timeout'] ?>,
+                                <?= $fa['active'] ? 'true' : 'false' ?>
+                            )">Modifica</button>
+                            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=toggle_forward">
+                                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                                <input type="hidden" name="forward_id" value="<?= (int)$fa['id'] ?>">
+                                <button type="submit" class="fa-menu-item"><?= $fa['active'] ? 'Disattiva' : 'Attiva' ?></button>
+                            </form>
+                            <button class="fa-menu-item" onclick="openTestForwardModal(
+                                <?= (int)$fa['id'] ?>,
+                                <?= htmlspecialchars(json_encode($fa['name'] ?: $fa['url'])) ?>,
+                                <?= htmlspecialchars(json_encode($fa['body_template'] ?? '')) ?>
+                            )">Testa</button>
+                            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=delete_forward&forward_id=<?= $fa['id'] ?>">
+                                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                                <button type="submit" class="fa-menu-item fa-menu-item-danger"
+                                        onclick="return confirm('Rimuovere questa azione?')">Elimina</button>
+                            </form>
                         </div>
                     </div>
-                    <div class="card-actions">
-                        <span class="badge <?= $fa['active'] ? 'badge-success' : 'badge-muted' ?>"><?= $fa['active'] ? 'Active' : 'Inactive' ?></span>
-                        <button type="button" class="btn btn-xs btn-outline"
-                            onclick="openTestForwardModal(<?= (int)$fa['id'] ?>, <?= htmlspecialchars(json_encode($fa['name'] ?: $fa['url'])) ?>, <?= htmlspecialchars(json_encode($fa['body_template'] ?? '')) ?>)">
-                            Testa Azione
-                        </button>
-                        <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=delete_forward&forward_id=<?= $fa['id'] ?>" class="inline">
-                            <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
-                            <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Remove this forward action?')">Remove</button>
-                        </form>
-                    </div>
                 </div>
-                <?php if (!empty($faConds)): ?>
-                <div class="forward-conditions">
-                    <strong>Conditions:</strong>
-                    <?php foreach ($faConds as $cond): ?>
-                    <span class="condition-tag">
-                        <?= e($cond['type'] ?? '') ?><?= isset($cond['field']) ? '.' . e($cond['field']) : '' ?>
-                        <?= e($cond['operator'] ?? '') ?>
-                        <?= isset($cond['value']) ? '"' . e($cond['value']) . '"' : '' ?>
-                    </span>
-                    <?php endforeach; ?>
-                </div>
-                <?php endif; ?>
-                <?php if ($fa['timeout'] != 10): ?>
-                <div class="forward-meta text-muted text-sm">Timeout: <?= (int)$fa['timeout'] ?>s</div>
-                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>
@@ -1339,6 +1425,17 @@ function updateAlarmFields(type) {
     </div>
 </div>
 <script>
+if (typeof escapeHtml !== 'function') {
+    function escapeHtml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+}
+
 let _testForwardActionId = null;
 let _testForwardTemplate = '';
 
@@ -1416,6 +1513,96 @@ function submitTestForward() {
         btn.textContent = 'Esegui';
     });
 }
+</script>
+
+<!-- Edit Forward Action Modal -->
+<div id="editForwardModal" class="modal" style="display:none" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+            <h3>Modifica Azione</h3>
+            <button onclick="closeModal('editForwardModal')" class="modal-close">&times;</button>
+        </div>
+        <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=edit_forward">
+            <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+            <input type="hidden" name="forward_id" id="editForwardId">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label><?= __('forward.name') ?></label>
+                    <input type="text" name="name" id="editForwardName" placeholder="My Forward Action" maxlength="100">
+                </div>
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label><?= __('forward.url') ?> <span class="required">*</span></label>
+                        <input type="url" name="url" id="editForwardUrl" required>
+                    </div>
+                    <div class="form-group form-group-sm">
+                        <label><?= __('forward.method') ?></label>
+                        <select name="method" id="editForwardMethod">
+                            <option value="POST">POST</option>
+                            <option value="GET">GET</option>
+                            <option value="PUT">PUT</option>
+                            <option value="PATCH">PATCH</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><?= __('forward.headers') ?></label>
+                    <textarea name="custom_headers" id="editForwardHeaders" rows="3" placeholder="Authorization: Bearer my-token"></textarea>
+                    <p class="form-hint"><?= __('forward.headers_hint') ?></p>
+                </div>
+                <div class="form-group">
+                    <label><?= __('forward.body_template') ?></label>
+                    <textarea name="body_template" id="editForwardBody" rows="3"></textarea>
+                    <p class="form-hint"><?= __('forward.body_hint') ?></p>
+                </div>
+                <div class="form-row">
+                    <div class="form-group form-group-sm">
+                        <label><?= __('forward.timeout') ?></label>
+                        <input type="number" name="timeout" id="editForwardTimeout" value="10" min="1" max="60">
+                    </div>
+                    <div class="form-group form-group-sm" style="align-self:flex-end;padding-bottom:4px">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="active" id="editForwardActive" value="1">
+                            <?= __('forward.active') ?>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary"><?= __('form.save') ?></button>
+                <button type="button" onclick="closeModal('editForwardModal')" class="btn btn-outline"><?= __('form.cancel') ?></button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openEditForwardModal(id, name, url, method, bodyTemplate, headers, timeout, active) {
+    document.getElementById('editForwardId').value      = id;
+    document.getElementById('editForwardName').value    = name;
+    document.getElementById('editForwardUrl').value     = url;
+    document.getElementById('editForwardBody').value    = bodyTemplate;
+    document.getElementById('editForwardHeaders').value = headers;
+    document.getElementById('editForwardTimeout').value = timeout;
+    document.getElementById('editForwardActive').checked = active;
+    const sel = document.getElementById('editForwardMethod');
+    for (let o of sel.options) o.selected = (o.value === method);
+    closeAllFaMenus();
+    openModal('editForwardModal');
+}
+
+function toggleFaMenu(id, e) {
+    e.stopPropagation();
+    const menu = document.querySelector('#faDrop' + id + ' .fa-dropdown-menu');
+    const isOpen = menu.style.display !== 'none';
+    closeAllFaMenus();
+    if (!isOpen) menu.style.display = '';
+}
+
+function closeAllFaMenus() {
+    document.querySelectorAll('.fa-dropdown-menu').forEach(m => m.style.display = 'none');
+}
+
+document.addEventListener('click', closeAllFaMenus);
 </script>
 
 <!-- Guard Modal -->

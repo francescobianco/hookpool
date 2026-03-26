@@ -118,6 +118,8 @@ return [
     'forward.active'        => 'Active',
     'forward.created'       => 'Forward action added.',
     'forward.deleted'       => 'Forward action removed.',
+    'forward.updated'       => 'Forward action updated.',
+    'forward.url_required'  => 'URL is required.',
     'forward.not_found'     => 'Forward action not found.',
     'forward.attempt_status'=> 'Response Status',
     'forward.attempt_error' => 'Error',
