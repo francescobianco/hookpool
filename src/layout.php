@@ -9,6 +9,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="<?= BASE_URL ?>/manifest.php">
+    <meta name="theme-color" content="#ff5a36">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="<?= APP_NAME ?>">
     <link rel="icon" type="image/x-icon" href="<?= BASE_URL ?>/<?= asset('favicon.ico') ?>">
     <link rel="icon" type="image/png" sizes="32x32" href="<?= BASE_URL ?>/<?= asset('favicon-32x32.png') ?>">
     <link rel="apple-touch-icon" sizes="180x180" href="<?= BASE_URL ?>/<?= asset('apple-touch-icon.png') ?>">
@@ -202,6 +208,18 @@
                 </div>
                 <?php endforeach; ?>
             <?php endif; ?>
+        <!-- PWA install banner -->
+        <div class="pwa-install-banner" id="pwaInstallBanner" style="display:none">
+            <div class="pwa-install-icon">
+                <img src="<?= BASE_URL ?>/icon-192.png" alt="<?= APP_NAME ?>">
+            </div>
+            <div class="pwa-install-text">
+                <strong>Installa <?= APP_NAME ?></strong>
+                <span>Aggiungila alla home del telefono</span>
+            </div>
+            <button class="pwa-install-btn" id="pwaInstallBtn">Installa</button>
+            <button class="pwa-install-dismiss" id="pwaInstallDismiss" aria-label="Chiudi">×</button>
+        </div>
         </div>
     </aside>
     <?php endif; ?>
@@ -334,6 +352,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000);
     });
 });
+</script>
+<script>
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('<?= BASE_URL ?>/sw.js', {scope: '<?= BASE_URL ?>/'})
+        .catch(() => {});
+}
+
+// PWA install prompt
+(function() {
+    const banner   = document.getElementById('pwaInstallBanner');
+    const installBtn = document.getElementById('pwaInstallBtn');
+    const dismissBtn = document.getElementById('pwaInstallDismiss');
+    if (!banner) return;
+
+    // Don't show if already dismissed or already installed
+    if (localStorage.getItem('pwaInstallDismissed') === '1') return;
+    if (window.matchMedia('(display-mode: standalone)').matches) return;
+    if (navigator.standalone) return; // iOS Safari standalone
+
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
+        banner.style.display = 'flex';
+    });
+
+    installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        banner.style.display = 'none';
+        if (outcome === 'accepted') {
+            localStorage.setItem('pwaInstallDismissed', '1');
+        }
+    });
+
+    dismissBtn.addEventListener('click', () => {
+        banner.style.display = 'none';
+        localStorage.setItem('pwaInstallDismissed', '1');
+    });
+
+    // iOS Safari: no beforeinstallprompt, show manual hint
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isInStandalone = window.navigator.standalone;
+    if (isIos && !isInStandalone && localStorage.getItem('pwaInstallDismissed') !== '1') {
+        // Replace install button with instruction text for iOS
+        installBtn.textContent = 'Come fare →';
+        installBtn.addEventListener('click', () => {
+            alert('Su Safari: tocca il tasto Condividi (□↑) e poi "Aggiungi alla schermata Home".');
+        }, { once: true });
+        banner.style.display = 'flex';
+    }
+})();
 </script>
 </body>
 </html>

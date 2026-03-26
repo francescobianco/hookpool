@@ -1595,6 +1595,47 @@ tr:last-child td { border-bottom: none; }
     .user-name { display: none; }
 }
 
+/* PWA install banner */
+.pwa-install-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 10px 4px;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.82rem;
+}
+.pwa-install-icon img { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; }
+.pwa-install-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pwa-install-text strong { font-size: 0.84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pwa-install-text span { font-size: 0.75rem; color: var(--text-muted); }
+.pwa-install-btn {
+    flex-shrink: 0;
+    padding: 5px 10px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pwa-install-btn:hover { background: var(--primary-dark); }
+.pwa-install-dismiss {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 2px;
+}
+.pwa-install-dismiss:hover { color: var(--text-primary); }
+
 /* System Diagnose */
 .diag-table { width: 100%; border-collapse: collapse; }
 .diag-table tr + tr td { border-top: 1px solid var(--border); }
