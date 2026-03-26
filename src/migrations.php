@@ -8,4 +8,5 @@ $migrations = [
     __DIR__ . '/migrations/20260325000005_create_alarms.php',
     __DIR__ . '/migrations/20260325000006_add_webhook_paused_until.php',
     __DIR__ . '/migrations/20260325000007_create_filter_presets.php',
+    __DIR__ . '/migrations/20260326000001_add_special_functions.php',
 ];
