@@ -1592,10 +1592,25 @@ function openEditForwardModal(id, name, url, method, bodyTemplate, headers, time
 
 function toggleFaMenu(id, e) {
     e.stopPropagation();
+    const btn  = e.currentTarget;
     const menu = document.querySelector('#faDrop' + id + ' .fa-dropdown-menu');
     const isOpen = menu.style.display !== 'none';
     closeAllFaMenus();
-    if (!isOpen) menu.style.display = '';
+    if (!isOpen) {
+        const rect = btn.getBoundingClientRect();
+        menu.style.display = '';
+        // Position: align right edge of menu to right edge of button
+        const menuW = menu.offsetWidth || 150;
+        let left = rect.right - menuW;
+        let top  = rect.bottom + 4;
+        // Keep within viewport
+        if (left < 4) left = 4;
+        if (top + menu.offsetHeight > window.innerHeight - 8) {
+            top = rect.top - menu.offsetHeight - 4;
+        }
+        menu.style.left = left + 'px';
+        menu.style.top  = top  + 'px';
+    }
 }
 
 function closeAllFaMenus() {
@@ -1603,6 +1618,7 @@ function closeAllFaMenus() {
 }
 
 document.addEventListener('click', closeAllFaMenus);
+window.addEventListener('scroll', closeAllFaMenus, true);
 </script>
 
 <!-- Guard Modal -->

@@ -1106,8 +1106,11 @@ tr:last-child td { border-bottom: none; }
 
 /* --- Forward Action Cards -------------------------------------------------- */
 /* Forward actions — compact row list */
-.fa-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.fa-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); }
 .fa-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; background: var(--bg-card); }
+.fa-row:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+.fa-row:last-child  { border-radius: 0 0 var(--radius) var(--radius); }
+.fa-row:only-child  { border-radius: var(--radius); }
 .fa-row + .fa-row { border-top: 1px solid var(--border); }
 .fa-row.fa-inactive { opacity: 0.55; }
 .fa-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; overflow: hidden; }
@@ -1117,9 +1120,9 @@ tr:last-child td { border-bottom: none; }
 /* Dropdown */
 .fa-dropdown { position: relative; }
 .fa-dropdown-menu {
-    position: absolute; right: 0; top: calc(100% + 4px); z-index: 200;
+    position: fixed; z-index: 1000;
     background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-    box-shadow: 0 4px 16px rgba(0,0,0,.18); min-width: 140px; padding: 4px 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,.18); min-width: 150px; padding: 4px 0;
 }
 .fa-menu-item {
     display: block; width: 100%; text-align: left; background: none; border: none;
