@@ -1577,3 +1577,10 @@ tr:last-child td { border-bottom: none; }
     .header-nav .nav-link { display: none; }
     .user-name { display: none; }
 }
+
+/* System Diagnose */
+.diag-table { width: 100%; border-collapse: collapse; }
+.diag-table tr + tr td { border-top: 1px solid var(--border); }
+.diag-table td { padding: 9px 12px; vertical-align: middle; font-size: 0.88rem; }
+.diag-table td:first-child { color: var(--text-muted); width: 40%; }
+.diag-table td:last-child { text-align: right; white-space: nowrap; }

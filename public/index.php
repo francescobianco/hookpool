@@ -23,7 +23,7 @@ if (isset($_GET['lang']) && in_array($_GET['lang'], SUPPORTED_LANGS)) {
 }
 
 $page = $_GET['page'] ?? 'home';
-$allowed_pages = ['home', 'auth', 'dashboard', 'project', 'webhook', 'event', 'api', 'settings', 'cron'];
+$allowed_pages = ['home', 'auth', 'dashboard', 'project', 'webhook', 'event', 'api', 'settings', 'cron', 'diagnose'];
 
 if (!in_array($page, $allowed_pages)) {
     $page = 'home';

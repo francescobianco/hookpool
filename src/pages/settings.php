@@ -285,6 +285,13 @@ $stats = $statsStmt->fetch();
         </div>
     </section>
 
+    <!-- System Diagnose link -->
+    <div style="text-align:right;margin-top:8px;margin-bottom:4px">
+        <a href="<?= BASE_URL ?>/?page=diagnose" class="text-muted" style="font-size:0.8rem;text-decoration:none;opacity:0.6">
+            System Diagnose ›
+        </a>
+    </div>
+
     <!-- Danger Zone (hidden for local single-user mode) -->
     <?php if (authEnabled()): ?>
     <section class="section danger-zone">

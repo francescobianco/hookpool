@@ -999,19 +999,19 @@ ob_start();
 </div>
 
 <script>
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
 (function() {
     let lastId = <?= $lastEventId ?>;
     const ajaxBase = '<?= $eventsAjaxBase ?>';
     const refreshInterval = 3000;
     let isRefreshing = false;
-
-    function escapeHtml(value) {
-        return String(value)
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
     }
 
     function renderTime(value) {
