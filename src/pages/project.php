@@ -254,22 +254,38 @@ if ($action === 'detail') {
             <div class="empty-state-sm"><?= __('webhook.no_webhooks') ?></div>
             <?php else: ?>
             <div class="cards-grid">
-                <?php foreach ($webhooks as $wh): ?>
+                <?php foreach ($webhooks as $wh):
+                    $sfn        = $wh['special_function'] ?? null;
+                    $isPixel    = $sfn === 'pixel';
+                    $isFile     = $sfn === 'file_upload';
+                    $whDot      = $isPixel ? '🎯' : ($isFile ? '📎' : '🌐');
+                    $whBaseUrl  = webhookUrl($project['slug'], $wh['token']);
+                    $whDispUrl  = $isPixel ? ($whBaseUrl . '.png') : $whBaseUrl;
+                ?>
                 <div class="card card-webhook">
                     <div class="card-header">
                         <div class="card-title-group">
-                            <span class="webhook-dot<?= $wh['active'] ? '' : ' inactive' ?>">🌐</span>
+                            <span class="webhook-dot<?= $wh['active'] ? '' : ' inactive' ?>"><?= $whDot ?></span>
                             <h3 class="card-title"><?= e($wh['name']) ?></h3>
                         </div>
                         <span class="badge <?= $wh['active'] ? 'badge-success' : 'badge-muted' ?>"><?= $wh['active'] ? 'Active' : 'Inactive' ?></span>
                     </div>
                     <div class="webhook-url-row">
-                        <code class="webhook-url"><?= e(webhookUrl($project['slug'], $wh['token'])) ?></code>
+                        <code class="webhook-url"><?= e($whDispUrl) ?></code>
                         <button class="btn btn-sm btn-outline copy-btn"
-                                onclick="copyToClipboard('<?= e(webhookUrl($project['slug'], $wh['token'])) ?>', this)">
+                                onclick="copyToClipboard(<?= htmlspecialchars(json_encode($whDispUrl)) ?>, this)">
                             <?= __('webhook.copy') ?>
                         </button>
                     </div>
+                    <?php if ($isPixel): ?>
+                    <div class="card-meta" style="font-size:0.8rem;color:var(--text-muted)">
+                        <?= __('webhook.sfn_pixel') ?>
+                    </div>
+                    <?php elseif ($isFile): ?>
+                    <div class="card-meta" style="font-size:0.8rem;color:var(--text-muted)">
+                        <?= __('webhook.sfn_file_upload') ?>
+                    </div>
+                    <?php endif; ?>
                     <div class="card-meta">
                         <span><?= (int)($eventCounts[(int)$wh['id']] ?? 0) ?> events</span>
                     </div>
