@@ -14,9 +14,9 @@ echo json_encode([
     'background_color' => '#121212',
     'theme_color'      => '#ff5a36',
     'icons'            => [
-        ['src' => $base . '/favicon-32x32.png',   'sizes' => '32x32',   'type' => 'image/png'],
-        ['src' => $base . '/apple-touch-icon.png', 'sizes' => '180x180', 'type' => 'image/png'],
-        ['src' => $base . '/icon-192.png',         'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any maskable'],
-        ['src' => $base . '/icon-512.png',         'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'],
+        ['src' => $base . '/assets/images/icons/favicon-32x32.png',   'sizes' => '32x32',   'type' => 'image/png'],
+        ['src' => $base . '/assets/images/icons/apple-touch-icon.png', 'sizes' => '180x180', 'type' => 'image/png'],
+        ['src' => $base . '/assets/images/icons/icon-192.png',         'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any maskable'],
+        ['src' => $base . '/assets/images/icons/icon-512.png',         'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'],
     ],
 ], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);

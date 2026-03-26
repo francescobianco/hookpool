@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= e(generateCsrfToken()) ?>">
     <title><?= e($page_title ?? APP_NAME) ?> — <?= APP_NAME ?></title>
-    <link rel="stylesheet" href="<?= BASE_URL ?>/<?= e(asset('style.css')) ?>">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/<?= e(asset('assets/css/style.css')) ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
@@ -15,9 +15,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="<?= APP_NAME ?>">
-    <link rel="icon" type="image/x-icon" href="<?= BASE_URL ?>/<?= asset('favicon.ico') ?>">
-    <link rel="icon" type="image/png" sizes="32x32" href="<?= BASE_URL ?>/<?= asset('favicon-32x32.png') ?>">
-    <link rel="apple-touch-icon" sizes="180x180" href="<?= BASE_URL ?>/<?= asset('apple-touch-icon.png') ?>">
+    <link rel="icon" type="image/x-icon" href="<?= BASE_URL ?>/<?= asset('assets/images/icons/favicon.ico') ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= BASE_URL ?>/<?= asset('assets/images/icons/favicon-32x32.png') ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= BASE_URL ?>/<?= asset('assets/images/icons/apple-touch-icon.png') ?>">
 </head>
 <body<?= isset($current_user) ? ' class="authenticated"' : '' ?>>
 
@@ -29,7 +29,7 @@
         </button>
         <?php endif; ?>
         <a href="<?= BASE_URL ?>/" class="logo">
-            <img src="<?= BASE_URL ?>/assets/images/logo.png" alt="<?= APP_NAME ?>" class="logo-img">
+            <img src="<?= BASE_URL ?>/<?= asset('assets/images/logo.png') ?>" alt="<?= APP_NAME ?>" class="logo-img">
             <span class="logo-name"><span class="logo-hook">hook</span><span class="logo-pool">pool</span></span>
         </a>
     </div>
@@ -211,7 +211,7 @@
         <!-- PWA install banner -->
         <div class="pwa-install-banner" id="pwaInstallBanner" style="display:none">
             <div class="pwa-install-icon">
-                <img src="<?= BASE_URL ?>/icon-192.png" alt="<?= APP_NAME ?>">
+                <img src="<?= BASE_URL ?>/<?= asset('assets/images/icons/icon-192.png') ?>" alt="<?= APP_NAME ?>">
             </div>
             <div class="pwa-install-text">
                 <strong>Installa <?= APP_NAME ?></strong>
