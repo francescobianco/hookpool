@@ -61,6 +61,7 @@
 
 <div class="app-body">
     <?php if (isset($current_user)): ?>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-inner">
             <div class="sidebar-section">
@@ -250,12 +251,23 @@ window.addEventListener('keydown', e => {
 });
 
 // Sidebar toggle (mobile)
-const sidebarToggle = document.getElementById('sidebarToggle');
-const sidebar = document.getElementById('sidebar');
+const sidebarToggle  = document.getElementById('sidebarToggle');
+const sidebar        = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+function closeSidebar() {
+    sidebar.classList.remove('open');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+}
+
 if (sidebarToggle && sidebar) {
     sidebarToggle.addEventListener('click', () => {
-        sidebar.classList.toggle('open');
+        const isOpen = sidebar.classList.toggle('open');
+        if (sidebarOverlay) sidebarOverlay.classList.toggle('active', isOpen);
     });
+}
+if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', closeSidebar);
 }
 
 // Sidebar category toggle

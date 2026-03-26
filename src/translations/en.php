@@ -213,7 +213,7 @@ return [
     'webhook.sfn_pixel_url_label'    => 'Pixel tracking URL (ends with .png)',
     'webhook.sfn_copy_url'           => 'Copy ▾',
     'webhook.sfn_copy_url_plain'     => 'URL',
-    'webhook.sfn_copy_img_tag'       => '<img> tag',
+    'webhook.sfn_copy_img_tag'       => 'Image Tag',
     'webhook.sfn_copy_markdown'      => 'Markdown',
     'webhook.sfn_file_note_title'    => 'Buffer mode — not for hosting',
     'webhook.sfn_file_note_body'     => 'Files are stored alongside the event log as a temporary buffer for your workflows. No backup is provided. Do not use this for permanent file hosting.',

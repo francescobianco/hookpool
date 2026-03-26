@@ -47,10 +47,12 @@ if ($filterTime !== '') {
 $where = implode(' AND ', $whereClauses);
 $eventsStmt = $db->prepare("
     SELECT e.*,
-           p.name AS project_name,
-           p.id   AS project_id,
-           w.name AS webhook_name,
-           w.id   AS webhook_id
+           p.name   AS project_name,
+           p.id     AS project_id,
+           p.active AS project_active,
+           w.name   AS webhook_name,
+           w.id     AS webhook_id,
+           w.active AS webhook_active
     FROM events e
     JOIN webhooks w ON w.id = e.webhook_id
     JOIN projects p ON p.id = w.project_id
@@ -258,7 +260,9 @@ function renderEventRow(array $event): string {
     $eTimeTitle  = htmlspecialchars($time, ENT_QUOTES, 'UTF-8');
     $eInfo       = $isAlarm ? htmlspecialchars($event['body'] ?? '', ENT_QUOTES, 'UTF-8') : '';
 
-    return "<tr class=\"event-row\" onclick=\"window.location='$base/?page=event&id=$id'\" data-id=\"$id\">
+    $inactiveClass = (!($event['webhook_active'] ?? 1) || !($event['project_active'] ?? 1)) ? ' event-row-inactive' : '';
+
+    return "<tr class=\"event-row$inactiveClass\" onclick=\"window.location='$base/?page=event&id=$id'\" data-id=\"$id\">
         <td class=\"col-method\"><span class=\"badge-method $method\">$methodUpper</span></td>
         <td class=\"col-time\"><span title=\"$eTimeTitle\">$eTime</span></td>
         <td class=\"col-project\">$ePrj</td>
@@ -299,7 +303,8 @@ function renderEventRow(array $event): string {
                     // Prepend new rows
                     newEvents.forEach(ev => {
                         const tr = document.createElement('tr');
-                        tr.className = 'event-row event-new';
+                        const inactive = (!ev.webhook_active || !ev.project_active) ? ' event-row-inactive' : '';
+                        tr.className = 'event-row event-new' + inactive;
                         tr.setAttribute('data-id', ev.id);
                         tr.onclick = () => window.location = '<?= BASE_URL ?>/?page=event&id=' + ev.id;
 

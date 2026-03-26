@@ -213,7 +213,7 @@ return [
     'webhook.sfn_pixel_url_label'    => 'URL del pixel di tracciamento (termina con .png)',
     'webhook.sfn_copy_url'           => 'Copia ▾',
     'webhook.sfn_copy_url_plain'     => 'URL',
-    'webhook.sfn_copy_img_tag'       => 'Tag <img>',
+    'webhook.sfn_copy_img_tag'       => 'Image Tag',
     'webhook.sfn_copy_markdown'      => 'Markdown',
     'webhook.sfn_file_note_title'    => 'Modalità buffer — non per hosting',
     'webhook.sfn_file_note_body'     => 'I file vengono conservati assieme al log degli eventi come buffer temporaneo per i tuoi flussi. Non è prevista alcuna forma di backup. Non usare questo sistema per l\'hosting permanente di file.',

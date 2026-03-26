@@ -69,8 +69,8 @@ switch ($action) {
         $where = implode(' AND ', $whereClauses);
         $stmt = $db->prepare("
             SELECT e.id, e.webhook_id, e.method, e.path, e.ip, e.received_at, e.validated, e.rejection_reason, e.body,
-                   p.name AS project_name, p.id AS project_id,
-                   w.name AS webhook_name
+                   p.name AS project_name, p.id AS project_id, p.active AS project_active,
+                   w.name AS webhook_name, w.active AS webhook_active
             FROM events e
             JOIN webhooks w ON w.id = e.webhook_id
             JOIN projects p ON p.id = w.project_id

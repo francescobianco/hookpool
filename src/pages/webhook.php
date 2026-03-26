@@ -642,9 +642,9 @@ if ($action === 'settings') {
                             <?= __('webhook.sfn_copy_url') ?> ▾
                         </button>
                         <div class="pixel-copy-menu" id="pixelCopyMenu" style="display:none">
-                            <button class="pixel-copy-option" onclick="doCopy(<?= json_encode($pixelUrl) ?>, this, 'URL')"><?= __('webhook.sfn_copy_url_plain') ?></button>
-                            <button class="pixel-copy-option" onclick="doCopy(<?= json_encode($pixelImg) ?>, this, '&lt;img&gt;')"><?= __('webhook.sfn_copy_img_tag') ?></button>
-                            <button class="pixel-copy-option" onclick="doCopy(<?= json_encode($pixelMd) ?>, this, 'Markdown')"><?= __('webhook.sfn_copy_markdown') ?></button>
+                            <button class="pixel-copy-option" onclick="doCopy(<?= htmlspecialchars(json_encode($pixelUrl)) ?>, this)"><?= __('webhook.sfn_copy_url_plain') ?></button>
+                            <button class="pixel-copy-option" onclick="doCopy(<?= htmlspecialchars(json_encode($pixelImg)) ?>, this)"><?= __('webhook.sfn_copy_img_tag') ?></button>
+                            <button class="pixel-copy-option" onclick="doCopy(<?= htmlspecialchars(json_encode($pixelMd)) ?>, this)"><?= __('webhook.sfn_copy_markdown') ?></button>
                         </div>
                     </div>
                 </div>
@@ -801,9 +801,9 @@ ob_start();
                     <?= __('webhook.sfn_copy_url') ?>
                 </button>
                 <div class="pixel-copy-menu" id="detailPixelMenu" style="display:none">
-                    <button class="pixel-copy-option" onclick="detailCopy(<?= json_encode($pixelUrlDetail) ?>, this)"><?= __('webhook.sfn_copy_url_plain') ?></button>
-                    <button class="pixel-copy-option" onclick="detailCopy(<?= json_encode($pixelImgTag) ?>, this)"><?= __('webhook.sfn_copy_img_tag') ?></button>
-                    <button class="pixel-copy-option" onclick="detailCopy(<?= json_encode($pixelMdDetail) ?>, this)"><?= __('webhook.sfn_copy_markdown') ?></button>
+                    <button class="pixel-copy-option" onclick="detailCopy(<?= htmlspecialchars(json_encode($pixelUrlDetail)) ?>, this)"><?= __('webhook.sfn_copy_url_plain') ?></button>
+                    <button class="pixel-copy-option" onclick="detailCopy(<?= htmlspecialchars(json_encode($pixelImgTag)) ?>, this)"><?= __('webhook.sfn_copy_img_tag') ?></button>
+                    <button class="pixel-copy-option" onclick="detailCopy(<?= htmlspecialchars(json_encode($pixelMdDetail)) ?>, this)"><?= __('webhook.sfn_copy_markdown') ?></button>
                 </div>
             </div>
         </div>

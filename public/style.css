@@ -218,7 +218,7 @@ details > summary { cursor: pointer; user-select: none; }
     border: none;
     cursor: pointer;
     padding: 6px;
-    display: flex;
+    display: none; /* hidden on desktop — sidebar always visible */
     flex-direction: column;
     gap: 4px;
     border-radius: var(--radius-sm);
@@ -232,6 +232,17 @@ details > summary { cursor: pointer; user-select: none; }
     border-radius: 1px;
 }
 .sidebar-toggle:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* Overlay for mobile sidebar */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    top: var(--header-height);
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 99;
+}
+.sidebar-overlay.active { display: block; }
 
 /* --- Layout: App body ----------------------------------------------------- */
 .app-body {
@@ -800,6 +811,9 @@ tr:last-child td { border-bottom: none; }
     transition: background 0.1s;
 }
 .event-row:hover { background: var(--bg-hover); }
+
+.event-row.event-row-inactive { opacity: 0.38; }
+.event-row.event-row-inactive:hover { opacity: 0.55; background: var(--bg-hover); }
 
 .event-row.event-new {
     animation: slideInRow 0.3s ease;
@@ -1392,6 +1406,7 @@ tr:last-child td { border-bottom: none; }
 @keyframes fadeInRow { from { opacity: 0; } to { opacity: 1; } }
 .logcat-time { color: var(--text-dim); min-width: 60px; }
 .logcat-path { flex: 1; color: var(--text-muted); }
+.logcat-row .badge-method { min-width: 46px; text-align: center; }
 
 /* Features grid */
 .features { padding: 2rem 0 3rem; }
@@ -1522,6 +1537,7 @@ tr:last-child td { border-bottom: none; }
 
 /* --- Responsive ------------------------------------------------------------ */
 @media (max-width: 900px) {
+    .sidebar-toggle { display: flex; }
     .sidebar {
         position: fixed;
         top: var(--header-height);
