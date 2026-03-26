@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪝</text></svg>">
+    <link rel="icon" type="image/png" href="<?= BASE_URL ?>/<?= asset('assets/images/logo.png') ?>">
 </head>
 <body<?= isset($current_user) ? ' class="authenticated"' : '' ?>>
 
@@ -216,7 +216,15 @@
 </div>
 
 <footer class="app-footer">
-    <p>&copy; <?= date('Y') ?> <?= APP_NAME ?> &mdash; Built for IoT, integrations, and developers.</p>
+    <p>&copy; <?= date('Y') ?> <span class="logo-hook" style="font-family:var(--font-mono);font-weight:700;">hook</span><span class="logo-pool" style="font-family:var(--font-mono);font-weight:700;">pool</span> &mdash; <a href="https://github.com/francescobianco/hookpool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted;">Open Source</a>, Self-Hostable.</p>
+    <div class="footer-lang">
+        <?php foreach (SUPPORTED_LANGS as $l):
+            $langLabels = ['en' => 'EN', 'it' => 'IT'];
+            $active = (isset($lang) && $lang === $l) ? ' active' : '';
+        ?>
+        <a href="?lang=<?= $l ?>" class="footer-lang-btn<?= $active ?>"><?= $langLabels[$l] ?? strtoupper($l) ?></a>
+        <?php endforeach; ?>
+    </div>
 </footer>
 
 <script>
