@@ -222,10 +222,11 @@ $stats = $statsStmt->fetch();
         $userCategories = $catListStmt->fetchAll();
         ?>
         <?php if (!empty($userCategories)): ?>
-        <div class="categories-manage-list">
+        <div class="categories-manage-list" id="categoryList">
             <?php foreach ($userCategories as $cat): ?>
-            <div class="category-manage-item card">
+            <div class="category-manage-item card" draggable="true" data-cat-id="<?= (int)$cat['id'] ?>">
                 <div class="category-info">
+                    <span class="drag-handle" title="Trascina per riordinare">⠿</span>
                     <span class="cat-color-swatch" style="background:<?= e($cat['color']) ?>"></span>
                     <span><?= e($cat['name']) ?></span>
                 </div>
@@ -341,3 +342,49 @@ $stats = $statsStmt->fetch();
     </div>
 </div>
 <?php endif; ?>
+
+<script>
+(function() {
+    const list = document.getElementById('categoryList');
+    if (!list) return;
+
+    let dragSrc = null;
+
+    list.addEventListener('dragstart', function(e) {
+        dragSrc = e.target.closest('[data-cat-id]');
+        if (!dragSrc) return;
+        dragSrc.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    });
+
+    list.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        const target = e.target.closest('[data-cat-id]');
+        if (!target || target === dragSrc) return;
+        e.dataTransfer.dropEffect = 'move';
+
+        const rect = target.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        if (e.clientY < mid) {
+            list.insertBefore(dragSrc, target);
+        } else {
+            list.insertBefore(dragSrc, target.nextSibling);
+        }
+    });
+
+    list.addEventListener('dragend', function() {
+        if (dragSrc) dragSrc.classList.remove('dragging');
+        dragSrc = null;
+        saveOrder();
+    });
+
+    function saveOrder() {
+        const order = Array.from(list.querySelectorAll('[data-cat-id]')).map(el => parseInt(el.dataset.catId, 10));
+        fetch('<?= BASE_URL ?>/?page=api&action=reorder_categories', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+            body: JSON.stringify({_csrf: csrfToken, order: order}),
+        }).catch(() => {});
+    }
+})();
+</script>

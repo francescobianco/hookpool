@@ -1245,6 +1245,10 @@ tr:last-child td { border-bottom: none; }
 }
 .category-info { display: flex; align-items: center; gap: 10px; }
 .cat-color-swatch { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.drag-handle { cursor: grab; color: var(--text-muted); font-size: 16px; line-height: 1; user-select: none; flex-shrink: 0; }
+.drag-handle:active { cursor: grabbing; }
+.category-manage-item[draggable="true"] { cursor: default; }
+.category-manage-item.dragging { opacity: 0.4; }
 .category-actions { display: flex; gap: 6px; align-items: center; }
 .form-row-inline { display: flex; gap: 8px; align-items: center; }
 .form-row-inline input[type="text"] { flex: 1; }

@@ -9,7 +9,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="<?= BASE_URL ?>/<?= asset('assets/images/logo.png') ?>">
+    <link rel="icon" type="image/x-icon" href="<?= BASE_URL ?>/<?= asset('favicon.ico') ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= BASE_URL ?>/<?= asset('favicon-32x32.png') ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= BASE_URL ?>/<?= asset('apple-touch-icon.png') ?>">
 </head>
 <body<?= isset($current_user) ? ' class="authenticated"' : '' ?>>
 

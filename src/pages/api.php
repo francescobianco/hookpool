@@ -217,6 +217,140 @@ switch ($action) {
         readfile($fileRow['storage_path']);
         exit;
 
+    case 'reorder_categories':
+        $raw = file_get_contents('php://input');
+        $payload = json_decode($raw, true);
+
+        $csrfIn = $payload['_csrf'] ?? '';
+        if (!verifyCsrfToken($csrfIn)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'invalid_csrf']) . "\n";
+            break;
+        }
+
+        $order = $payload['order'] ?? [];
+        if (!is_array($order)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'invalid_order']) . "\n";
+            break;
+        }
+
+        $upd = $db->prepare('UPDATE categories SET sort_order = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+        foreach ($order as $pos => $catId) {
+            $upd->execute([(int)$pos, (int)$catId, $userId]);
+        }
+        echo json_encode(['ok' => true]) . "\n";
+        break;
+
+    case 'test_forward':
+        $raw = file_get_contents('php://input');
+        $payload = json_decode($raw, true);
+        if (!$payload) { $payload = $_POST; }
+
+        // CSRF check
+        $csrfIn = $payload['_csrf'] ?? '';
+        if (!verifyCsrfToken($csrfIn)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'invalid_csrf']) . "\n";
+            break;
+        }
+
+        $forwardId = (int)($payload['forward_id'] ?? 0);
+        if ($forwardId <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'missing forward_id']) . "\n";
+            break;
+        }
+
+        // Load action and verify ownership
+        $faStmt = $db->prepare('
+            SELECT fa.*
+            FROM forward_actions fa
+            JOIN webhooks w ON w.id = fa.webhook_id
+            JOIN projects p ON p.id = w.project_id
+            WHERE fa.id = ? AND p.user_id = ? AND fa.deleted_at IS NULL AND w.deleted_at IS NULL AND p.deleted_at IS NULL
+        ');
+        $faStmt->execute([$forwardId, $userId]);
+        $fa = $faStmt->fetch();
+        if (!$fa) {
+            http_response_code(404);
+            echo json_encode(['error' => 'not_found']) . "\n";
+            break;
+        }
+
+        // Build body from template, substituting all {{placeholder}} values
+        $bodyTemplate = $fa['body_template'] ?? '';
+        $placeholders = $payload['placeholders'] ?? [];
+        if ($bodyTemplate !== '') {
+            $requestBody = $bodyTemplate;
+            foreach ($placeholders as $ph => $val) {
+                $requestBody = str_replace('{{' . $ph . '}}', $val, $requestBody);
+            }
+        } else {
+            $requestBody = '';
+        }
+
+        // Parse custom headers
+        $customHeaders = ['User-Agent' => 'HookPool/1.0'];
+        $parsedCustom = json_decode($fa['custom_headers'] ?? '{}', true);
+        if (is_array($parsedCustom)) {
+            $customHeaders = array_merge($customHeaders, $parsedCustom);
+        }
+
+        $targetUrl    = $fa['url'];
+        $targetMethod = strtoupper($fa['method'] ?? 'POST');
+        $timeout      = max(1, min(60, (int)($fa['timeout'] ?? 10)));
+
+        // Execute request
+        $responseStatus = 0;
+        $responseBody   = '';
+        $error          = null;
+
+        $ch = curl_init($targetUrl);
+        if ($ch === false) {
+            echo json_encode(['error' => 'curl_init failed']) . "\n";
+            break;
+        }
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+        $curlHeaders = [];
+        foreach ($customHeaders as $k => $v) {
+            $curlHeaders[] = "$k: $v";
+        }
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $curlHeaders);
+
+        switch ($targetMethod) {
+            case 'GET':
+                curl_setopt($ch, CURLOPT_HTTPGET, true);
+                break;
+            case 'POST':
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
+                break;
+            default:
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $targetMethod);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
+        }
+
+        $responseBody   = curl_exec($ch);
+        $responseStatus = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError      = curl_error($ch);
+        curl_close($ch);
+
+        if ($responseBody === false) {
+            echo json_encode(['error' => $curlError ?: 'curl error', 'status' => 0]) . "\n";
+            break;
+        }
+
+        echo json_encode([
+            'status' => $responseStatus,
+            'body'   => mb_substr($responseBody, 0, 10000),
+        ]) . "\n";
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['error' => 'not_found']) . "\n";

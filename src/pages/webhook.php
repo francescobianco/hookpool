@@ -871,7 +871,7 @@ ob_start();
     <section class="section">
         <div class="section-header">
             <h2>Azioni</h2>
-            <button onclick="openModal('addForwardModal')" class="btn btn-sm btn-outline">+ Azioni</button>
+            <button onclick="openModal('addForwardModal')" class="btn btn-sm btn-outline">+ Aggiungi Azione</button>
         </div>
         <?php if (empty($forwardActions)): ?>
         <p class="text-muted">Nessuna azione configurata. Aggiungine una per inoltrare gli eventi ad altri endpoint.</p>
@@ -890,6 +890,10 @@ ob_start();
                     </div>
                     <div class="card-actions">
                         <span class="badge <?= $fa['active'] ? 'badge-success' : 'badge-muted' ?>"><?= $fa['active'] ? 'Active' : 'Inactive' ?></span>
+                        <button type="button" class="btn btn-xs btn-outline"
+                            onclick="openTestForwardModal(<?= (int)$fa['id'] ?>, <?= htmlspecialchars(json_encode($fa['name'] ?: $fa['url'])) ?>, <?= htmlspecialchars(json_encode($fa['body_template'] ?? '')) ?>)">
+                            Testa Azione
+                        </button>
                         <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=delete_forward&forward_id=<?= $fa['id'] ?>" class="inline">
                             <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
                             <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Remove this forward action?')">Remove</button>
@@ -1309,6 +1313,110 @@ function updateAlarmFields(type) {
         </form>
     </div>
 </div>
+
+<!-- Test Forward Action Modal -->
+<div id="testForwardModal" class="modal" style="display:none" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+            <h3>Testa Azione: <span id="testForwardName"></span></h3>
+            <button onclick="closeModal('testForwardModal')" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="testForwardFields"></div>
+            <div id="testForwardResult" style="display:none">
+                <hr style="margin:16px 0">
+                <div class="form-group">
+                    <label>Risposta</label>
+                    <div id="testForwardStatus" style="margin-bottom:6px"></div>
+                    <pre id="testForwardBody" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:13px;margin:0"></pre>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-primary" id="testForwardSubmitBtn" onclick="submitTestForward()">Esegui</button>
+            <button type="button" onclick="closeModal('testForwardModal')" class="btn btn-outline">Chiudi</button>
+        </div>
+    </div>
+</div>
+<script>
+let _testForwardActionId = null;
+let _testForwardTemplate = '';
+
+function openTestForwardModal(actionId, name, bodyTemplate) {
+    _testForwardActionId = actionId;
+    _testForwardTemplate = bodyTemplate || '';
+    document.getElementById('testForwardName').textContent = name;
+    document.getElementById('testForwardResult').style.display = 'none';
+    document.getElementById('testForwardBody').textContent = '';
+    document.getElementById('testForwardStatus').innerHTML = '';
+
+    // Extract all {{placeholder}} tokens from the template
+    const placeholders = [];
+    const re = /\{\{([^}]+)\}\}/g;
+    let m;
+    while ((m = re.exec(_testForwardTemplate)) !== null) {
+        if (!placeholders.includes(m[1])) placeholders.push(m[1]);
+    }
+
+    const fields = document.getElementById('testForwardFields');
+    fields.innerHTML = '';
+
+    if (placeholders.length === 0) {
+        fields.innerHTML = '<p class="text-muted">Nessun placeholder nel template. L\'azione verrà eseguita con il body vuoto.</p>';
+    } else {
+        placeholders.forEach(ph => {
+            const div = document.createElement('div');
+            div.className = 'form-group';
+            div.innerHTML = '<label><code>{{' + escapeHtml(ph) + '}}</code></label>'
+                + '<input type="text" class="test-forward-input" data-placeholder="' + escapeHtml(ph) + '" placeholder="Valore per ' + escapeHtml(ph) + '">';
+            fields.appendChild(div);
+        });
+    }
+
+    openModal('testForwardModal');
+}
+
+function submitTestForward() {
+    const btn = document.getElementById('testForwardSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'In corso…';
+
+    const inputs = document.querySelectorAll('#testForwardFields .test-forward-input');
+    const values = {};
+    inputs.forEach(inp => { values[inp.dataset.placeholder] = inp.value; });
+
+    fetch('<?= BASE_URL ?>/?page=api&action=test_forward', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+        body: JSON.stringify({
+            _csrf: csrfToken,
+            forward_id: _testForwardActionId,
+            placeholders: values,
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('testForwardResult').style.display = '';
+        if (data.error) {
+            document.getElementById('testForwardStatus').innerHTML = '<span class="badge badge-error">Errore</span> ' + escapeHtml(data.error);
+            document.getElementById('testForwardBody').textContent = '';
+        } else {
+            const statusClass = data.status >= 200 && data.status < 300 ? 'badge-success' : 'badge-error';
+            document.getElementById('testForwardStatus').innerHTML = '<span class="badge ' + statusClass + '">HTTP ' + escapeHtml(String(data.status)) + '</span>';
+            document.getElementById('testForwardBody').textContent = data.body || '';
+        }
+    })
+    .catch(err => {
+        document.getElementById('testForwardResult').style.display = '';
+        document.getElementById('testForwardStatus').innerHTML = '<span class="badge badge-error">Errore di rete</span>';
+        document.getElementById('testForwardBody').textContent = String(err);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'Esegui';
+    });
+}
+</script>
 
 <!-- Guard Modal -->
 <?php include __DIR__ . '/partials/add_guard_modal.php'; ?>
