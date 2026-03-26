@@ -745,9 +745,13 @@ $evtStmt = $db->prepare('SELECT * FROM events WHERE webhook_id = ? ORDER BY rece
 $evtStmt->execute([$webhookId]);
 $recentEvents = $evtStmt->fetchAll();
 
-$isPaused    = !empty($wh['paused_until']) && strtotime($wh['paused_until']) > time();
-$webhookUrl  = webhookUrl($wh['slug'] ?? $wh['project_slug'] ?? '', $wh['token']);
-$page_title  = e($wh['name']);
+$isPaused      = !empty($wh['paused_until']) && strtotime($wh['paused_until']) > time();
+$webhookUrl    = webhookUrl($wh['slug'] ?? $wh['project_slug'] ?? '', $wh['token']);
+$isPixelMode   = ($wh['special_function'] ?? '') === 'pixel';
+$pixelUrlDetail = $webhookUrl . '.png';
+$pixelImgTag    = '<img src="' . $pixelUrlDetail . '" width="1" height="1" alt="" style="display:none">';
+$pixelMdDetail  = '![track](' . $pixelUrlDetail . ')';
+$page_title    = e($wh['name']);
 $lastEventId = !empty($recentEvents) ? (int)$recentEvents[0]['id'] : 0;
 $eventsAjaxBase = '?page=api&action=events&webhook_id=' . $webhookId;
 
@@ -785,6 +789,30 @@ ob_start();
 
     <!-- Endpoint URL -->
     <div class="card card-endpoint">
+        <?php if ($isPixelMode): ?>
+        <div class="card-label" style="display:flex;align-items:center;gap:6px">
+            🎯 <?= __('webhook.sfn_pixel') ?>
+            <span class="badge badge-muted" style="font-size:0.72rem">pixel</span>
+        </div>
+        <div class="endpoint-row">
+            <code class="endpoint-url" id="endpointUrl"><?= e($pixelUrlDetail) ?></code>
+            <div class="pixel-copy-dropdown" id="detailPixelDropdown">
+                <button type="button" class="btn btn-outline pixel-copy-trigger" onclick="toggleDetailPixelDropdown(event)">
+                    <?= __('webhook.sfn_copy_url') ?>
+                </button>
+                <div class="pixel-copy-menu" id="detailPixelMenu" style="display:none">
+                    <button class="pixel-copy-option" onclick="detailCopy(<?= json_encode($pixelUrlDetail) ?>, this)"><?= __('webhook.sfn_copy_url_plain') ?></button>
+                    <button class="pixel-copy-option" onclick="detailCopy(<?= json_encode($pixelImgTag) ?>, this)"><?= __('webhook.sfn_copy_img_tag') ?></button>
+                    <button class="pixel-copy-option" onclick="detailCopy(<?= json_encode($pixelMdDetail) ?>, this)"><?= __('webhook.sfn_copy_markdown') ?></button>
+                </div>
+            </div>
+        </div>
+        <div class="endpoint-hint">
+            <?= __('webhook.sfn_pixel_desc') ?>
+            <br>
+            <code class="example-curl">&lt;img src="<?= e($pixelUrlDetail) ?>" width="1" height="1" alt=""&gt;</code>
+        </div>
+        <?php else: ?>
         <div class="card-label">Webhook Endpoint</div>
         <div class="endpoint-row">
             <code class="endpoint-url" id="endpointUrl"><?= e($webhookUrl) ?></code>
@@ -797,6 +825,7 @@ ob_start();
             <br>
             <code class="example-curl">curl -X POST <?= e($webhookUrl) ?> -H "Content-Type: application/json" -d '{"key":"value"}'</code>
         </div>
+        <?php endif; ?>
     </div>
 
     <!-- Webhook-level Guards -->
@@ -1078,6 +1107,23 @@ ob_start();
 
     setInterval(poll, refreshInterval);
 })();
+</script>
+
+<script>
+function toggleDetailPixelDropdown(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('detailPixelMenu');
+    if (menu) menu.style.display = menu.style.display === 'none' ? '' : 'none';
+}
+document.addEventListener('click', function() {
+    const menu = document.getElementById('detailPixelMenu');
+    if (menu) menu.style.display = 'none';
+});
+function detailCopy(text, btn) {
+    copyToClipboard(text, btn);
+    const menu = document.getElementById('detailPixelMenu');
+    if (menu) menu.style.display = 'none';
+}
 </script>
 
 <script>
