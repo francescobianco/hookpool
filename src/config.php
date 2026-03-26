@@ -27,6 +27,7 @@ define('GITHUB_CLIENT_SECRET', getenv('GITHUB_CLIENT_SECRET') ?: '');
 define('HOOKPOOL_AUTH',      strtolower(trim((string)(getenv('HOOKPOOL_AUTH') ?: 'no'))));
 define('HOOKPOOL_AUTH_ENABLED', in_array(HOOKPOOL_AUTH, ['1', 'true', 'yes', 'on'], true));
 define('CRON_SECRET',        getenv('CRON_SECRET') ?: '');
+define('UPLOADS_DIR',        getenv('UPLOADS_DIR') ?: dirname(DB_PATH) . '/uploads');
 
 define('SUPPORTED_LANGS',    ['en', 'it']);
 define('HOOK_TOKEN_LENGTH',  32);

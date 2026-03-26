@@ -488,6 +488,27 @@ if ($action === 'settings') {
         exit;
     }
 
+    // Handle special function toggle
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'set_special_function') {
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+            setFlash('error', __('msg.csrf_error'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+            exit;
+        }
+        $allowed = ['', 'pixel', 'file_upload'];
+        $fn = $_POST['special_function'] ?? '';
+        if (!in_array($fn, $allowed, true)) {
+            setFlash('error', __('msg.invalid'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+            exit;
+        }
+        $db->prepare('UPDATE webhooks SET special_function = ? WHERE id = ?')
+           ->execute([$fn === '' ? null : $fn, $webhookId]);
+        setFlash('success', __('msg.saved'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+        exit;
+    }
+
     // Handle delete
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'delete') {
         if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {

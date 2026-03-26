@@ -59,6 +59,36 @@ if ($pausedUntil && strtotime($pausedUntil) > time()) {
     exit;
 }
 
+// ── Pixel tracking mode ──────────────────────────────────────────────────────
+$isPixelRequest = isset($_GET['_pixel']);
+if ($isPixelRequest) {
+    if (($webhook['special_function'] ?? '') !== 'pixel') {
+        http_response_code(404);
+        exit;
+    }
+    // Log a minimal GET event for the pixel hit
+    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+    if (strpos($ip, ',') !== false) $ip = trim(explode(',', $ip)[0]);
+    $headers = [];
+    foreach ($_SERVER as $k => $v) {
+        if (strpos($k, 'HTTP_') === 0) $headers[str_replace('_', '-', substr($k, 5))] = $v;
+    }
+    $pixelPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
+    $pixelQs   = $_SERVER['QUERY_STRING'] ?? '';
+    $pixelQp   = $_GET;
+    unset($pixelQp['token'], $pixelQp['project'], $pixelQp['_pixel']);
+    $db->prepare('INSERT INTO events (webhook_id, method, path, query_string, headers, body, content_type, ip, validated) VALUES (?,?,?,?,?,?,?,?,1)')
+       ->execute([$webhook['id'], 'PIXEL', $pixelPath, http_build_query($pixelQp), json_encode($headers), '', 'image/png', $ip]);
+
+    // Serve 1×1 transparent PNG
+    header('Content-Type: image/png');
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    $px = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    echo $px;
+    exit;
+}
+
 // Collect request details
 $method      = $_SERVER['REQUEST_METHOD'];
 $path        = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
@@ -134,6 +164,55 @@ $insertStmt->execute([
     $rejectionReason,
 ]);
 $eventId = (int)$db->lastInsertId();
+
+// ── File upload mode ──────────────────────────────────────────────────────────
+if (($webhook['special_function'] ?? '') === 'file_upload' && !empty($_FILES)) {
+    $uploadDir = UPLOADS_DIR . '/' . $eventId;
+    if (!is_dir($uploadDir)) {
+        @mkdir($uploadDir, 0750, true);
+    }
+    $fileCount = 0;
+    $fileStmt  = $db->prepare('INSERT INTO event_files (event_id, field_name, filename, mime_type, size, storage_path) VALUES (?,?,?,?,?,?)');
+    // Normalize $_FILES to handle both single and array inputs
+    $normalizedFiles = [];
+    foreach ($_FILES as $fieldName => $fileData) {
+        if (is_array($fileData['name'])) {
+            for ($i = 0; $i < count($fileData['name']); $i++) {
+                if ($fileData['error'][$i] === UPLOAD_ERR_OK) {
+                    $normalizedFiles[] = [
+                        'field'    => $fieldName . '[' . $i . ']',
+                        'name'     => $fileData['name'][$i],
+                        'tmp_name' => $fileData['tmp_name'][$i],
+                        'type'     => $fileData['type'][$i],
+                        'size'     => $fileData['size'][$i],
+                    ];
+                }
+            }
+        } else {
+            if ($fileData['error'] === UPLOAD_ERR_OK) {
+                $normalizedFiles[] = [
+                    'field'    => $fieldName,
+                    'name'     => $fileData['name'],
+                    'tmp_name' => $fileData['tmp_name'],
+                    'type'     => $fileData['type'],
+                    'size'     => $fileData['size'],
+                ];
+            }
+        }
+    }
+    foreach ($normalizedFiles as $f) {
+        $safeName    = preg_replace('/[^a-zA-Z0-9._\-]/', '_', basename($f['name']));
+        $storagePath = $uploadDir . '/' . $fileCount . '_' . $safeName;
+        if (move_uploaded_file($f['tmp_name'], $storagePath)) {
+            $fileStmt->execute([$eventId, $f['field'], $safeName, $f['type'], $f['size'], $storagePath]);
+            $fileCount++;
+        }
+    }
+    // Override method to FILE if at least one file was received
+    if ($fileCount > 0) {
+        $db->prepare('UPDATE events SET method = ? WHERE id = ?')->execute(['FILE', $eventId]);
+    }
+}
 
 // Execute forwarding (only if event passed guards)
 if ($validated) {
