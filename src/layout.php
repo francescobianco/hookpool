@@ -210,15 +210,15 @@
             <?php endif; ?>
         <!-- PWA install banner -->
         <div class="pwa-install-banner" id="pwaInstallBanner" style="display:none">
-            <div class="pwa-install-icon">
-                <img src="<?= BASE_URL ?>/<?= asset('assets/images/icons/icon-192.png') ?>" alt="<?= APP_NAME ?>">
-            </div>
-            <div class="pwa-install-text">
-                <strong>Installa <?= APP_NAME ?></strong>
-                <span>Aggiungila alla home del telefono</span>
-            </div>
-            <button class="pwa-install-btn" id="pwaInstallBtn">Installa</button>
             <button class="pwa-install-dismiss" id="pwaInstallDismiss" aria-label="Chiudi">×</button>
+            <div class="pwa-install-inner" id="pwaInstallBtn">
+                <img class="pwa-install-icon" src="<?= BASE_URL ?>/<?= asset('assets/images/icons/icon-192.png') ?>" alt="<?= APP_NAME ?>">
+                <div class="pwa-install-text">
+                    <strong>Installa <?= APP_NAME ?></strong>
+                    <span>Aggiungi alla schermata Home</span>
+                </div>
+                <span class="pwa-install-cta">Installa →</span>
+            </div>
         </div>
         </div>
     </aside>
@@ -382,13 +382,11 @@ if ('serviceWorker' in navigator) {
 
     installBtn.addEventListener('click', async () => {
         if (!deferredPrompt) return;
-        deferredPrompt.prompt();
+        await deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         deferredPrompt = null;
         banner.style.display = 'none';
-        if (outcome === 'accepted') {
-            localStorage.setItem('pwaInstallDismissed', '1');
-        }
+        localStorage.setItem('pwaInstallDismissed', '1');
     });
 
     dismissBtn.addEventListener('click', () => {

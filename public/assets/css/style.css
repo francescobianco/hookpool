@@ -1597,42 +1597,58 @@ tr:last-child td { border-bottom: none; }
 
 /* PWA install banner */
 .pwa-install-banner {
+    position: relative;
+    margin: 10px 8px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+.pwa-install-inner {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 12px 10px 4px;
-    padding: 10px 12px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    font-size: 0.82rem;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
 }
-.pwa-install-icon img { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; }
-.pwa-install-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.pwa-install-text strong { font-size: 0.84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pwa-install-text span { font-size: 0.75rem; color: var(--text-muted); }
-.pwa-install-btn {
+.pwa-install-inner:hover { background: rgba(255,255,255,.04); }
+.pwa-install-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
     flex-shrink: 0;
-    padding: 5px 10px;
-    background: var(--primary);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-sm);
+    object-fit: contain;
+    background: transparent;
+}
+.pwa-install-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.pwa-install-text strong { font-size: 0.85rem; }
+.pwa-install-text span   { font-size: 0.75rem; color: var(--text-muted); }
+.pwa-install-cta {
+    flex-shrink: 0;
     font-size: 0.78rem;
     font-weight: 600;
-    cursor: pointer;
+    color: var(--primary);
     white-space: nowrap;
 }
-.pwa-install-btn:hover { background: var(--primary-dark); }
 .pwa-install-dismiss {
-    flex-shrink: 0;
+    position: absolute;
+    top: 4px;
+    right: 6px;
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 1.1rem;
-    cursor: pointer;
+    font-size: 1rem;
     line-height: 1;
-    padding: 0 2px;
+    cursor: pointer;
+    padding: 2px 4px;
 }
 .pwa-install-dismiss:hover { color: var(--text-primary); }
 
