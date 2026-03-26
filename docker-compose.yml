@@ -24,6 +24,8 @@ services:
       HOOKPOOL_AUTH: ${HOOKPOOL_AUTH:-yes}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      # Comma-separated HTTP header names to strip before saving/displaying (case-insensitive)
+      HOOKPOOL_IGNORED_HEADERS: ${HOOKPOOL_IGNORED_HEADERS:-}
     restart: unless-stopped
 
   cron:

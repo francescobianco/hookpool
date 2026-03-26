@@ -38,8 +38,11 @@ $attStmt = $db->prepare('
 $attStmt->execute([$eventId]);
 $attempts = $attStmt->fetchAll();
 
-// Parse headers
-$headers     = json_decode($event['headers'] ?? '{}', true) ?: [];
+// Parse headers (strip any ignored headers even from historical data)
+$headers = json_decode($event['headers'] ?? '{}', true) ?: [];
+if (!empty(IGNORED_HEADERS)) {
+    $headers = array_filter($headers, fn($k) => !in_array(strtoupper($k), IGNORED_HEADERS, true), ARRAY_FILTER_USE_KEY);
+}
 $body        = $event['body'] ?? '';
 $queryString = $event['query_string'] ?? '';
 parse_str($queryString, $queryParams);

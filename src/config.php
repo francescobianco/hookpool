@@ -29,6 +29,12 @@ define('HOOKPOOL_AUTH_ENABLED', in_array(HOOKPOOL_AUTH, ['1', 'true', 'yes', 'on
 define('CRON_SECRET',        getenv('CRON_SECRET') ?: '');
 define('UPLOADS_DIR',        getenv('UPLOADS_DIR') ?: dirname(DB_PATH) . '/uploads');
 
+// Headers to strip before saving/displaying — case-insensitive, comma-separated
+define('IGNORED_HEADERS', array_values(array_filter(array_map(
+    fn($h) => strtoupper(trim($h)),
+    explode(',', getenv('HOOKPOOL_IGNORED_HEADERS') ?: '')
+))));
+
 define('SUPPORTED_LANGS',    ['en', 'it']);
 define('HOOK_TOKEN_LENGTH',  32);
 define('WEBHOOK_CODE_LENGTH', 6);

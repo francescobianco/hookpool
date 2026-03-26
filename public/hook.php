@@ -71,7 +71,12 @@ if ($isPixelRequest) {
     if (strpos($ip, ',') !== false) $ip = trim(explode(',', $ip)[0]);
     $headers = [];
     foreach ($_SERVER as $k => $v) {
-        if (strpos($k, 'HTTP_') === 0) $headers[str_replace('_', '-', substr($k, 5))] = $v;
+        if (strpos($k, 'HTTP_') === 0) {
+            $name = str_replace('_', '-', substr($k, 5));
+            if (empty(IGNORED_HEADERS) || !in_array(strtoupper($name), IGNORED_HEADERS, true)) {
+                $headers[$name] = $v;
+            }
+        }
     }
     $pixelPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
     $pixelQs   = $_SERVER['QUERY_STRING'] ?? '';
@@ -104,14 +109,15 @@ $queryStringClean = http_build_query($queryParams);
 $headers = [];
 foreach ($_SERVER as $key => $value) {
     if (strpos($key, 'HTTP_') === 0) {
-        // Convert HTTP_CONTENT_TYPE → CONTENT-TYPE
         $headerName = str_replace('_', '-', substr($key, 5));
-        $headers[$headerName] = $value;
+        if (empty(IGNORED_HEADERS) || !in_array(strtoupper($headerName), IGNORED_HEADERS, true)) {
+            $headers[$headerName] = $value;
+        }
     }
 }
 // Also capture CONTENT_TYPE and CONTENT_LENGTH directly
-if (isset($_SERVER['CONTENT_TYPE']))   $headers['CONTENT-TYPE']   = $_SERVER['CONTENT_TYPE'];
-if (isset($_SERVER['CONTENT_LENGTH'])) $headers['CONTENT-LENGTH'] = $_SERVER['CONTENT_LENGTH'];
+if (isset($_SERVER['CONTENT_TYPE'])   && (empty(IGNORED_HEADERS) || !in_array('CONTENT-TYPE',   IGNORED_HEADERS, true))) $headers['CONTENT-TYPE']   = $_SERVER['CONTENT_TYPE'];
+if (isset($_SERVER['CONTENT_LENGTH']) && (empty(IGNORED_HEADERS) || !in_array('CONTENT-LENGTH', IGNORED_HEADERS, true))) $headers['CONTENT-LENGTH'] = $_SERVER['CONTENT_LENGTH'];
 
 // Read raw body
 $body        = file_get_contents('php://input');
