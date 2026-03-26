@@ -7,7 +7,7 @@ RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available
     echo "ServerName localhost" >> /etc/apache2/apache2.conf
 WORKDIR /var/www/html
 COPY . .
-RUN chmod +x docker-entrypoint.sh
+RUN chmod +x docker/dev/docker-entrypoint.sh
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost/ || exit 1
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["./docker/dev/docker-entrypoint.sh"]

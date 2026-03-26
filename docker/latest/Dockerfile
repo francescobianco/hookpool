@@ -1,0 +1,1 @@
+# Implement production ready based on Doicker Hardened image
