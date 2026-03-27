@@ -1347,7 +1347,7 @@ tr:last-child td { border-bottom: none; }
     border-radius: var(--radius);
     padding: 1rem 1.5rem;
     text-align: center;
-    min-width: 100px;
+    min-width: 115px;
 }
 .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
 .stat-label { font-size: 0.78rem; color: var(--text-muted); }
