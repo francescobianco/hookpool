@@ -58,7 +58,7 @@ $eventsStmt = $db->prepare("
     JOIN webhooks w ON w.id = e.webhook_id
     JOIN projects p ON p.id = w.project_id
     WHERE $where
-    ORDER BY e.received_at DESC
+    ORDER BY e.id DESC
     LIMIT 100
 ");
 $eventsStmt->execute($params);
