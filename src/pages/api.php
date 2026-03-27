@@ -77,9 +77,8 @@ switch ($action) {
             JOIN projects p ON p.id = w.project_id
             WHERE $where
             ORDER BY e.id DESC
-            LIMIT ?
+            LIMIT $limit
         ");
-        $params[] = $limit;
         $stmt->execute($params);
         $events = $stmt->fetchAll();
 
