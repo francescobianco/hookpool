@@ -537,8 +537,8 @@ if ($action === 'settings') {
             header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
             exit;
         }
-        $db->prepare("UPDATE webhooks SET paused_until = datetime('now', '+24 hours') WHERE id = ?")
-           ->execute([$webhookId]);
+        $db->prepare("UPDATE webhooks SET paused_until = ? WHERE id = ?")
+           ->execute([date('Y-m-d H:i:s', time() + 86400), $webhookId]);
         setFlash('success', __('webhook.paused'));
         header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
         exit;
