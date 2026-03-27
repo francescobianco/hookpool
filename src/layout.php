@@ -398,6 +398,13 @@ function showCopyFeedback(btn) {
 
 // Auto-dismiss alerts after 5s
 document.addEventListener('DOMContentLoaded', () => {
+    // Constrain flash alert width to page-container on boxed pages
+    const flashAlert = document.querySelector('.main-content > .alert');
+    const pageContainer = document.querySelector('.page-container');
+    if (flashAlert && pageContainer) {
+        flashAlert.style.maxWidth = pageContainer.offsetWidth + 'px';
+    }
+
     document.querySelectorAll('.alert').forEach(alert => {
         setTimeout(() => {
             // Phase 1: fade out
