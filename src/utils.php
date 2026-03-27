@@ -362,34 +362,52 @@ function slugify(string $text): string {
     return $text ?: 'project';
 }
 
+const SLUG_MIN_LENGTH = 4;
+const SLUG_MAX_LENGTH = 32;
+
 /**
- * Reserved path segments that cannot be used as public project slugs.
+ * Reserved/forbidden words that cannot be used as public project slugs.
  */
 function reservedProjectSlugs(): array {
     return [
-        'admin',
-        'api',
-        'auth',
-        'dashboard',
-        'event',
-        'hook',
-        'home',
-        'index',
-        'login',
-        'logout',
-        'migrate',
-        'project',
-        'projects',
-        'public',
-        'settings',
-        'style',
-        'webhook',
-        'webhooks',
+        // App routes
+        'admin', 'api', 'auth', 'cron', 'dashboard', 'diagnose',
+        'event', 'events', 'hook', 'home', 'index', 'known-ips',
+        'login', 'logout', 'migrate', 'project', 'projects',
+        'public', 'settings', 'style', 'webhook', 'webhooks',
+        // Generic app/landing words
+        'about', 'account', 'app', 'billing', 'blog', 'careers',
+        'contact', 'docs', 'download', 'downloads', 'faq', 'feed',
+        'help', 'info', 'landing', 'legal', 'mail', 'me', 'new',
+        'newsletter', 'null', 'ping', 'plans', 'press', 'pricing',
+        'privacy', 'profile', 'register', 'rss', 'search', 'shop',
+        'signup', 'sitemap', 'status', 'store', 'support', 'team',
+        'terms', 'undefined', 'user', 'users',
+        // Well-known brand/platform names
+        'amazon', 'apple', 'aws', 'azure', 'bitbucket', 'cloudflare',
+        'discord', 'docker', 'dropbox', 'facebook', 'figma', 'gcp',
+        'git', 'github', 'gitlab', 'google', 'hookpool', 'instagram',
+        'jira', 'kubernetes', 'linear', 'linkedin', 'microsoft',
+        'notion', 'npm', 'openai', 'paypal', 'slack', 'stripe',
+        'teams', 'telegram', 'tiktok', 'trello', 'twilio', 'twitter',
+        'vercel', 'whatsapp', 'x', 'youtube', 'zapier',
     ];
 }
 
 function isReservedProjectSlug(string $slug): bool {
     return in_array($slug, reservedProjectSlugs(), true);
+}
+
+/**
+ * Returns an error message if the slug is invalid, or null if valid.
+ */
+function validateProjectSlugFormat(string $slug): ?string {
+    $len = strlen($slug);
+    if ($len < SLUG_MIN_LENGTH) return 'Slug must be at least ' . SLUG_MIN_LENGTH . ' characters.';
+    if ($len > SLUG_MAX_LENGTH) return 'Slug must be at most ' . SLUG_MAX_LENGTH . ' characters.';
+    if (!preg_match('/^[a-z0-9-]+$/', $slug)) return 'Slug may only contain lowercase letters, numbers, and dashes.';
+    if (isReservedProjectSlug($slug)) return 'This slug is reserved and cannot be used.';
+    return null;
 }
 
 /**

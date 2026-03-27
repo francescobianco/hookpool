@@ -11,20 +11,22 @@ if ($action === 'check_slug') {
     $slug      = slugify(trim($_GET['slug'] ?? ''));
     $excludeId = isset($_GET['exclude_id']) ? (int)$_GET['exclude_id'] : null;
     if ($slug === '') {
-        echo json_encode(['available' => false, 'suggested' => null]);
+        echo json_encode(['available' => false, 'error' => 'Slug cannot be empty.', 'suggested' => null]);
         exit;
     }
-    $taken = isReservedProjectSlug($slug);
-    if (!$taken) {
-        $q = 'SELECT id FROM projects WHERE slug = ?';
-        $p = [$slug];
-        if ($excludeId !== null) { $q .= ' AND id != ?'; $p[] = $excludeId; }
-        $stmt = $db->prepare($q);
-        $stmt->execute($p);
-        $taken = (bool)$stmt->fetch();
+    $formatError = validateProjectSlugFormat($slug);
+    if ($formatError !== null) {
+        echo json_encode(['available' => false, 'error' => $formatError, 'suggested' => null]);
+        exit;
     }
+    $q = 'SELECT id FROM projects WHERE slug = ?';
+    $p = [$slug];
+    if ($excludeId !== null) { $q .= ' AND id != ?'; $p[] = $excludeId; }
+    $stmt = $db->prepare($q);
+    $stmt->execute($p);
+    $taken     = (bool)$stmt->fetch();
     $suggested = $taken ? uniqueProjectSlug($db, $slug, $excludeId) : null;
-    echo json_encode(['available' => !$taken, 'suggested' => $suggested]);
+    echo json_encode(['available' => !$taken, 'error' => $taken ? 'This slug is already taken.' : null, 'suggested' => $suggested]);
     exit;
 }
 
@@ -191,36 +193,49 @@ if ($action === 'create') {
             setHint('Lowercase letters, numbers, dashes.', '');
         });
 
-        // Intercept submit: check slug availability first
+        const SLUG_MIN = 4, SLUG_MAX = 32;
+
+        function clientValidateSlug(slug) {
+            if (slug.length < SLUG_MIN) return 'Slug must be at least ' + SLUG_MIN + ' characters.';
+            if (slug.length > SLUG_MAX) return 'Slug must be at most ' + SLUG_MAX + ' characters.';
+            return null;
+        }
+
+        function showSlugError(msg, suggested, btn) {
+            const suggestion = suggested ? ' Try <a href="#" class="slug-suggestion">' + suggested + '</a>.' : '';
+            hintEl.innerHTML = '⚠ ' + msg + suggestion;
+            hintEl.className = 'form-hint form-hint--error';
+            slugEl.focus(); slugEl.select();
+            btn.disabled = false;
+            hintEl.querySelector('.slug-suggestion')?.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                slugEl.value = this.textContent;
+                slugManuallyEdited = true;
+                setHint('Lowercase letters, numbers, dashes.', '');
+            });
+        }
+
+        // Intercept submit: validate + check slug availability
         form.addEventListener('submit', async function (e) {
             e.preventDefault();
             const slug = slugEl.value.trim() || clientSlugify(nameEl.value);
             if (!slug) { form.submit(); return; }
+
+            const localErr = clientValidateSlug(slug);
+            if (localErr) { setHint('⚠ ' + localErr, 'error'); slugEl.focus(); return; }
 
             setHint('Checking slug…', '');
             const btn = document.getElementById('create-project-btn');
             btn.disabled = true;
 
             try {
-                const res = await fetch(checkUrl + '&slug=' + encodeURIComponent(slug));
+                const res  = await fetch(checkUrl + '&slug=' + encodeURIComponent(slug));
                 const data = await res.json();
                 if (data.available) {
                     slugEl.value = slug;
                     form.submit();
                 } else {
-                    const suggestion = data.suggested ? ' Try <a href="#" class="slug-suggestion">' + data.suggested + '</a>.' : '';
-                    hintEl.innerHTML = '⚠ This slug is already taken.' + suggestion;
-                    hintEl.className = 'form-hint form-hint--error';
-                    slugEl.focus();
-                    slugEl.select();
-                    btn.disabled = false;
-
-                    hintEl.querySelector('.slug-suggestion')?.addEventListener('click', function (ev) {
-                        ev.preventDefault();
-                        slugEl.value = this.textContent;
-                        slugManuallyEdited = true;
-                        setHint('Lowercase letters, numbers, dashes.', '');
-                    });
+                    showSlugError(data.error || 'This slug is not available.', data.suggested, btn);
                 }
             } catch (_) {
                 setHint('Could not verify slug. Please try again.', 'error');
@@ -587,12 +602,24 @@ if ($action === 'edit') {
             setHint('Public project path used in webhook URLs.', '');
         });
 
+        const SLUG_MIN = 4, SLUG_MAX = 32;
+        const defaultHint = 'Public project path used in webhook URLs.';
+
+        function clientValidateSlug(slug) {
+            if (slug.length < SLUG_MIN) return 'Slug must be at least ' + SLUG_MIN + ' characters.';
+            if (slug.length > SLUG_MAX) return 'Slug must be at most ' + SLUG_MAX + ' characters.';
+            return null;
+        }
+
         form.addEventListener('submit', async function (e) {
             e.preventDefault();
             const slug = slugEl.value.trim();
 
             // Slug unchanged — no need to verify
             if (slug === originalSlug) { form.submit(); return; }
+
+            const localErr = clientValidateSlug(slug);
+            if (localErr) { setHint('⚠ ' + localErr, 'error'); slugEl.focus(); return; }
 
             setHint('Checking slug…', '');
             const btn = document.getElementById('save-project-btn');
@@ -605,15 +632,14 @@ if ($action === 'edit') {
                     form.submit();
                 } else {
                     const suggestion = data.suggested ? ' Try <a href="#" class="slug-suggestion">' + data.suggested + '</a>.' : '';
-                    hintEl.innerHTML = '⚠ This slug is already taken.' + suggestion;
+                    hintEl.innerHTML = '⚠ ' + (data.error || 'This slug is not available.') + suggestion;
                     hintEl.className = 'form-hint form-hint--error';
-                    slugEl.focus();
-                    slugEl.select();
+                    slugEl.focus(); slugEl.select();
                     btn.disabled = false;
                     hintEl.querySelector('.slug-suggestion')?.addEventListener('click', function (ev) {
                         ev.preventDefault();
                         slugEl.value = this.textContent;
-                        setHint('Public project path used in webhook URLs.', '');
+                        setHint(defaultHint, '');
                     });
                 }
             } catch (_) {
