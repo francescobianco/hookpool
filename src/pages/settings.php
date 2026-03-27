@@ -199,7 +199,7 @@ $stats = $statsStmt->fetch();
             </div>
             <div class="stat-card">
                 <div class="stat-value"><?= number_format((int)$stats['event_count']) ?></div>
-                <div class="stat-label">Events Received</div>
+                <div class="stat-label">Events</div>
             </div>
         </div>
     </section>
