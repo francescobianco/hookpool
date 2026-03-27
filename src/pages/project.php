@@ -8,18 +8,22 @@ $projectEmojis = array_keys(PROJECT_ICONS);
 if ($action === 'check_slug') {
     while (ob_get_level()) ob_end_clean();
     header('Content-Type: application/json');
-    $slug = slugify(trim($_GET['slug'] ?? ''));
+    $slug      = slugify(trim($_GET['slug'] ?? ''));
+    $excludeId = isset($_GET['exclude_id']) ? (int)$_GET['exclude_id'] : null;
     if ($slug === '') {
         echo json_encode(['available' => false, 'suggested' => null]);
         exit;
     }
     $taken = isReservedProjectSlug($slug);
     if (!$taken) {
-        $stmt = $db->prepare('SELECT id FROM projects WHERE slug = ?');
-        $stmt->execute([$slug]);
+        $q = 'SELECT id FROM projects WHERE slug = ?';
+        $p = [$slug];
+        if ($excludeId !== null) { $q .= ' AND id != ?'; $p[] = $excludeId; }
+        $stmt = $db->prepare($q);
+        $stmt->execute($p);
         $taken = (bool)$stmt->fetch();
     }
-    $suggested = $taken ? uniqueProjectSlug($db, $slug) : null;
+    $suggested = $taken ? uniqueProjectSlug($db, $slug, $excludeId) : null;
     echo json_encode(['available' => !$taken, 'suggested' => $suggested]);
     exit;
 }
@@ -492,6 +496,14 @@ if ($action === 'edit') {
         }
 
         $slug = uniqueProjectSlug($db, $slugInput !== '' ? $slugInput : $name, $projectId);
+
+        // Safety check: if slug is taken by another project, force a numeric slug
+        $slugCheck = $db->prepare('SELECT id FROM projects WHERE slug = ? AND id != ?');
+        $slugCheck->execute([$slug, $projectId]);
+        if ($slugCheck->fetch()) {
+            $slug = 'p' . rand(100000, 999999);
+        }
+
         $db->prepare('UPDATE projects SET name = ?, emoji = ?, slug = ?, description = ?, category_id = ?, active = ? WHERE id = ? AND user_id = ?')
            ->execute([$name, $emoji, $slug, $description, $categoryId, $active, $projectId, $userId]);
 
@@ -528,8 +540,8 @@ if ($action === 'edit') {
                 </div>
                 <div class="form-group">
                     <label for="slug"><?= __('project.slug') ?></label>
-                    <input type="text" id="slug" name="slug" value="<?= e($project['slug']) ?>" required maxlength="100" pattern="[a-z0-9-]+">
-                    <p class="form-hint">Public project path used in webhook URLs.</p>
+                    <input type="text" id="slug" name="slug" value="<?= e($project['slug']) ?>" required maxlength="100" pattern="[a-z0-9-]+" autocomplete="off">
+                    <p class="form-hint" id="slug-hint">Public project path used in webhook URLs.</p>
                 </div>
                 <div class="form-group">
                     <label for="description"><?= __('project.description') ?></label>
@@ -553,11 +565,64 @@ if ($action === 'edit') {
                     </label>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary"><?= __('form.save') ?></button>
+                    <button type="submit" id="save-project-btn" class="btn btn-primary"><?= __('form.save') ?></button>
                     <a href="<?= BASE_URL ?>/?page=project&action=detail&id=<?= $project['id'] ?>" class="btn btn-outline"><?= __('form.cancel') ?></a>
                 </div>
             </form>
         </div>
+    <script>
+    (function () {
+        const slugEl     = document.getElementById('slug');
+        const hintEl     = document.getElementById('slug-hint');
+        const form       = slugEl.closest('form');
+        const originalSlug = <?= json_encode($project['slug']) ?>;
+        const checkUrl   = '<?= BASE_URL ?>/?page=project&action=check_slug&exclude_id=<?= $project['id'] ?>';
+
+        function setHint(msg, type) {
+            hintEl.textContent = msg;
+            hintEl.className = 'form-hint' + (type ? ' form-hint--' + type : '');
+        }
+
+        slugEl.addEventListener('input', function () {
+            setHint('Public project path used in webhook URLs.', '');
+        });
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const slug = slugEl.value.trim();
+
+            // Slug unchanged — no need to verify
+            if (slug === originalSlug) { form.submit(); return; }
+
+            setHint('Checking slug…', '');
+            const btn = document.getElementById('save-project-btn');
+            btn.disabled = true;
+
+            try {
+                const res  = await fetch(checkUrl + '&slug=' + encodeURIComponent(slug));
+                const data = await res.json();
+                if (data.available) {
+                    form.submit();
+                } else {
+                    const suggestion = data.suggested ? ' Try <a href="#" class="slug-suggestion">' + data.suggested + '</a>.' : '';
+                    hintEl.innerHTML = '⚠ This slug is already taken.' + suggestion;
+                    hintEl.className = 'form-hint form-hint--error';
+                    slugEl.focus();
+                    slugEl.select();
+                    btn.disabled = false;
+                    hintEl.querySelector('.slug-suggestion')?.addEventListener('click', function (ev) {
+                        ev.preventDefault();
+                        slugEl.value = this.textContent;
+                        setHint('Public project path used in webhook URLs.', '');
+                    });
+                }
+            } catch (_) {
+                setHint('Could not verify slug. Please try again.', 'error');
+                btn.disabled = false;
+            }
+        });
+    })();
+    </script>
 
         <!-- Danger Zone -->
         <div class="card" style="border-color:var(--color-danger,#e74c3c);margin-top:24px">
