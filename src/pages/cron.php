@@ -168,11 +168,90 @@ foreach ($alarms as $alarm) {
     }
 }
 
+// ── Autocall: claim and execute a batch of due jobs ──────────────────────────
+
+$batchSize   = defined('CRON_BATCH_SIZE') ? CRON_BATCH_SIZE : 10;
+$nowStr      = date('Y-m-d H:i:s');
+$autocallRan = [];
+$remaining   = 0;
+
+// Count total due BEFORE claiming (for reporting)
+$dueCount = (int)$db->query(
+    "SELECT COUNT(*) FROM webhooks
+     WHERE special_function = 'autocall'
+       AND active = 1
+       AND deleted_at IS NULL
+       AND cron_next_run IS NOT NULL
+       AND cron_next_run <= " . $db->quote($nowStr)
+)->fetchColumn();
+
+if ($dueCount > 0) {
+    // --- ATOMIC CLAIM: fetch IDs then NULL them in one transaction ---
+    $db->beginTransaction();
+    $claimed = [];
+    try {
+        $claimStmt = $db->query(
+            "SELECT w.id, w.cron_expression, w.token, p.slug AS project_slug
+             FROM webhooks w
+             JOIN projects p ON p.id = w.project_id
+             WHERE w.special_function = 'autocall'
+               AND w.active = 1
+               AND w.deleted_at IS NULL
+               AND p.deleted_at IS NULL
+               AND w.cron_next_run IS NOT NULL
+               AND w.cron_next_run <= " . $db->quote($nowStr) . "
+             LIMIT $batchSize"
+        );
+        $claimed = $claimStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($claimed)) {
+            $ids = implode(',', array_map(fn($r) => (int)$r['id'], $claimed));
+            // Set NULL → job is "owned" by this caller; concurrent callers skip it
+            $db->exec("UPDATE webhooks SET cron_next_run = NULL WHERE id IN ($ids)");
+        }
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollBack();
+        $claimed = [];
+    }
+
+    // --- EXECUTE claimed jobs (outside transaction) ---
+    foreach ($claimed as $wh) {
+        $webhookId   = (int)$wh['id'];
+        $cronExpr    = $wh['cron_expression'];
+        $webhookPath = '/' . rawurlencode($wh['project_slug']) . '/' . rawurlencode($wh['token']);
+
+        $db->prepare("
+            INSERT INTO events (webhook_id, method, path, query_string, headers, body, content_type, ip, validated)
+            VALUES (?, 'CRON', ?, '', ?, '', 'application/cron', '127.0.0.1', 1)
+        ")->execute([
+            $webhookId,
+            $webhookPath,
+            json_encode(['X-Autocall-Schedule' => $cronExpr]),
+        ]);
+        $eventId = (int)$db->lastInsertId();
+
+        executeForwarding($db, $eventId, $webhookId);
+
+        $nextTs  = cronNextRun($cronExpr, time());
+        $nextStr = $nextTs ? date('Y-m-d H:i:s', $nextTs) : null;
+        $db->prepare('UPDATE webhooks SET cron_next_run = ?, cron_last_run = ? WHERE id = ?')
+           ->execute([$nextStr, date('Y-m-d H:i:s'), $webhookId]);
+
+        $autocallRan[] = ['webhook_id' => $webhookId, 'event_id' => $eventId, 'next_run' => $nextStr];
+    }
+
+    $remaining = max(0, $dueCount - count($claimed));
+}
+
 echo json_encode([
-    'ok'        => true,
-    'checked'   => count($alarms),
-    'triggered' => count($triggered),
-    'alarms'    => $triggered,
-    'ts'        => date('c'),
+    'ok'                 => true,
+    'checked'            => count($alarms),
+    'triggered'          => count($triggered),
+    'alarms'             => $triggered,
+    'autocall_ran'       => count($autocallRan),
+    'autocall_jobs'      => $autocallRan,
+    'autocall_remaining' => $remaining,
+    'ts'                 => date('c'),
 ]);
 exit;

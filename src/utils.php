@@ -463,3 +463,60 @@ const PROJECT_ICONS = [
 function projectEmoji(string $key): string {
     return PROJECT_ICONS[$key] ?? PROJECT_ICONS['robot'];
 }
+
+/**
+ * Parse one cron field against a value.
+ * Supports: * | */n | n | n,m | n-m | n-m/n
+ */
+function cronFieldMatches(string $field, int $value, int $min, int $max): bool {
+    foreach (explode(',', $field) as $part) {
+        $step = 1;
+        if (str_contains($part, '/')) {
+            [$part, $s] = explode('/', $part, 2);
+            $step = max(1, (int)$s);
+        }
+        if ($part === '*') {
+            for ($i = $min; $i <= $max; $i += $step) {
+                if ($i === $value) return true;
+            }
+        } elseif (str_contains($part, '-')) {
+            [$lo, $hi] = explode('-', $part, 2);
+            for ($i = (int)$lo; $i <= (int)$hi; $i += $step) {
+                if ($i === $value) return true;
+            }
+        } else {
+            if ((int)$part === $value) return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Calculate the next timestamp (>= $fromTs + 60s) matching the cron expression.
+ * Returns null if expression is invalid or no match found within 4 years.
+ * Format: "minute hour day month weekday"  (standard 5-field)
+ */
+function cronNextRun(string $expr, int $fromTs): ?int {
+    $fields = preg_split('/\s+/', trim($expr));
+    if (count($fields) !== 5) return null;
+    [$fMin, $fHour, $fDay, $fMon, $fWday] = $fields;
+
+    // Start from the next whole minute
+    $ts = $fromTs - ($fromTs % 60) + 60;
+    $limit = $fromTs + 366 * 4 * 24 * 3600; // 4 years max scan
+
+    while ($ts <= $limit) {
+        $dt = getdate($ts);
+        if (
+            cronFieldMatches($fMon,  $dt['mon'],     1, 12) &&
+            cronFieldMatches($fDay,  $dt['mday'],    1, 31) &&
+            cronFieldMatches($fWday, $dt['wday'],    0, 6)  &&
+            cronFieldMatches($fHour, $dt['hours'],   0, 23) &&
+            cronFieldMatches($fMin,  $dt['minutes'], 0, 59)
+        ) {
+            return $ts;
+        }
+        $ts += 60;
+    }
+    return null;
+}

@@ -27,6 +27,7 @@ define('GITHUB_CLIENT_SECRET', getenv('GITHUB_CLIENT_SECRET') ?: '');
 define('HOOKPOOL_AUTH',      strtolower(trim((string)(getenv('HOOKPOOL_AUTH') ?: 'no'))));
 define('HOOKPOOL_AUTH_ENABLED', in_array(HOOKPOOL_AUTH, ['1', 'true', 'yes', 'on'], true));
 define('CRON_SECRET',        getenv('CRON_SECRET') ?: '');
+define('CRON_BATCH_SIZE',    max(1, (int)(getenv('CRON_BATCH_SIZE') ?: 10)));
 define('UPLOADS_DIR',        getenv('UPLOADS_DIR') ?: dirname(DB_PATH) . '/uploads');
 
 // Headers to strip before saving/displaying — case-insensitive, comma-separated

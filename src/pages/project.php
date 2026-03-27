@@ -258,7 +258,8 @@ if ($action === 'detail') {
                     $sfn        = $wh['special_function'] ?? null;
                     $isPixel    = $sfn === 'pixel';
                     $isFile     = $sfn === 'file_upload';
-                    $whDot      = $isPixel ? '🖼️' : ($isFile ? '📎' : '🌐');
+                    $isAutocall = $sfn === 'autocall';
+                    $whDot      = $isPixel ? '🖼️' : ($isFile ? '📎' : ($isAutocall ? '⏰' : '🌐'));
                     $whBaseUrl  = webhookUrl($project['slug'], $wh['token']);
                     $whDispUrl  = $isPixel ? ($whBaseUrl . '.png') : $whBaseUrl;
                 ?>

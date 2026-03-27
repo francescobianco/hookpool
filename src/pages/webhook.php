@@ -564,15 +564,32 @@ if ($action === 'settings') {
             header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
             exit;
         }
-        $allowed = ['', 'pixel', 'file_upload'];
+        $allowed = ['', 'pixel', 'file_upload', 'autocall'];
         $fn = $_POST['special_function'] ?? '';
         if (!in_array($fn, $allowed, true)) {
             setFlash('error', __('msg.invalid'));
             header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
             exit;
         }
-        $db->prepare('UPDATE webhooks SET special_function = ? WHERE id = ?')
-           ->execute([$fn === '' ? null : $fn, $webhookId]);
+        $cronExpr    = null;
+        $cronNextRun = null;
+        if ($fn === 'autocall') {
+            $cronExpr = trim($_POST['cron_expression'] ?? '');
+            if ($cronExpr === '' || count(preg_split('/\s+/', $cronExpr)) !== 5) {
+                setFlash('error', __('webhook.autocall_cron_invalid'));
+                header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+                exit;
+            }
+            $next = cronNextRun($cronExpr, time());
+            if ($next === null) {
+                setFlash('error', __('webhook.autocall_cron_invalid'));
+                header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+                exit;
+            }
+            $cronNextRun = date('Y-m-d H:i:s', $next);
+        }
+        $db->prepare('UPDATE webhooks SET special_function = ?, cron_expression = ?, cron_next_run = ? WHERE id = ?')
+           ->execute([$fn === '' ? null : $fn, $cronExpr, $cronNextRun, $webhookId]);
         setFlash('success', __('msg.saved'));
         header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
         exit;
@@ -672,34 +689,74 @@ if ($action === 'settings') {
             <h3 style="margin-top:0"><?= __('webhook.special_functions') ?></h3>
             <p class="text-muted" style="margin-bottom:1.25rem"><?= __('webhook.special_functions_desc') ?></p>
 
-            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>">
+            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>" id="sfnForm">
                 <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
                 <input type="hidden" name="_action" value="set_special_function">
                 <div class="special-fn-grid">
 
                     <label class="special-fn-card<?= $currentFn === '' ? ' active' : '' ?>">
-                        <input type="radio" name="special_function" value="" <?= $currentFn === '' ? 'checked' : '' ?> onchange="this.form.submit()">
+                        <input type="radio" name="special_function" value="" <?= $currentFn === '' ? 'checked' : '' ?> onchange="sfnChange(this)">
                         <div class="special-fn-icon">🔌</div>
                         <div class="special-fn-title"><?= __('webhook.sfn_none') ?></div>
                         <div class="special-fn-desc"><?= __('webhook.sfn_none_desc') ?></div>
                     </label>
 
                     <label class="special-fn-card<?= $currentFn === 'pixel' ? ' active' : '' ?>">
-                        <input type="radio" name="special_function" value="pixel" <?= $currentFn === 'pixel' ? 'checked' : '' ?> onchange="this.form.submit()">
-                        <div class="special-fn-icon">🎯</div>
+                        <input type="radio" name="special_function" value="pixel" <?= $currentFn === 'pixel' ? 'checked' : '' ?> onchange="sfnChange(this)">
+                        <div class="special-fn-icon">🖼️</div>
                         <div class="special-fn-title"><?= __('webhook.sfn_pixel') ?></div>
                         <div class="special-fn-desc"><?= __('webhook.sfn_pixel_desc') ?></div>
                     </label>
 
                     <label class="special-fn-card<?= $currentFn === 'file_upload' ? ' active' : '' ?>">
-                        <input type="radio" name="special_function" value="file_upload" <?= $currentFn === 'file_upload' ? 'checked' : '' ?> onchange="this.form.submit()">
+                        <input type="radio" name="special_function" value="file_upload" <?= $currentFn === 'file_upload' ? 'checked' : '' ?> onchange="sfnChange(this)">
                         <div class="special-fn-icon">📎</div>
                         <div class="special-fn-title"><?= __('webhook.sfn_file_upload') ?></div>
                         <div class="special-fn-desc"><?= __('webhook.sfn_file_upload_desc') ?></div>
                     </label>
 
+                    <label class="special-fn-card<?= $currentFn === 'autocall' ? ' active' : '' ?>">
+                        <input type="radio" name="special_function" value="autocall" <?= $currentFn === 'autocall' ? 'checked' : '' ?> onchange="sfnChange(this)">
+                        <div class="special-fn-icon">⏰</div>
+                        <div class="special-fn-title"><?= __('webhook.sfn_autocall') ?></div>
+                        <div class="special-fn-desc"><?= __('webhook.sfn_autocall_desc') ?></div>
+                    </label>
+
+                </div>
+
+                <!-- Autocall config panel -->
+                <div id="sfnAutocallPanel" style="<?= $currentFn === 'autocall' ? '' : 'display:none' ?>;margin-top:1.25rem">
+                    <div class="form-group" style="margin-bottom:0.5rem">
+                        <label style="font-weight:600"><?= __('webhook.autocall_cron_label') ?></label>
+                        <input type="text" name="cron_expression" id="cronExprInput"
+                               value="<?= e($wh['cron_expression'] ?? '') ?>"
+                               placeholder="*/5 * * * *"
+                               pattern="^(\S+\s+){4}\S+$"
+                               style="font-family:var(--font-mono)">
+                        <p class="form-hint">
+                            <?= __('webhook.autocall_cron_hint') ?>
+                            <?php if (!empty($wh['cron_next_run'])): ?>
+                            &mdash; <?= __('webhook.autocall_next_run') ?>: <strong><?= e($wh['cron_next_run']) ?></strong>
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm"><?= __('form.save') ?></button>
                 </div>
             </form>
+<script>
+function sfnChange(radio) {
+    document.querySelectorAll('.special-fn-card').forEach(c => c.classList.remove('active'));
+    radio.closest('.special-fn-card').classList.add('active');
+    const panel = document.getElementById('sfnAutocallPanel');
+    if (radio.value === 'autocall') {
+        panel.style.display = '';
+        document.getElementById('cronExprInput').focus();
+    } else {
+        panel.style.display = 'none';
+        radio.form.submit();
+    }
+}
+</script>
 
             <?php if ($currentFn === 'pixel'): ?>
             <div class="special-fn-detail" style="margin-top:1.5rem">
@@ -730,6 +787,15 @@ if ($action === 'settings') {
                         Content-Type: <code>multipart/form-data</code>
                     </p>
                 </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($currentFn === 'autocall' && !empty($wh['cron_next_run'])): ?>
+            <div class="special-fn-detail" style="margin-top:1.5rem">
+                <table class="diag-table" style="max-width:420px">
+                    <tr><td>Schedule</td><td><code><?= e($wh['cron_expression']) ?></code></td></tr>
+                    <tr><td><?= __('webhook.autocall_next_run') ?></td><td><code><?= e($wh['cron_next_run']) ?></code></td></tr>
+                </table>
             </div>
             <?php endif; ?>
         </div>
