@@ -262,7 +262,7 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
                 <div class="attempt-error text-error"><?= e($att['error']) ?></div>
                 <?php endif; ?>
                 <?php if ($att['response_body']): ?>
-                <details class="attempt-response">
+                <details class="attempt-response" open>
                     <summary>Response Body</summary>
                     <?php
                     $respJson = json_decode($att['response_body'], true);

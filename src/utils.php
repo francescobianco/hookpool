@@ -322,7 +322,14 @@ function executeForwarding(PDO $db, int $eventId, int $webhookId): void {
         // Build serialized request headers for logging
         $requestHeadersLog = json_encode($customHeaders);
 
-        // Save attempt
+        // Save attempt — sanitize strings to valid UTF-8 before INSERT
+        // (external responses may contain non-UTF-8 bytes that MySQL strict mode rejects)
+        $safeUtf8 = static function (?string $s): ?string {
+            if ($s === null) return null;
+            $clean = iconv('UTF-8', 'UTF-8//IGNORE', $s);
+            return $clean === false ? '' : $clean;
+        };
+
         $attemptStmt = $db->prepare(
             'INSERT INTO forward_attempts
              (event_id, forward_action_id, request_headers, request_body, response_status, response_body, error)
@@ -331,11 +338,11 @@ function executeForwarding(PDO $db, int $eventId, int $webhookId): void {
         $attemptStmt->execute([
             $eventId,
             $action['id'],
-            $requestHeadersLog,
-            $requestBody,
+            $safeUtf8($requestHeadersLog),
+            $safeUtf8($requestBody),
             $responseStatus,
-            $responseBody,
-            $error,
+            $safeUtf8($responseBody),
+            $safeUtf8($error),
         ]);
     }
 }

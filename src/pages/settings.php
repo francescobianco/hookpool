@@ -60,6 +60,22 @@ if ($action === 'delete_account' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// --- SAVE LOG RETENTION ---
+if ($action === 'save_log_retention' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=settings#log-retention');
+        exit;
+    }
+    $allowed = ['', '1', '7', '30'];
+    $raw = $_POST['log_retention_days'] ?? '';
+    $days = in_array($raw, $allowed, true) ? ($raw === '' ? null : (int)$raw) : null;
+    $db->prepare('UPDATE users SET log_retention_days = ? WHERE id = ?')->execute([$days, $userId]);
+    setFlash('success', __('msg.saved'));
+    header('Location: ' . BASE_URL . '/?page=settings#log-retention');
+    exit;
+}
+
 // --- CREATE CATEGORY ---
 if ($action === 'create_category' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
@@ -284,12 +300,28 @@ $stats = $statsStmt->fetch();
         </div>
     </section>
 
-    <!-- System Diagnose link -->
-    <div style="text-align:right;margin-top:8px;margin-bottom:4px">
-        <a href="<?= BASE_URL ?>/?page=diagnose" class="text-muted" style="font-size:0.8rem;text-decoration:none;opacity:0.6">
-            System Diagnose ›
-        </a>
-    </div>
+    <!-- Log Retention -->
+    <section class="section" id="log-retention">
+        <h2><?= __('settings.log_retention') ?></h2>
+        <div class="card">
+            <p class="text-muted" style="margin-top:0"><?= __('settings.log_retention_desc') ?></p>
+            <form method="post" action="<?= BASE_URL ?>/?page=settings&action=save_log_retention" class="form">
+                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                <?php $currentRetention = $current_user['log_retention_days'] ?? null; ?>
+                <div class="retention-options">
+                    <?php foreach (['' => __('settings.retention_forever'), '1' => __('settings.retention_1d'), '7' => __('settings.retention_7d'), '30' => __('settings.retention_30d')] as $val => $label): ?>
+                    <label class="retention-option<?= ((string)($currentRetention ?? '') === $val) ? ' active' : '' ?>">
+                        <input type="radio" name="log_retention_days" value="<?= $val ?>"
+                               <?= ((string)($currentRetention ?? '') === $val) ? 'checked' : '' ?>
+                               onchange="this.form.submit()">
+                        <?= $label ?>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+                <p class="form-hint" style="margin-top:0.75rem"><?= __('settings.log_retention_hint') ?></p>
+            </form>
+        </div>
+    </section>
 
     <!-- Danger Zone (hidden for local single-user mode) -->
     <?php if (authEnabled()): ?>
@@ -308,6 +340,16 @@ $stats = $statsStmt->fetch();
         </div>
     </section>
     <?php endif; ?>
+
+    <!-- Footer links -->
+    <div style="text-align:center;margin-top:1.5rem;display:flex;justify-content:center;gap:1.5rem">
+        <a href="<?= BASE_URL ?>/?page=known_ips" class="text-muted" style="font-size:0.8rem;text-decoration:none;opacity:0.6">
+            Known IP Addresses ›
+        </a>
+        <a href="<?= BASE_URL ?>/?page=diagnose" class="text-muted" style="font-size:0.8rem;text-decoration:none;opacity:0.6">
+            System Diagnose ›
+        </a>
+    </div>
 </div>
 
 <?php if (authEnabled()): ?>

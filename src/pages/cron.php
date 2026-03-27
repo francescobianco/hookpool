@@ -271,6 +271,69 @@ if ($dueCount > 0) {
     $remaining = max(0, $dueCount - count($claimed));
 }
 
+// ── Log retention cleanup ─────────────────────────────────────────────────────
+
+$cleanupStats = [];
+
+$retentionUsers = $db->query(
+    "SELECT u.id, u.log_retention_days
+     FROM users u
+     WHERE u.log_retention_days IS NOT NULL AND u.deleted_at IS NULL"
+)->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($retentionUsers as $ru) {
+    $ruId   = (int)$ru['id'];
+    $ruDays = (int)$ru['log_retention_days'];
+    $cutoff = date('Y-m-d H:i:s', time() - $ruDays * 86400);
+
+    // Collect old event IDs for this user
+    $oldEvtStmt = $db->prepare("
+        SELECT e.id FROM events e
+        JOIN webhooks w  ON w.id  = e.webhook_id
+        JOIN projects p  ON p.id  = w.project_id
+        WHERE p.user_id = ?
+          AND e.received_at < ?
+        LIMIT 500
+    ");
+    $oldEvtStmt->execute([$ruId, $cutoff]);
+    $oldIds = $oldEvtStmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($oldIds)) continue;
+
+    $idList      = implode(',', array_map('intval', $oldIds));
+    $eventsDeleted = 0;
+    $filesDeleted  = 0;
+
+    // Delete physical files and event_files rows
+    $fileRows = $db->query(
+        "SELECT id, storage_path FROM event_files WHERE event_id IN ($idList)"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($fileRows as $f) {
+        if ($f['storage_path'] !== '' && file_exists($f['storage_path'])) {
+            @unlink($f['storage_path']);
+        }
+        $filesDeleted++;
+    }
+    if (!empty($fileRows)) {
+        $db->exec("DELETE FROM event_files WHERE event_id IN ($idList)");
+    }
+
+    // Delete forward_attempts
+    $db->exec("DELETE FROM forward_attempts WHERE event_id IN ($idList)");
+
+    // Delete events
+    $db->exec("DELETE FROM events WHERE id IN ($idList)");
+    $eventsDeleted = count($oldIds);
+
+    $cleanupStats[] = [
+        'user_id'        => $ruId,
+        'retention_days' => $ruDays,
+        'events_deleted' => $eventsDeleted,
+        'files_deleted'  => $filesDeleted,
+    ];
+}
+
 echo json_encode([
     'ok'                 => true,
     'checked'            => count($alarms),
@@ -279,6 +342,7 @@ echo json_encode([
     'autocall_ran'       => count($autocallRan),
     'autocall_jobs'      => $autocallRan,
     'autocall_remaining' => $remaining,
+    'cleanup'            => $cleanupStats,
     'ts'                 => date('c'),
 ]);
 exit;

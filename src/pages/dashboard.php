@@ -67,6 +67,12 @@ $events = $eventsStmt->fetchAll();
 // Get last event id for polling
 $lastId = !empty($events) ? (int)$events[0]['id'] : 0;
 
+// Load known IPs for label substitution
+$kipStmt = $db->prepare('SELECT ip, label FROM known_ips WHERE user_id = ?');
+$kipStmt->execute([$userId]);
+$knownIpMap = [];
+foreach ($kipStmt->fetchAll() as $k) { $knownIpMap[$k['ip']] = $k['label']; }
+
 // Get categories for filter dropdown
 $catStmt = $db->prepare('SELECT id, name FROM categories WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order, name');
 $catStmt->execute([$userId]);
@@ -225,8 +231,10 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
 function renderEventRow(array $event): string {
     $method    = strtolower($event['method'] ?? 'post');
     $validated = (int)$event['validated'];
-    $path      = $event['path'] ?? '/';
-    $ip        = $event['ip'] ?? '';
+    $qs        = $event['query_string'] ?? '';
+    $path      = ($event['path'] ?? '/') . ($qs !== '' ? '?' . $qs : '');
+    $rawIp     = $event['ip'] ?? '';
+    $ip        = $GLOBALS['knownIpMap'][$rawIp] ?? $rawIp;
     $time      = $event['received_at'] ?? '';
     $projectName = $event['project_name'] ?? '';
     $webhookName = $event['webhook_name'] ?? '';
@@ -280,6 +288,7 @@ function renderEventRow(array $event): string {
 (function() {
     let lastId = <?= $lastId ?>;
     const ajaxBase = '<?= $ajaxBase ?>';
+    const knownIps = <?= json_encode($knownIpMap) ?>;
     const refreshInterval = 3000;
     let isRefreshing = false;
 
@@ -328,8 +337,8 @@ function renderEventRow(array $event): string {
                             <td class="col-time"><span title="${escapeHtml(ev.received_at||'')}">${escapeHtml(timeStr)}</span></td>
                             <td class="col-project">${escapeHtml(ev.project_name||'')}</td>
                             <td class="col-webhook">${escapeHtml(ev.webhook_name||'')}</td>
-                            <td class="col-path mono">${escapeHtml(ev.path||'/')}</td>
-                            <td class="col-ip mono">${escapeHtml(ev.ip || '')}</td>
+                            <td class="col-path mono">${escapeHtml((ev.path||'/') + (ev.query_string ? '?' + ev.query_string : ''))}</td>
+                            <td class="col-ip mono">${escapeHtml(knownIps[ev.ip] || ev.ip || '')}</td>
                             <td class="col-status">${statusBadge}</td>
                             <td class="col-info">${infoCell}</td>
                         `;

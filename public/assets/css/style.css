@@ -1732,6 +1732,27 @@ tr:last-child td { border-bottom: none; }
 }
 .pwa-install-dismiss:hover { color: var(--text-primary); }
 
+/* Log Retention */
+.retention-options {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+.retention-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: border-color 0.15s, background 0.15s;
+}
+.retention-option input[type="radio"] { display: none; }
+.retention-option:hover { border-color: var(--accent); background: var(--accent-light); }
+.retention-option.active { border-color: var(--accent); background: var(--accent-light); font-weight: 600; color: var(--accent); }
+
 /* Webhook Notes */
 .webhook-notes-card { font-size: 0.9rem; line-height: 1.7; }
 .webhook-notes-card h1,.webhook-notes-card h2,.webhook-notes-card h3 { margin: 0.75rem 0 0.4rem; font-size: 1em; }
@@ -1744,6 +1765,10 @@ tr:last-child td { border-bottom: none; }
 .webhook-notes-card pre code { background: none; padding: 0; }
 .webhook-notes-card blockquote { border-left: 3px solid var(--border); margin: 0 0 0.6rem; padding: 0.25rem 0.75rem; color: var(--text-muted); }
 .webhook-notes-card a { color: var(--accent); }
+
+/* Known IPs table */
+.known-ips-table th { padding: 8px 12px; font-size: 0.8rem; color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--border); text-align: left; }
+.known-ips-table td:last-child { text-align: right; white-space: nowrap; width: 1%; }
 
 /* System Diagnose */
 .diag-table { width: 100%; border-collapse: collapse; }
