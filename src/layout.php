@@ -398,15 +398,14 @@ function showCopyFeedback(btn) {
 
 // Auto-dismiss alerts after 5s
 document.addEventListener('DOMContentLoaded', () => {
-    // Flash alert: constrain width + pin fixed if not in viewport
+    // Flash alert: constrain width + pin fixed if page has an anchor (will scroll away from alert)
     const flashAlert = document.querySelector('.main-content > .alert');
     if (flashAlert) {
         const pageContainer = document.querySelector('.page-container');
-        const rect = flashAlert.getBoundingClientRect();
-        const inViewport = rect.top >= 0 && rect.bottom <= window.innerHeight;
+        const hasAnchor = !!window.location.hash;
 
-        if (!inViewport) {
-            // Pin below the topbar, full-width of main-content
+        if (hasAnchor) {
+            // The browser will scroll to the anchor, making the top alert invisible — pin it fixed
             const headerHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 68;
             const mainContent = flashAlert.closest('.main-content');
             const mainRect = mainContent ? mainContent.getBoundingClientRect() : {left: 0, width: window.innerWidth};
