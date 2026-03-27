@@ -290,8 +290,20 @@ function closeModal(id) {
     const m = document.getElementById(id);
     if (m) { m.style.display = 'none'; m.setAttribute('aria-hidden', 'true'); }
 }
+// Close modal only when both mousedown AND mouseup land on the backdrop,
+// so a drag that starts inside and ends outside does not dismiss the modal.
+let _modalMousedownTarget = null;
+window.addEventListener('mousedown', e => {
+    _modalMousedownTarget = e.target;
+});
 window.addEventListener('click', e => {
-    if (e.target.classList.contains('modal')) closeModal(e.target.id);
+    if (
+        e.target.classList.contains('modal') &&
+        _modalMousedownTarget === e.target
+    ) {
+        closeModal(e.target.id);
+    }
+    _modalMousedownTarget = null;
 });
 window.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
