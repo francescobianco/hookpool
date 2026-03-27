@@ -484,6 +484,7 @@ const PROJECT_ICONS = [
     'mobile'      => '📱',
     'cloud'       => '☁️',
     'game'        => '🎮',
+    'watch'       => '⌚',
 ];
 
 /**
