@@ -70,7 +70,7 @@
                     </div>
                     <div class="user-dropdown-divider"></div>
                     <a href="<?= BASE_URL ?>/?page=settings" class="user-dropdown-item">
-                        ⚙️ <?= __('nav.settings') ?>
+                        <?= __('nav.settings') ?>
                     </a>
                     <?php if (authEnabled()): ?>
                     <div class="user-dropdown-divider"></div>
