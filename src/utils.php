@@ -322,12 +322,16 @@ function executeForwarding(PDO $db, int $eventId, int $webhookId): void {
         // Build serialized request headers for logging
         $requestHeadersLog = json_encode($customHeaders);
 
-        // Save attempt — sanitize strings to valid UTF-8 before INSERT
-        // (external responses may contain non-UTF-8 bytes that MySQL strict mode rejects)
-        $safeUtf8 = static function (?string $s): ?string {
+        // Save attempt — sanitize strings to valid UTF-8 and truncate to TEXT limit (65535 bytes)
+        $safeUtf8 = static function (?string $s, int $maxBytes = 60000): ?string {
             if ($s === null) return null;
             $clean = iconv('UTF-8', 'UTF-8//IGNORE', $s);
-            return $clean === false ? '' : $clean;
+            if ($clean === false) $clean = '';
+            // Truncate to maxBytes safely (avoid cutting a multibyte char)
+            if (strlen($clean) > $maxBytes) {
+                $clean = mb_strcut($clean, 0, $maxBytes, 'UTF-8') . "\n[truncated]";
+            }
+            return $clean;
         };
 
         $attemptStmt = $db->prepare(

@@ -258,7 +258,12 @@ if ($dueCount > 0) {
         ]);
         $eventId = (int)$db->lastInsertId();
 
-        executeForwarding($db, $eventId, $webhookId);
+        try {
+            executeForwarding($db, $eventId, $webhookId);
+        } catch (Throwable $fwErr) {
+            // Log error but continue — cron_next_run must still be updated
+            error_log('Hookpool autocall executeForwarding error (webhook ' . $webhookId . '): ' . $fwErr->getMessage());
+        }
 
         $nextTs  = cronNextRun($cronExpr, time());
         $nextStr = $nextTs ? date('Y-m-d H:i:s', $nextTs) : null;
@@ -275,11 +280,15 @@ if ($dueCount > 0) {
 
 $cleanupStats = [];
 
-$retentionUsers = $db->query(
-    "SELECT u.id, u.log_retention_days
-     FROM users u
-     WHERE u.log_retention_days IS NOT NULL AND u.deleted_at IS NULL"
-)->fetchAll(PDO::FETCH_ASSOC);
+try {
+    $retentionUsers = $db->query(
+        "SELECT u.id, u.log_retention_days
+         FROM users u
+         WHERE u.log_retention_days IS NOT NULL AND u.deleted_at IS NULL"
+    )->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $retentionUsers = []; // column not yet added by migration
+}
 
 foreach ($retentionUsers as $ru) {
     $ruId   = (int)$ru['id'];
