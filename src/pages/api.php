@@ -54,15 +54,16 @@ switch ($action) {
             $whereClauses[] = 'e.validated = 0';
         }
         if ($filterTime !== '') {
-            $interval = match($filterTime) {
-                '1h'  => '-1 hour',
-                '24h' => '-24 hours',
-                '7d'  => '-7 days',
-                '30d' => '-30 days',
-                default => ''
+            $seconds = match($filterTime) {
+                '1h'  => 3600,
+                '24h' => 86400,
+                '7d'  => 604800,
+                '30d' => 2592000,
+                default => 0
             };
-            if ($interval) {
-                $whereClauses[] = "e.received_at > datetime('now', '$interval')";
+            if ($seconds > 0) {
+                $whereClauses[] = 'e.received_at > ?';
+                $params[] = date('Y-m-d H:i:s', time() - $seconds);
             }
         }
 

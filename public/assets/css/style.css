@@ -181,13 +181,25 @@ details > summary { cursor: pointer; user-select: none; }
 .nav-link.active { color: var(--text-primary); background: var(--bg-hover); }
 
 .user-menu {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    position: relative;
     margin-left: 0.5rem;
     padding-left: 0.75rem;
     border-left: 1px solid rgba(239, 215, 203, 0.85);
 }
+.user-menu-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 8px;
+    transition: background 0.15s;
+    color: var(--text-primary);
+}
+.user-menu-trigger:hover { background: var(--accent-light); }
+.user-menu-chevron { font-size: 0.75rem; color: var(--text-dim); }
 
 .user-avatar {
     width: 32px;
@@ -214,6 +226,58 @@ details > summary { cursor: pointer; user-select: none; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 220px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    z-index: 200;
+    overflow: hidden;
+}
+.user-dropdown-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 14px 16px;
+}
+.user-dropdown-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.user-dropdown-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+.user-dropdown-email {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+}
+.user-dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0;
+}
+.user-dropdown-item {
+    display: block;
+    padding: 10px 16px;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: background 0.12s;
+}
+.user-dropdown-item:hover { background: var(--bg-alt); text-decoration: none; }
+.user-dropdown-item-danger { color: var(--color-danger, #e74c3c); }
+.user-dropdown-item-danger:hover { background: rgba(231,76,60,.08); }
 
 /* --- Sidebar toggle button ------------------------------------------------ */
 .sidebar-toggle {
@@ -1558,7 +1622,7 @@ tr:last-child td { border-bottom: none; }
 /* PIXEL / FILE method badge variants */
 .badge-method.pixel { background: rgba(100,180,100,.15); color: #2d8a4e; }
 .badge-method.file  { background: rgba(130,90,200,.15);  color: #6b3fa0; }
-.badge-method.cron  { background: rgba(245,158,11,.15);  color: #b45309; }
+.badge-method.cron  { background: #111; color: #fff; }
 
 /* --- Utility Classes ------------------------------------------------------- */
 .text-muted  { color: var(--text-muted); }

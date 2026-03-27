@@ -1059,11 +1059,11 @@ ob_start();
     <!-- Forward Actions (Azioni) -->
     <section class="section">
         <div class="section-header">
-            <h2>Azioni</h2>
-            <button onclick="openModal('addForwardModal')" class="btn btn-sm btn-outline">+ Aggiungi Azione</button>
+            <h2><?= __('forward.section_title') ?></h2>
+            <button onclick="openModal('addForwardModal')" class="btn btn-sm btn-outline"><?= __('forward.add_btn') ?></button>
         </div>
         <?php if (empty($forwardActions)): ?>
-        <p class="text-muted">Nessuna azione configurata. Aggiungine una per inoltrare gli eventi ad altri endpoint.</p>
+        <p class="text-muted"><?= __('forward.none') ?></p>
         <?php else: ?>
         <div class="fa-list">
             <?php foreach ($forwardActions as $fa): ?>
@@ -1090,7 +1090,7 @@ ob_start();
                     <span class="badge <?= $fa['active'] ? 'badge-success' : 'badge-muted' ?>"><?= $fa['active'] ? 'Active' : 'Inactive' ?></span>
                     <div class="fa-dropdown" id="faDrop<?= (int)$fa['id'] ?>">
                         <button class="btn btn-xs btn-outline fa-dropdown-toggle" onclick="toggleFaMenu(<?= (int)$fa['id'] ?>, event)">
-                            Azioni ▾
+                            <?= __('forward.actions_menu') ?>
                         </button>
                         <div class="fa-dropdown-menu" style="display:none">
                             <button class="fa-menu-item" onclick="openEditForwardModal(
@@ -1193,7 +1193,7 @@ ob_start();
                     <td class="col-method"><span class="badge-method <?= strtolower($ev['method']) ?>"><?= e($ev['method']) ?></span></td>
                     <td class="col-time"><span title="<?= e($ev['received_at']) ?>"><?= e(date('H:i:s', strtotime($ev['received_at']))) ?></span></td>
                     <td class="col-path mono"><?= e($ev['path']) ?></td>
-                    <td class="col-ip mono"><?= e($ev['ip']) ?></td>
+                    <td class="col-ip mono"><?= e($ev['ip'] !== '' ? $ev['ip'] : (strtoupper($ev['method']) === 'CRON' ? '127.0.0.1' : '')) ?></td>
                     <td class="col-status"><?= strtoupper($ev['method']) === 'ALARM' ? '<span class="badge badge-warning">Alarm</span>' : ($ev['validated'] ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>') ?></td>
                     <td class="col-info text-muted"><?= strtoupper($ev['method']) === 'ALARM' ? e($ev['body']) : '' ?></td>
                 </tr>
@@ -1218,7 +1218,6 @@ function escapeHtml(value) {
     const ajaxBase = '<?= $eventsAjaxBase ?>';
     const refreshInterval = 3000;
     let isRefreshing = false;
-    }
 
     function renderTime(value) {
         if (!value) return '';
@@ -1293,7 +1292,7 @@ function escapeHtml(value) {
                         <td class="col-method"><span class="badge-method ${methodLower}">${escapeHtml(method)}</span></td>
                         <td class="col-time"><span title="${escapeHtml(ev.received_at || '')}">${escapeHtml(renderTime(ev.received_at || ''))}</span></td>
                         <td class="col-path mono">${escapeHtml(ev.path || '/')}</td>
-                        <td class="col-ip mono">${escapeHtml(ev.ip || '')}</td>
+                        <td class="col-ip mono">${escapeHtml(ev.ip || (method === 'CRON' ? '127.0.0.1' : ''))}</td>
                         <td class="col-status">${statusBadge}</td>
                         <td class="col-info text-muted">${infoCell}</td>
                     `;

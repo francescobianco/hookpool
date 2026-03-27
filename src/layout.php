@@ -44,18 +44,41 @@
             <a href="<?= BASE_URL ?>/?page=settings" class="nav-link<?= (($_GET['page'] ?? '') === 'settings') ? ' active' : '' ?>">
                 <?= __('nav.settings') ?>
             </a>
-            <div class="user-menu">
-                <?php if (!empty($current_user['avatar_url'])): ?>
-                <img src="<?= e($current_user['avatar_url']) ?>" alt="<?= e($current_user['username'] ?? '') ?>" class="user-avatar">
-                <?php else: ?>
-                <div class="user-avatar user-avatar-placeholder">🤖</div>
-                <?php endif; ?>
-                <span class="user-name"><?= e($current_user['display_name'] ?: $current_user['username']) ?></span>
-                <?php if (authEnabled()): ?>
-                <a href="<?= BASE_URL ?>/?page=auth&action=logout" class="btn btn-sm btn-outline">
-                    <?= __('nav.logout') ?>
-                </a>
-                <?php endif; ?>
+            <div class="user-menu" id="userMenu">
+                <button class="user-menu-trigger" id="userMenuTrigger" onclick="toggleUserMenu(event)" aria-expanded="false" aria-haspopup="true">
+                    <?php if (!empty($current_user['avatar_url'])): ?>
+                    <img src="<?= e($current_user['avatar_url']) ?>" alt="<?= e($current_user['username'] ?? '') ?>" class="user-avatar">
+                    <?php else: ?>
+                    <div class="user-avatar user-avatar-placeholder">🤖</div>
+                    <?php endif; ?>
+                    <span class="user-name"><?= e($current_user['display_name'] ?: $current_user['username']) ?></span>
+                    <span class="user-menu-chevron">▾</span>
+                </button>
+                <div class="user-dropdown" id="userDropdown" style="display:none">
+                    <div class="user-dropdown-info">
+                        <?php if (!empty($current_user['avatar_url'])): ?>
+                        <img src="<?= e($current_user['avatar_url']) ?>" alt="" class="user-dropdown-avatar">
+                        <?php else: ?>
+                        <div class="user-dropdown-avatar user-avatar-placeholder">🤖</div>
+                        <?php endif; ?>
+                        <div>
+                            <div class="user-dropdown-name"><?= e($current_user['display_name'] ?: $current_user['username']) ?></div>
+                            <?php if (!empty($current_user['email'])): ?>
+                            <div class="user-dropdown-email"><?= e($current_user['email']) ?></div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="user-dropdown-divider"></div>
+                    <a href="<?= BASE_URL ?>/?page=settings" class="user-dropdown-item">
+                        ⚙️ <?= __('nav.settings') ?>
+                    </a>
+                    <?php if (authEnabled()): ?>
+                    <div class="user-dropdown-divider"></div>
+                    <a href="<?= BASE_URL ?>/?page=auth&action=logout" class="user-dropdown-item user-dropdown-item-danger">
+                        <?= __('nav.logout') ?>
+                    </a>
+                    <?php endif; ?>
+                </div>
             </div>
         <?php else: ?>
             <?php if (authEnabled()): ?>
@@ -270,6 +293,26 @@ window.addEventListener('click', e => {
 window.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         document.querySelectorAll('.modal[style*="flex"]').forEach(m => closeModal(m.id));
+    }
+});
+
+// User menu dropdown
+function toggleUserMenu(e) {
+    e.stopPropagation();
+    const drop = document.getElementById('userDropdown');
+    const trigger = document.getElementById('userMenuTrigger');
+    if (!drop) return;
+    const open = drop.style.display === 'none';
+    drop.style.display = open ? '' : 'none';
+    if (trigger) trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+document.addEventListener('click', function(e) {
+    const menu = document.getElementById('userMenu');
+    const drop = document.getElementById('userDropdown');
+    if (drop && menu && !menu.contains(e.target)) {
+        drop.style.display = 'none';
+        const trigger = document.getElementById('userMenuTrigger');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
     }
 });
 

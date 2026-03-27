@@ -32,15 +32,16 @@ if ($filterStatus === 'validated') {
     $whereClauses[] = 'e.validated = 0';
 }
 if ($filterTime !== '') {
-    $interval = match($filterTime) {
-        '1h'  => '-1 hour',
-        '24h' => '-24 hours',
-        '7d'  => '-7 days',
-        '30d' => '-30 days',
-        default => ''
+    $seconds = match($filterTime) {
+        '1h'  => 3600,
+        '24h' => 86400,
+        '7d'  => 604800,
+        '30d' => 2592000,
+        default => 0
     };
-    if ($interval) {
-        $whereClauses[] = "e.received_at > datetime('now', '$interval')";
+    if ($seconds > 0) {
+        $whereClauses[] = 'e.received_at > ?';
+        $params[] = date('Y-m-d H:i:s', time() - $seconds);
     }
 }
 
@@ -225,7 +226,7 @@ function renderEventRow(array $event): string {
     $method    = strtolower($event['method'] ?? 'post');
     $validated = (int)$event['validated'];
     $path      = $event['path'] ?? '/';
-    $ip        = $event['ip'] ?? '';
+    $ip        = ($event['ip'] ?? '') !== '' ? $event['ip'] : (strtoupper($event['method'] ?? '') === 'CRON' ? '127.0.0.1' : '');
     $time      = $event['received_at'] ?? '';
     $projectName = $event['project_name'] ?? '';
     $webhookName = $event['webhook_name'] ?? '';
@@ -328,7 +329,7 @@ function renderEventRow(array $event): string {
                             <td class="col-project">${escapeHtml(ev.project_name||'')}</td>
                             <td class="col-webhook">${escapeHtml(ev.webhook_name||'')}</td>
                             <td class="col-path mono">${escapeHtml(ev.path||'/')}</td>
-                            <td class="col-ip mono">${escapeHtml(ev.ip||'')}</td>
+                            <td class="col-ip mono">${escapeHtml(ev.ip || (method === 'CRON' ? '127.0.0.1' : ''))}</td>
                             <td class="col-status">${statusBadge}</td>
                             <td class="col-info">${infoCell}</td>
                         `;
