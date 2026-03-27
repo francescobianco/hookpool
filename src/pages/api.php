@@ -16,7 +16,8 @@ switch ($action) {
 
     // --- GET EVENTS (for dashboard auto-refresh polling) ---
     case 'events':
-        $afterId       = isset($_GET['after_id']) ? (int)$_GET['after_id'] : 0;
+        $afterId       = isset($_GET['after_id'])  ? (int)$_GET['after_id']  : 0;
+        $beforeId      = isset($_GET['before_id']) ? (int)$_GET['before_id'] : 0;
         $filterCatId   = isset($_GET['category_id']) && $_GET['category_id'] !== '' ? (int)$_GET['category_id'] : null;
         $filterProjId  = isset($_GET['project_id']) && $_GET['project_id'] !== '' ? (int)$_GET['project_id'] : null;
         $filterWebhookId = isset($_GET['webhook_id']) && $_GET['webhook_id'] !== '' ? (int)$_GET['webhook_id'] : null;
@@ -31,6 +32,10 @@ switch ($action) {
         if ($afterId > 0) {
             $whereClauses[] = 'e.id > ?';
             $params[] = $afterId;
+        }
+        if ($beforeId > 0) {
+            $whereClauses[] = 'e.id < ?';
+            $params[] = $beforeId;
         }
         if ($filterCatId !== null) {
             $whereClauses[] = 'p.category_id = ?';

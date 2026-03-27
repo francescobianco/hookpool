@@ -6,7 +6,7 @@ $userId       = (int)$current_user['id'];
 // Filters from GET
 $filterCategoryId = isset($_GET['category_id']) && $_GET['category_id'] !== '' ? (int)$_GET['category_id'] : null;
 $filterProjectId  = isset($_GET['project_id'])  && $_GET['project_id']  !== '' ? (int)$_GET['project_id']  : null;
-$filterMethod     = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM'], true) ? $_GET['method'] : '';
+$filterMethod     = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM','PIXEL','CRON'], true) ? $_GET['method'] : '';
 $filterStatus     = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
 $filterTime       = isset($_GET['time'])   && in_array($_GET['time'],   ['1h','24h','7d','30d'], true)  ? $_GET['time']   : '';
 
@@ -141,7 +141,7 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
 
         <select name="method" onchange="this.form.submit()">
             <option value=""><?= __('dashboard.filter_method') ?></option>
-            <?php foreach (['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM'] as $m): ?>
+            <?php foreach (['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM','PIXEL','CRON'] as $m): ?>
             <option value="<?= $m ?>"<?= $filterMethod === $m ? ' selected' : '' ?>><?= $m ?></option>
             <?php endforeach; ?>
         </select>
@@ -225,6 +225,8 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
             </tbody>
         </table>
         </div>
+        <div id="scrollSentinel"></div>
+        <div id="noMoreEvents" style="text-align:center;padding:1.2rem 0;color:var(--text-muted,#888);<?= count($events) < 100 ? '' : 'display:none' ?>">— No more logs —</div>
     </div>
 </div>
 
@@ -310,82 +312,14 @@ function renderEventRow(array $event): string {
 
 <script>
 (function() {
-    let lastId = <?= $lastId ?>;
+    let lastId   = <?= $lastId ?>;
+    let oldestId = <?= !empty($events) ? (int)$events[array_key_last($events)]['id'] : 0 ?>;
+    let infiniteScrollDone = <?= count($events) < 100 ? 'true' : 'false' ?>;
     const ajaxBase = '<?= $ajaxBase ?>';
     const knownIps = <?= json_encode($knownIpMap) ?>;
     const refreshInterval = 3000;
-    let isRefreshing = false;
-
-    function poll() {
-        if (isRefreshing) return;
-        isRefreshing = true;
-
-        const url = ajaxBase + '&after_id=' + lastId + '&limit=50';
-        fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
-            .then(r => r.json())
-            .then(data => {
-                if (data.error) return;
-                const newEvents = Array.isArray(data) ? data : (data.events || []);
-                if (newEvents.length > 0) {
-                    const tbody = document.getElementById('eventsBody');
-                    const table = document.getElementById('eventsTable');
-                    const empty = document.getElementById('emptyState');
-
-                    if (empty) empty.classList.add('hidden');
-                    if (table) table.classList.remove('hidden');
-
-                    // Prepend new rows
-                    newEvents.forEach(ev => {
-                        const tr = document.createElement('tr');
-                        const inactive = (!ev.webhook_active || !ev.project_active) ? ' event-row-inactive' : '';
-                        tr.className = 'event-row event-new' + inactive;
-                        tr.setAttribute('data-id', ev.id);
-                        tr.onclick = () => window.location = '<?= BASE_URL ?>/?page=event&id=' + ev.id;
-
-                        const method = (ev.method || 'POST').toUpperCase();
-                        const methodLower = method.toLowerCase();
-                        const ts = ev.received_at ? new Date(ev.received_at.replace(' ', 'T')) : new Date();
-                        const ago = Math.floor((Date.now() - ts.getTime()) / 1000);
-                        let timeStr;
-                        if (ago < 60) timeStr = ago + 's ago';
-                        else if (ago < 3600) timeStr = Math.round(ago/60) + 'm ago';
-                        else timeStr = ts.toLocaleTimeString();
-
-                        const statusBadge = method === 'ALARM'
-                            ? '<span class="badge badge-warning">Alarm</span>'
-                            : (ev.validated == 1 ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>');
-
-                        const infoCell = method === 'ALARM' ? escapeHtml(ev.body || '') : '';
-                        tr.innerHTML = `
-                            <td class="col-method"><span class="badge-method ${methodLower}">${escapeHtml(method)}</span></td>
-                            <td class="col-time"><span title="${escapeHtml(ev.received_at||'')}">${escapeHtml(timeStr)}</span></td>
-                            <td class="col-project">${escapeHtml(ev.project_name||'')}</td>
-                            <td class="col-webhook">${escapeHtml(ev.webhook_name||'')}</td>
-                            <td class="col-path mono">${escapeHtml((ev.path||'/') + (ev.query_string ? '?' + ev.query_string : ''))}</td>
-                            <td class="col-ip mono">${escapeHtml(knownIps[ev.ip] || ev.ip || '')}</td>
-                            <td class="col-status">${statusBadge}</td>
-                            <td class="col-info">${infoCell}</td>
-                        `;
-
-                        tbody.insertBefore(tr, tbody.firstChild);
-
-                        // Animate in
-                        setTimeout(() => tr.classList.remove('event-new'), 500);
-                    });
-
-                    // Update lastId to the highest id
-                    lastId = Math.max(...newEvents.map(e => parseInt(e.id)), lastId);
-
-                    // Trim to 100 rows
-                    const rows = tbody.querySelectorAll('tr');
-                    if (rows.length > 100) {
-                        for (let i = 100; i < rows.length; i++) rows[i].remove();
-                    }
-                }
-            })
-            .catch(() => {})
-            .finally(() => { isRefreshing = false; });
-    }
+    let isRefreshing  = false;
+    let isLoadingMore = false;
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -397,7 +331,116 @@ function renderEventRow(array $event): string {
             .replace(/'/g, '&#039;');
     }
 
+    function buildEventRow(ev, isNew) {
+        const tr = document.createElement('tr');
+        const inactive = (!ev.webhook_active || !ev.project_active) ? ' event-row-inactive' : '';
+        tr.className = 'event-row' + (isNew ? ' event-new' : '') + inactive;
+        tr.setAttribute('data-id', ev.id);
+        tr.onclick = () => window.location = '<?= BASE_URL ?>/?page=event&id=' + ev.id;
+
+        const method = (ev.method || 'POST').toUpperCase();
+        const methodLower = method.toLowerCase();
+        const ts = ev.received_at ? new Date(ev.received_at.replace(' ', 'T')) : new Date();
+        const ago = Math.floor((Date.now() - ts.getTime()) / 1000);
+        let timeStr;
+        if (ago < 60)        timeStr = ago + 's ago';
+        else if (ago < 3600) timeStr = Math.round(ago / 60) + 'm ago';
+        else if (ago < 86400) timeStr = Math.round(ago / 3600) + 'h ago';
+        else                 timeStr = ts.toLocaleDateString() + ' ' + ts.toLocaleTimeString();
+
+        const statusBadge = method === 'ALARM'
+            ? '<span class="badge badge-warning">Alarm</span>'
+            : (ev.validated == 1 ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>');
+
+        const infoCell = method === 'ALARM' ? escapeHtml(ev.body || '') : '';
+        tr.innerHTML = `
+            <td class="col-method"><span class="badge-method ${methodLower}">${escapeHtml(method)}</span></td>
+            <td class="col-time"><span title="${escapeHtml(ev.received_at||'')}">${escapeHtml(timeStr)}</span></td>
+            <td class="col-project">${escapeHtml(ev.project_name||'')}</td>
+            <td class="col-webhook">${escapeHtml(ev.webhook_name||'')}</td>
+            <td class="col-path mono">${escapeHtml((ev.path||'/') + (ev.query_string ? '?' + ev.query_string : ''))}</td>
+            <td class="col-ip mono">${escapeHtml(knownIps[ev.ip] || ev.ip || '')}</td>
+            <td class="col-status">${statusBadge}</td>
+            <td class="col-info">${infoCell}</td>
+        `;
+        return tr;
+    }
+
+    function poll() {
+        if (isRefreshing) return;
+        isRefreshing = true;
+
+        fetch(ajaxBase + '&after_id=' + lastId + '&limit=50', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) return;
+                const newEvents = Array.isArray(data) ? data : (data.events || []);
+                if (newEvents.length > 0) {
+                    const tbody = document.getElementById('eventsBody');
+                    const table = document.getElementById('eventsTable');
+                    const empty = document.getElementById('emptyState');
+                    if (empty) empty.classList.add('hidden');
+                    if (table) table.classList.remove('hidden');
+
+                    newEvents.forEach(ev => {
+                        const tr = buildEventRow(ev, true);
+                        tbody.insertBefore(tr, tbody.firstChild);
+                        setTimeout(() => tr.classList.remove('event-new'), 500);
+                    });
+
+                    lastId = Math.max(...newEvents.map(e => parseInt(e.id)), lastId);
+                }
+            })
+            .catch(() => {})
+            .finally(() => { isRefreshing = false; });
+    }
+
+    function showNoMore() {
+        const noMore = document.getElementById('noMoreEvents');
+        if (noMore) noMore.style.display = 'block';
+    }
+
+    function loadMore() {
+        if (infiniteScrollDone || isLoadingMore || oldestId === 0) return;
+        isLoadingMore = true;
+
+        fetch(ajaxBase + '&before_id=' + oldestId + '&limit=100', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) return;
+                const moreEvents = Array.isArray(data) ? data : (data.events || []);
+
+                if (moreEvents.length > 0) {
+                    const tbody = document.getElementById('eventsBody');
+                    const table = document.getElementById('eventsTable');
+                    if (table) table.classList.remove('hidden');
+                    moreEvents.forEach(ev => tbody.appendChild(buildEventRow(ev, false)));
+                    oldestId = Math.min(...moreEvents.map(e => parseInt(e.id)));
+                }
+
+                if (moreEvents.length < 100) {
+                    infiniteScrollDone = true;
+                    showNoMore();
+                    observer.disconnect();
+                }
+            })
+            .catch(() => {})
+            .finally(() => { isLoadingMore = false; });
+    }
+
     setInterval(poll, refreshInterval);
+
+    // Infinite scroll
+    const sentinel = document.getElementById('scrollSentinel');
+    let observer;
+    if (infiniteScrollDone) {
+        showNoMore();
+    } else if (sentinel) {
+        observer = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) loadMore();
+        }, {rootMargin: '200px'});
+        observer.observe(sentinel);
+    }
 })();
 
 // Save filter
