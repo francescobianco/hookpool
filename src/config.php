@@ -36,6 +36,7 @@ define('IGNORED_HEADERS', array_values(array_filter(array_map(
     explode(',', getenv('HOOKPOOL_IGNORED_HEADERS') ?: '')
 ))));
 
+define('CUSTOM_SNIPPET',     getenv('CUSTOM_SNIPPET') ?: '');
 define('SUPPORTED_LANGS',    ['en', 'it']);
 define('HOOK_TOKEN_LENGTH',  32);
 define('WEBHOOK_CODE_LENGTH', 6);

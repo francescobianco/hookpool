@@ -273,6 +273,9 @@
         <?php endforeach; ?>
     </div>
 </footer>
+<?php if ($page === 'home' && CUSTOM_SNIPPET !== ''): ?>
+<?= CUSTOM_SNIPPET ?>
+<?php endif; ?>
 
 <script>
 // CSRF helper
