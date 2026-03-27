@@ -1,6 +1,9 @@
 Dockerfile            export-ignore
+docker                export-ignore
+compose.yml			  export-ignore
 docker-compose.yml    export-ignore
 docker-entrypoint.sh  export-ignore
+.github               export-ignore
 .env.example          export-ignore
 .convcommit           export-ignore
 .gitattributes        export-ignore
