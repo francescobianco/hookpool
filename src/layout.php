@@ -411,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const refRect = ref ? ref.getBoundingClientRect() : {left: 0, width: window.innerWidth};
             flashAlert.classList.add('alert--fixed');
             flashAlert.style.position = 'fixed';
-            flashAlert.style.top = headerHeight + 'px';
+            flashAlert.style.top = (headerHeight + 12) + 'px';
             flashAlert.style.left = refRect.left + 'px';
             flashAlert.style.width = refRect.width + 'px';
             flashAlert.style.zIndex = '190';
