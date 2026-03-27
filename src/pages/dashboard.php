@@ -226,6 +226,9 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
         </table>
         </div>
         <div id="scrollSentinel"></div>
+        <div id="scrollSpinner" style="display:none;text-align:center;padding:1.2rem 0">
+            <span class="scroll-spinner"></span>
+        </div>
         <div id="noMoreEvents" style="text-align:center;padding:1.2rem 0;color:var(--text-muted,#888);<?= count($events) < 100 ? '' : 'display:none' ?>">— No more logs —</div>
     </div>
 </div>
@@ -404,28 +407,36 @@ function renderEventRow(array $event): string {
         if (infiniteScrollDone || isLoadingMore || oldestId === 0) return;
         isLoadingMore = true;
 
-        fetch(ajaxBase + '&before_id=' + oldestId + '&limit=100', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
-            .then(r => r.json())
-            .then(data => {
-                if (data.error) return;
-                const moreEvents = Array.isArray(data) ? data : (data.events || []);
+        const spinner = document.getElementById('scrollSpinner');
+        if (spinner) spinner.style.display = 'block';
 
-                if (moreEvents.length > 0) {
-                    const tbody = document.getElementById('eventsBody');
-                    const table = document.getElementById('eventsTable');
-                    if (table) table.classList.remove('hidden');
-                    moreEvents.forEach(ev => tbody.appendChild(buildEventRow(ev, false)));
-                    oldestId = Math.min(...moreEvents.map(e => parseInt(e.id)));
-                }
+        setTimeout(function() {
+            fetch(ajaxBase + '&before_id=' + oldestId + '&limit=100', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) return;
+                    const moreEvents = Array.isArray(data) ? data : (data.events || []);
 
-                if (moreEvents.length < 100) {
-                    infiniteScrollDone = true;
-                    showNoMore();
-                    observer.disconnect();
-                }
-            })
-            .catch(() => {})
-            .finally(() => { isLoadingMore = false; });
+                    if (moreEvents.length > 0) {
+                        const tbody = document.getElementById('eventsBody');
+                        const table = document.getElementById('eventsTable');
+                        if (table) table.classList.remove('hidden');
+                        moreEvents.forEach(ev => tbody.appendChild(buildEventRow(ev, false)));
+                        oldestId = Math.min(...moreEvents.map(e => parseInt(e.id)));
+                    }
+
+                    if (moreEvents.length < 100) {
+                        infiniteScrollDone = true;
+                        showNoMore();
+                        observer.disconnect();
+                    }
+                })
+                .catch(() => {})
+                .finally(() => {
+                    if (spinner) spinner.style.display = 'none';
+                    isLoadingMore = false;
+                });
+        }, 2000);
     }
 
     setInterval(poll, refreshInterval);
