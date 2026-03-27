@@ -466,7 +466,7 @@ function projectEmoji(string $key): string {
 
 /**
  * Parse one cron field against a value.
- * Supports: * | */n | n | n,m | n-m | n-m/n
+ * Supports: star, star/step, n, n-m, n,m, n-m/step
  */
 function cronFieldMatches(string $field, int $value, int $min, int $max): bool {
     foreach (explode(',', $field) as $part) {
