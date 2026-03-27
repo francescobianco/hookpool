@@ -1702,6 +1702,7 @@ tr:last-child td { border-bottom: none; }
     .event-meta-grid { grid-template-columns: 1fr 1fr; }
     .header-nav .nav-link { display: none; }
     .user-name { display: none; }
+    .hero-name { font-size: 3.2rem; }
 }
 
 /* PWA install banner */
