@@ -112,12 +112,16 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
     </div>
 
     <!-- Filters -->
-    <form class="filters-bar" method="get" action="">
+    <button class="filters-toggle" id="filtersToggle" onclick="toggleFilters()" aria-expanded="false">
+        <?= __('dashboard.filters') ?> <span id="filtersChevron">▾</span>
+        <?php if ($hasActiveFilters): ?><span class="filter-active-dot"></span><?php endif; ?>
+    </button>
+    <form class="filters-bar" id="filtersBar" method="get" action="">
         <input type="hidden" name="page" value="dashboard">
 
         <?php if (!empty($allCategories)): ?>
         <select name="category_id" onchange="this.form.submit()">
-            <option value="">Categoria</option>
+            <option value=""><?= __('dashboard.filter_all_categories') ?></option>
             <?php foreach ($allCategories as $cat): ?>
             <option value="<?= $cat['id'] ?>"<?= $filterCategoryId === (int)$cat['id'] ? ' selected' : '' ?>>
                 <?= e($cat['name']) ?>
@@ -169,6 +173,24 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
         </div>
     </form>
 
+    <script>
+    (function() {
+        var bar = document.getElementById('filtersBar');
+        var toggle = document.getElementById('filtersToggle');
+        var chevron = document.getElementById('filtersChevron');
+        var isMobile = window.innerWidth <= 768;
+        if (isMobile && bar) {
+            bar.classList.add('filters-bar-collapsed');
+        }
+        window.toggleFilters = function() {
+            if (!bar) return;
+            var collapsed = bar.classList.toggle('filters-bar-collapsed');
+            if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            if (chevron) chevron.textContent = collapsed ? '▾' : '▴';
+        };
+    })();
+    </script>
+
     <!-- Event Table -->
     <div class="events-container">
         <?php if (empty($events)): ?>
@@ -182,6 +204,7 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
         </div>
         <?php endif; ?>
 
+        <div class="table-scroll-wrapper">
         <table class="events-table<?= empty($events) ? ' hidden' : '' ?>" id="eventsTable">
             <thead>
                 <tr>
@@ -201,6 +224,7 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 

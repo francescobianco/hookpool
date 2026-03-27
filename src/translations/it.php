@@ -195,6 +195,8 @@ return [
 
     // Dashboard
     'dashboard.title'       => 'Dashboard Eventi',
+    'dashboard.filters'              => 'Filtri',
+    'dashboard.filter_all_categories' => 'Tutte le categorie',
     'dashboard.filter_project'  => 'Tutti i Progetti',
     'dashboard.filter_method'   => 'Tutti i Metodi',
     'dashboard.filter_status'   => 'Tutti gli Stati',
