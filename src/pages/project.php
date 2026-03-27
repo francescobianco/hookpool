@@ -4,6 +4,25 @@ $userId        = (int)$current_user['id'];
 $action        = $_GET['action'] ?? '';
 $projectEmojis = array_keys(PROJECT_ICONS);
 
+// --- CHECK SLUG (AJAX) ---
+if ($action === 'check_slug') {
+    header('Content-Type: application/json');
+    $slug = slugify(trim($_GET['slug'] ?? ''));
+    if ($slug === '') {
+        echo json_encode(['available' => false, 'suggested' => null]);
+        exit;
+    }
+    $taken = isReservedProjectSlug($slug);
+    if (!$taken) {
+        $stmt = $db->prepare('SELECT id FROM projects WHERE slug = ? AND deleted_at IS NULL');
+        $stmt->execute([$slug]);
+        $taken = (bool)$stmt->fetch();
+    }
+    $suggested = $taken ? uniqueProjectSlug($db, $slug) : null;
+    echo json_encode(['available' => !$taken, 'suggested' => $suggested]);
+    exit;
+}
+
 // --- CREATE PROJECT ---
 if ($action === 'create') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -87,8 +106,8 @@ if ($action === 'create') {
                 <div class="form-group">
                     <label for="slug"><?= __('project.slug') ?></label>
                     <input type="text" id="slug" name="slug" value="<?= e($_POST['slug'] ?? '') ?>"
-                           maxlength="100" pattern="[a-z0-9-]+" placeholder="auto from project name">
-                    <p class="form-hint">Public project path. Lowercase letters, numbers, dashes. Reserved words are blocked and collisions become `slug-2`, `slug-3`, ...</p>
+                           maxlength="100" pattern="[a-z0-9-]+" placeholder="auto from project name" autocomplete="off">
+                    <p class="form-hint" id="slug-hint">Lowercase letters, numbers, dashes.</p>
                 </div>
 
                 <div class="form-group">
@@ -120,12 +139,84 @@ if ($action === 'create') {
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary"><?= __('project.create') ?></button>
+                    <button type="submit" id="create-project-btn" class="btn btn-primary"><?= __('project.create') ?></button>
                     <a href="<?= BASE_URL ?>/?page=project" class="btn btn-outline"><?= __('form.cancel') ?></a>
                 </div>
             </form>
         </div>
     </div>
+    <script>
+    (function () {
+        const nameEl = document.getElementById('name');
+        const slugEl = document.getElementById('slug');
+        const hintEl = document.getElementById('slug-hint');
+        const form   = slugEl.closest('form');
+        const checkUrl = '<?= BASE_URL ?>/?page=project&action=check_slug';
+        let slugManuallyEdited = <?= ($_POST['slug'] ?? '') !== '' ? 'true' : 'false' ?>;
+
+        function clientSlugify(str) {
+            return str.toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/[\s-]+/g, '-')
+                .replace(/^-+|-+$/g, '') || '';
+        }
+
+        function setHint(msg, type) {
+            hintEl.textContent = msg;
+            hintEl.className = 'form-hint' + (type ? ' form-hint--' + type : '');
+        }
+
+        // Auto-populate slug from name while user hasn't manually edited it
+        nameEl.addEventListener('input', function () {
+            if (!slugManuallyEdited) {
+                slugEl.value = clientSlugify(this.value);
+            }
+            setHint('Lowercase letters, numbers, dashes.', '');
+        });
+
+        slugEl.addEventListener('input', function () {
+            slugManuallyEdited = true;
+            setHint('Lowercase letters, numbers, dashes.', '');
+        });
+
+        // Intercept submit: check slug availability first
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const slug = slugEl.value.trim() || clientSlugify(nameEl.value);
+            if (!slug) { form.submit(); return; }
+
+            setHint('Checking slug…', '');
+            const btn = document.getElementById('create-project-btn');
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(checkUrl + '&slug=' + encodeURIComponent(slug));
+                const data = await res.json();
+                if (data.available) {
+                    slugEl.value = slug;
+                    form.submit();
+                } else {
+                    const suggestion = data.suggested ? ' Try <a href="#" class="slug-suggestion">' + data.suggested + '</a>.' : '';
+                    hintEl.innerHTML = '⚠ This slug is already taken.' + suggestion;
+                    hintEl.className = 'form-hint form-hint--error';
+                    slugEl.focus();
+                    slugEl.select();
+                    btn.disabled = false;
+
+                    hintEl.querySelector('.slug-suggestion')?.addEventListener('click', function (ev) {
+                        ev.preventDefault();
+                        slugEl.value = this.textContent;
+                        slugManuallyEdited = true;
+                        setHint('Lowercase letters, numbers, dashes.', '');
+                    });
+                }
+            } catch (_) {
+                // Network error: let the server handle it
+                form.submit();
+            }
+        });
+    })();
+    </script>
     <?php
     $content = ob_get_clean();
     require __DIR__ . '/../layout.php';
