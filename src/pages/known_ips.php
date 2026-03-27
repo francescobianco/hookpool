@@ -61,8 +61,6 @@ if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 $rows = $db->prepare('SELECT * FROM known_ips WHERE user_id = ? ORDER BY label');
 $rows->execute([$userId]);
 $knownIps = $rows->fetchAll();
-
-ob_start();
 ?>
 <div class="page-container">
     <div class="page-header">
@@ -164,6 +162,3 @@ function openEditKip(id, ip, label) {
     openModal('editKipModal');
 }
 </script>
-<?php
-$content = ob_get_clean();
-require __DIR__ . '/../layout.php';

@@ -67,9 +67,9 @@ if ($action === 'save_log_retention' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . BASE_URL . '/?page=settings#log-retention');
         exit;
     }
-    $allowed = ['', '1', '7', '30'];
-    $raw = $_POST['log_retention_days'] ?? '';
-    $days = in_array($raw, $allowed, true) ? ($raw === '' ? null : (int)$raw) : null;
+    $allowed = ['1', '7', '30', '90'];
+    $raw = $_POST['log_retention_days'] ?? '1';
+    $days = in_array($raw, $allowed, true) ? (int)$raw : 1;
     $db->prepare('UPDATE users SET log_retention_days = ? WHERE id = ?')->execute([$days, $userId]);
     setFlash('success', __('msg.saved'));
     header('Location: ' . BASE_URL . '/?page=settings#log-retention');
@@ -307,12 +307,12 @@ $stats = $statsStmt->fetch();
             <p class="text-muted" style="margin-top:0"><?= __('settings.log_retention_desc') ?></p>
             <form method="post" action="<?= BASE_URL ?>/?page=settings&action=save_log_retention" class="form">
                 <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
-                <?php $currentRetention = $current_user['log_retention_days'] ?? null; ?>
+                <?php $currentRetention = (string)($current_user['log_retention_days'] ?? '1'); ?>
                 <div class="retention-options">
-                    <?php foreach (['' => __('settings.retention_forever'), '1' => __('settings.retention_1d'), '7' => __('settings.retention_7d'), '30' => __('settings.retention_30d')] as $val => $label): ?>
-                    <label class="retention-option<?= ((string)($currentRetention ?? '') === $val) ? ' active' : '' ?>">
+                    <?php foreach (['1' => __('settings.retention_1d'), '7' => __('settings.retention_7d'), '30' => __('settings.retention_30d'), '90' => __('settings.retention_90d')] as $val => $label): ?>
+                    <label class="retention-option<?= ($currentRetention === $val) ? ' active' : '' ?>">
                         <input type="radio" name="log_retention_days" value="<?= $val ?>"
-                               <?= ((string)($currentRetention ?? '') === $val) ? 'checked' : '' ?>
+                               <?= ($currentRetention === $val) ? 'checked' : '' ?>
                                onchange="this.form.submit()">
                         <?= $label ?>
                     </label>

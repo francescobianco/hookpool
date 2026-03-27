@@ -282,9 +282,9 @@ $cleanupStats = [];
 
 try {
     $retentionUsers = $db->query(
-        "SELECT u.id, u.log_retention_days
+        "SELECT u.id, COALESCE(u.log_retention_days, 1) AS log_retention_days
          FROM users u
-         WHERE u.log_retention_days IS NOT NULL AND u.deleted_at IS NULL"
+         WHERE u.deleted_at IS NULL"
     )->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $retentionUsers = []; // column not yet added by migration

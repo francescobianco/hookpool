@@ -908,7 +908,7 @@ tr:last-child td { border-bottom: none; }
 .col-project { width: 144px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 144px; }
 .col-webhook { width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
 .col-path    { }
-.col-ip      { width: 110px; }
+.col-ip      { width: 110px; white-space: nowrap; }
 .col-status  { width: 70px; text-align: center; }
 .col-info    { font-size: 12px; color: var(--text-muted, #888); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
