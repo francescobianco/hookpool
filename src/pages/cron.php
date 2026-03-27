@@ -175,15 +175,42 @@ $nowStr      = date('Y-m-d H:i:s');
 $autocallRan = [];
 $remaining   = 0;
 
+// Self-repair: initialize cron_next_run for autocall webhooks where it is NULL
+// but cron_expression is set (e.g. after a fresh migration).
+try {
+    $repairStmt = $db->query(
+        "SELECT id, cron_expression FROM webhooks
+         WHERE special_function = 'autocall'
+           AND active = 1
+           AND deleted_at IS NULL
+           AND cron_expression IS NOT NULL
+           AND cron_next_run IS NULL"
+    );
+    foreach ($repairStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $next = cronNextRun($r['cron_expression'], time());
+        if ($next !== null) {
+            $db->prepare('UPDATE webhooks SET cron_next_run = ? WHERE id = ?')
+               ->execute([date('Y-m-d H:i:s', $next), (int)$r['id']]);
+        }
+    }
+} catch (Throwable $e) {
+    // columns may not exist yet; skip repair silently
+}
+
 // Count total due BEFORE claiming (for reporting)
-$dueCount = (int)$db->query(
-    "SELECT COUNT(*) FROM webhooks
-     WHERE special_function = 'autocall'
-       AND active = 1
-       AND deleted_at IS NULL
-       AND cron_next_run IS NOT NULL
-       AND cron_next_run <= " . $db->quote($nowStr)
-)->fetchColumn();
+$dueCount = 0;
+try {
+    $dueCount = (int)$db->query(
+        "SELECT COUNT(*) FROM webhooks
+         WHERE special_function = 'autocall'
+           AND active = 1
+           AND deleted_at IS NULL
+           AND cron_next_run IS NOT NULL
+           AND cron_next_run <= " . $db->quote($nowStr)
+    )->fetchColumn();
+} catch (Throwable $e) {
+    // columns not yet available; skip
+}
 
 if ($dueCount > 0) {
     // --- ATOMIC CLAIM: fetch IDs then NULL them in one transaction ---
