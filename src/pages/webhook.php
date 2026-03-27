@@ -1193,7 +1193,7 @@ ob_start();
                     <td class="col-method"><span class="badge-method <?= strtolower($ev['method']) ?>"><?= e($ev['method']) ?></span></td>
                     <td class="col-time"><span title="<?= e($ev['received_at']) ?>"><?= e(date('H:i:s', strtotime($ev['received_at']))) ?></span></td>
                     <td class="col-path mono"><?= e($ev['path']) ?></td>
-                    <td class="col-ip mono"><?= e($ev['ip'] !== '' ? $ev['ip'] : (strtoupper($ev['method']) === 'CRON' ? '127.0.0.1' : '')) ?></td>
+                    <td class="col-ip mono"><?= e($ev['ip']) ?></td>
                     <td class="col-status"><?= strtoupper($ev['method']) === 'ALARM' ? '<span class="badge badge-warning">Alarm</span>' : ($ev['validated'] ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>') ?></td>
                     <td class="col-info text-muted"><?= strtoupper($ev['method']) === 'ALARM' ? e($ev['body']) : '' ?></td>
                 </tr>
@@ -1292,7 +1292,7 @@ function escapeHtml(value) {
                         <td class="col-method"><span class="badge-method ${methodLower}">${escapeHtml(method)}</span></td>
                         <td class="col-time"><span title="${escapeHtml(ev.received_at || '')}">${escapeHtml(renderTime(ev.received_at || ''))}</span></td>
                         <td class="col-path mono">${escapeHtml(ev.path || '/')}</td>
-                        <td class="col-ip mono">${escapeHtml(ev.ip || (method === 'CRON' ? '127.0.0.1' : ''))}</td>
+                        <td class="col-ip mono">${escapeHtml(ev.ip || '')}</td>
                         <td class="col-status">${statusBadge}</td>
                         <td class="col-info text-muted">${infoCell}</td>
                     `;

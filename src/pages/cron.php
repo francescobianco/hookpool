@@ -250,7 +250,7 @@ if ($dueCount > 0) {
 
         $db->prepare("
             INSERT INTO events (webhook_id, method, path, query_string, headers, body, content_type, ip, validated)
-            VALUES (?, 'CRON', ?, '', ?, '', 'application/cron', '127.0.0.1', 1)
+            VALUES (?, 'CRON', ?, '', ?, '', 'application/cron', '', 1)
         ")->execute([
             $webhookId,
             $webhookPath,

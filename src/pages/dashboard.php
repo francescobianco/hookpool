@@ -226,7 +226,7 @@ function renderEventRow(array $event): string {
     $method    = strtolower($event['method'] ?? 'post');
     $validated = (int)$event['validated'];
     $path      = $event['path'] ?? '/';
-    $ip        = ($event['ip'] ?? '') !== '' ? $event['ip'] : (strtoupper($event['method'] ?? '') === 'CRON' ? '127.0.0.1' : '');
+    $ip        = $event['ip'] ?? '';
     $time      = $event['received_at'] ?? '';
     $projectName = $event['project_name'] ?? '';
     $webhookName = $event['webhook_name'] ?? '';
@@ -329,7 +329,7 @@ function renderEventRow(array $event): string {
                             <td class="col-project">${escapeHtml(ev.project_name||'')}</td>
                             <td class="col-webhook">${escapeHtml(ev.webhook_name||'')}</td>
                             <td class="col-path mono">${escapeHtml(ev.path||'/')}</td>
-                            <td class="col-ip mono">${escapeHtml(ev.ip || (method === 'CRON' ? '127.0.0.1' : ''))}</td>
+                            <td class="col-ip mono">${escapeHtml(ev.ip || '')}</td>
                             <td class="col-status">${statusBadge}</td>
                             <td class="col-info">${infoCell}</td>
                         `;
