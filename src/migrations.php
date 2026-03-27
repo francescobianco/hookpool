@@ -10,4 +10,5 @@ $migrations = [
     __DIR__ . '/migrations/20260325000007_create_filter_presets.php',
     __DIR__ . '/migrations/20260326000001_add_special_functions.php',
     __DIR__ . '/migrations/20260327000001_add_autocall.php',
+    __DIR__ . '/migrations/20260327000002_add_webhook_notes.php',
 ];

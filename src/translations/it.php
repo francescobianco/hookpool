@@ -59,6 +59,8 @@ return [
     'webhook.not_found'     => 'Webhook non trovato.',
     'webhook.no_webhooks'   => 'Nessun webhook ancora.',
     'webhook.confirm_delete'=> 'Sei sicuro di voler eliminare questo webhook?',
+    'webhook.notes'         => 'Note',
+    'webhook.notes_hint'    => 'Supporta la sintassi Markdown',
 
     // Event
     'event.method'          => 'Metodo',

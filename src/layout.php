@@ -238,6 +238,9 @@
 
 <footer class="app-footer">
     <p>&copy; <?= date('Y') ?> <span class="logo-hook" style="font-family:var(--font-mono);font-weight:700;">hook</span><span class="logo-pool" style="font-family:var(--font-mono);font-weight:700;">pool</span> &mdash; <a href="https://github.com/francescobianco/hookpool" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted;">Open Source</a>, Self-Hostable.</p>
+    <div class="footer-center">
+        <a href="#" id="footerPwaLink" class="footer-pwa-link" style="display:none">⊕ Install App</a>
+    </div>
     <div class="footer-lang">
         <?php foreach (SUPPORTED_LANGS as $l):
             $langLabels = ['en' => 'EN', 'it' => 'IT'];
@@ -245,9 +248,6 @@
         ?>
         <a href="?lang=<?= $l ?>" class="footer-lang-btn<?= $active ?>"><?= $langLabels[$l] ?? strtoupper($l) ?></a>
         <?php endforeach; ?>
-    </div>
-    <div class="footer-pwa">
-        <a href="#" id="footerPwaLink" class="footer-pwa-link" style="display:none">⊕ Install App</a>
     </div>
 </footer>
 

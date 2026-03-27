@@ -595,6 +595,20 @@ if ($action === 'settings') {
         exit;
     }
 
+    // Handle save notes
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'save_notes') {
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+            setFlash('error', __('msg.csrf_error'));
+            header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+            exit;
+        }
+        $notes = trim($_POST['notes'] ?? '');
+        $db->prepare('UPDATE webhooks SET notes = ? WHERE id = ?')->execute([$notes === '' ? null : $notes, $webhookId]);
+        setFlash('success', __('msg.saved'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
+        exit;
+    }
+
     // Handle delete
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'delete') {
         if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
@@ -800,6 +814,20 @@ function sfnChange(radio) {
             <?php endif; ?>
         </div>
 
+        <!-- Notes -->
+        <div class="card">
+            <h3 style="margin-top:0"><?= __('webhook.notes') ?></h3>
+            <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>" class="form">
+                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                <input type="hidden" name="_action" value="save_notes">
+                <div class="form-group" style="margin-bottom:0.75rem">
+                    <textarea name="notes" rows="6" style="font-family:var(--font-mono);font-size:0.85rem;resize:vertical"><?= e($wh['notes'] ?? '') ?></textarea>
+                    <p class="form-hint"><?= __('webhook.notes_hint') ?></p>
+                </div>
+                <button type="submit" class="btn btn-primary"><?= __('form.save') ?></button>
+            </form>
+        </div>
+
         <!-- Danger Zone -->
         <div class="card" style="border-color:var(--color-danger,#e74c3c)">
             <h3 style="margin-top:0;color:var(--color-danger,#e74c3c)"><?= __('settings.danger_zone') ?></h3>
@@ -962,6 +990,32 @@ ob_start();
         </div>
         <?php endif; ?>
     </div>
+
+    <!-- Notes -->
+    <?php if (!empty($wh['notes'])): ?>
+    <section class="section">
+        <div class="section-header">
+            <h2><?= __('webhook.notes') ?></h2>
+        </div>
+        <div class="card webhook-notes-card">
+            <div id="webhookNotesRendered"></div>
+        </div>
+    </section>
+    <script>
+    (function() {
+        var raw = <?= json_encode($wh['notes']) ?>;
+        var el = document.getElementById('webhookNotesRendered');
+        if (typeof marked !== 'undefined') {
+            el.innerHTML = marked.parse(raw);
+        } else {
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+            s.onload = function() { el.innerHTML = marked.parse(raw); };
+            document.head.appendChild(s);
+        }
+    })();
+    </script>
+    <?php endif; ?>
 
     <!-- Webhook-level Guards -->
     <section class="section">
