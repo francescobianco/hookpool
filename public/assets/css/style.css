@@ -321,7 +321,7 @@ details > summary { cursor: pointer; user-select: none; }
 .sidebar {
     width: var(--sidebar-width);
     flex-shrink: 0;
-    background: rgba(255, 253, 249, 0.72);
+    background: #fff2e7;
     border-right: 1px solid rgba(239, 215, 203, 0.92);
     overflow-y: auto;
     position: sticky;
@@ -1679,7 +1679,7 @@ tr:last-child td { border-bottom: none; }
     .sidebar.open {
         transform: translateX(0);
         box-shadow: 4px 0 20px rgba(0,0,0,0.15);
-        background: rgba(255, 253, 249, 0.9);
+        background: #fff2e7;
         backdrop-filter: blur(14px);
     }
     .main-content.with-sidebar { max-width: 100%; }

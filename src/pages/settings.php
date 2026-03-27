@@ -310,9 +310,9 @@ $stats = $statsStmt->fetch();
                 <?php $currentRetention = (string)($current_user['log_retention_days'] ?? '1'); ?>
                 <div class="retention-options">
                     <?php foreach (['1' => __('settings.retention_1d'), '7' => __('settings.retention_7d'), '30' => __('settings.retention_30d'), '90' => __('settings.retention_90d')] as $val => $label): ?>
-                    <label class="retention-option<?= ($currentRetention === $val) ? ' active' : '' ?>">
+                    <label class="retention-option<?= ($currentRetention === (string)$val) ? ' active' : '' ?>">
                         <input type="radio" name="log_retention_days" value="<?= $val ?>"
-                               <?= ($currentRetention === $val) ? 'checked' : '' ?>
+                               <?= ($currentRetention === (string)$val) ? 'checked' : '' ?>
                                onchange="this.form.submit()">
                         <?= $label ?>
                     </label>
