@@ -1042,6 +1042,12 @@ tr:last-child td { border-bottom: none; }
 .alert-warning { background: var(--warning-bg); border-color: var(--warning); color: var(--warning); }
 .alert-info    { background: var(--info-bg);    border-color: var(--info);    color: var(--info); }
 
+.alert--fixed.alert-success { background: rgb(225, 247, 238); }
+.alert--fixed.alert-error   { background: rgb(250, 229, 226); }
+.alert--fixed.alert-warning { background: rgb(252, 242, 220); }
+.alert--fixed.alert-info    { background: rgb(227, 238, 252); }
+.alert--fixed { box-shadow: 0 4px 20px rgba(0,0,0,0.10); }
+
 .alert-close {
     background: none;
     border: none;

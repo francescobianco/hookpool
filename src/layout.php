@@ -407,18 +407,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hasAnchor) {
             // The browser will scroll to the anchor, making the top alert invisible — pin it fixed
             const headerHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 68;
-            const mainContent = flashAlert.closest('.main-content');
-            const mainRect = mainContent ? mainContent.getBoundingClientRect() : {left: 0, width: window.innerWidth};
+            const ref = pageContainer || flashAlert.closest('.main-content');
+            const refRect = ref ? ref.getBoundingClientRect() : {left: 0, width: window.innerWidth};
+            flashAlert.classList.add('alert--fixed');
             flashAlert.style.position = 'fixed';
             flashAlert.style.top = headerHeight + 'px';
-            flashAlert.style.left = mainRect.left + 'px';
-            flashAlert.style.width = mainRect.width + 'px';
+            flashAlert.style.left = refRect.left + 'px';
+            flashAlert.style.width = refRect.width + 'px';
             flashAlert.style.zIndex = '190';
-            flashAlert.style.borderRadius = '0';
             flashAlert.style.marginBottom = '0';
-            if (pageContainer) {
-                flashAlert.style.maxWidth = pageContainer.offsetWidth + 'px';
-            }
         } else if (pageContainer) {
             flashAlert.style.maxWidth = pageContainer.offsetWidth + 'px';
         }
