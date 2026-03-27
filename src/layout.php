@@ -398,11 +398,31 @@ function showCopyFeedback(btn) {
 
 // Auto-dismiss alerts after 5s
 document.addEventListener('DOMContentLoaded', () => {
-    // Constrain flash alert width to page-container on boxed pages
+    // Flash alert: constrain width + pin fixed if not in viewport
     const flashAlert = document.querySelector('.main-content > .alert');
-    const pageContainer = document.querySelector('.page-container');
-    if (flashAlert && pageContainer) {
-        flashAlert.style.maxWidth = pageContainer.offsetWidth + 'px';
+    if (flashAlert) {
+        const pageContainer = document.querySelector('.page-container');
+        const rect = flashAlert.getBoundingClientRect();
+        const inViewport = rect.top >= 0 && rect.bottom <= window.innerHeight;
+
+        if (!inViewport) {
+            // Pin below the topbar, full-width of main-content
+            const headerHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 68;
+            const mainContent = flashAlert.closest('.main-content');
+            const mainRect = mainContent ? mainContent.getBoundingClientRect() : {left: 0, width: window.innerWidth};
+            flashAlert.style.position = 'fixed';
+            flashAlert.style.top = headerHeight + 'px';
+            flashAlert.style.left = mainRect.left + 'px';
+            flashAlert.style.width = mainRect.width + 'px';
+            flashAlert.style.zIndex = '190';
+            flashAlert.style.borderRadius = '0';
+            flashAlert.style.marginBottom = '0';
+            if (pageContainer) {
+                flashAlert.style.maxWidth = pageContainer.offsetWidth + 'px';
+            }
+        } else if (pageContainer) {
+            flashAlert.style.maxWidth = pageContainer.offsetWidth + 'px';
+        }
     }
 
     document.querySelectorAll('.alert').forEach(alert => {
