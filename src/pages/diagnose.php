@@ -50,7 +50,10 @@ if ($curlLoaded) {
     }
 }
 
-// 6. Writable data dir
+// 6. User count
+$userCount = (int)$db->query("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL")->fetchColumn();
+
+// 7. Writable data dir
 $dataDir       = defined('DB_PATH') ? dirname(DB_PATH) : (dirname(__DIR__, 2) . '/data');
 $dataDirWrite  = is_writable($dataDir);
 
@@ -104,6 +107,11 @@ function diagBadge(bool $ok, string $okLabel = 'OK', string $failLabel = 'FAIL')
                 <tr>
                     <td>Auth</td>
                     <td><code><?= authEnabled() ? 'GitHub OAuth' : 'disabled (single-user)' ?></code></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>Users</td>
+                    <td><code><?= $userCount ?></code></td>
                     <td></td>
                 </tr>
                 <tr>
