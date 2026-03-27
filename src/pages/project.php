@@ -6,6 +6,7 @@ $projectEmojis = array_keys(PROJECT_ICONS);
 
 // --- CHECK SLUG (AJAX) ---
 if ($action === 'check_slug') {
+    while (ob_get_level()) ob_end_clean();
     header('Content-Type: application/json');
     $slug = slugify(trim($_GET['slug'] ?? ''));
     if ($slug === '') {
@@ -55,11 +56,20 @@ if ($action === 'create') {
 
         $slug = uniqueProjectSlug($db, $slugInput !== '' ? $slugInput : $name);
 
-        // Insert project
+        // Insert project — fallback to numeric random slug on duplicate key violation
         $ins = $db->prepare(
             'INSERT INTO projects (user_id, category_id, name, emoji, slug, description, active) VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
-        $ins->execute([$userId, $categoryId, $name, $emoji, $slug, $description, $active]);
+        try {
+            $ins->execute([$userId, $categoryId, $name, $emoji, $slug, $description, $active]);
+        } catch (PDOException $e) {
+            if ((string)$e->getCode() === '23000') {
+                $slug = 'p' . rand(100000, 999999);
+                $ins->execute([$userId, $categoryId, $name, $emoji, $slug, $description, $active]);
+            } else {
+                throw $e;
+            }
+        }
         $projectId = (int)$db->lastInsertId();
 
         // Auto-create first webhook
@@ -211,8 +221,8 @@ if ($action === 'create') {
                     });
                 }
             } catch (_) {
-                // Network error: let the server handle it
-                form.submit();
+                setHint('Could not verify slug. Please try again.', 'error');
+                btn.disabled = false;
             }
         });
     })();
