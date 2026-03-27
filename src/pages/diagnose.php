@@ -38,7 +38,7 @@ if ($curlLoaded) {
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'HookPool/' . APP_VERSION . ' diagnose');
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Hookpool/' . APP_VERSION . ' diagnose');
     $curlTestBody   = curl_exec($ch);
     $curlTestStatus = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlTestError  = curl_error($ch) ?: null;
@@ -86,9 +86,9 @@ function diagBadge(bool $ok, string $okLabel = 'OK', string $failLabel = 'FAIL')
     </div>
     <?php endif; ?>
 
-    <!-- HookPool -->
+    <!-- Hookpool -->
     <section class="section">
-        <h2>HookPool</h2>
+        <h2>Hookpool</h2>
         <div class="card">
             <table class="diag-table">
                 <tr>

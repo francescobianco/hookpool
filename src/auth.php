@@ -86,7 +86,7 @@ function handleOAuthCallback(PDO $db): array {
         ],
         [
             'Accept'     => 'application/json',
-            'User-Agent' => 'HookPool/1.0',
+            'User-Agent' => 'Hookpool/1.0',
         ]
     );
 
@@ -108,7 +108,7 @@ function handleOAuthCallback(PDO $db): array {
         [
             'Authorization' => 'Bearer ' . $accessToken,
             'Accept'        => 'application/vnd.github+json',
-            'User-Agent'    => 'HookPool/1.0',
+            'User-Agent'    => 'Hookpool/1.0',
         ]
     );
 
@@ -134,7 +134,7 @@ function handleOAuthCallback(PDO $db): array {
             [
                 'Authorization' => 'Bearer ' . $accessToken,
                 'Accept'        => 'application/vnd.github+json',
-                'User-Agent'    => 'HookPool/1.0',
+                'User-Agent'    => 'Hookpool/1.0',
             ]
         );
         if ($emailsJson !== false) {

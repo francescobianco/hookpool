@@ -1,6 +1,6 @@
 <?php
 /**
- * HookPool Migration Runner
+ * Hookpool Migration Runner
  * Run via CLI: php -f migrate.php
  * Run via browser: https://yourapp.com/migrate.php
  */
@@ -38,7 +38,7 @@ execSQL($db, "CREATE TABLE IF NOT EXISTS migrations (
     ran_at    DATETIME DEFAULT (datetime('now'))
 )");
 
-migrationOutput('HookPool Migration Runner', $isCli);
+migrationOutput('Hookpool Migration Runner', $isCli);
 migrationOutput(str_repeat('-', 50), $isCli);
 
 $ranCount  = 0;

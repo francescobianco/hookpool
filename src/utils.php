@@ -260,7 +260,7 @@ function executeForwarding(PDO $db, int $eventId, int $webhookId): void {
         }
 
         // Ensure User-Agent header
-        $customHeaders['User-Agent'] = 'HookPool/1.0';
+        $customHeaders['User-Agent'] = 'Hookpool/1.0';
 
         // Execute the forwarding HTTP request
         $responseStatus = null;

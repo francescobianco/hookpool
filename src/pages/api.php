@@ -291,7 +291,7 @@ switch ($action) {
         }
 
         // Parse custom headers
-        $customHeaders = ['User-Agent' => 'HookPool/1.0'];
+        $customHeaders = ['User-Agent' => 'Hookpool/1.0'];
         $parsedCustom = json_decode($fa['custom_headers'] ?? '{}', true);
         if (is_array($parsedCustom)) {
             $customHeaders = array_merge($customHeaders, $parsedCustom);

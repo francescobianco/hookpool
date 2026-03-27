@@ -1,4 +1,4 @@
-// HookPool Service Worker — minimal, required for PWA installability
+// Hookpool Service Worker — minimal, required for PWA installability
 const CACHE = 'hookpool-v1';
 
 self.addEventListener('install', () => self.skipWaiting());

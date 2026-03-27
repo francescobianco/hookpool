@@ -18,7 +18,7 @@ define('SMTP_PORT',          (int)(getenv('SMTP_PORT')    ?: 587));
 define('SMTP_USER',          getenv('SMTP_USER')          ?: '');
 define('SMTP_PASS',          getenv('SMTP_PASS')          ?: '');
 define('MAIL_FROM',          getenv('MAIL_FROM')          ?: 'noreply@hookpool.com');
-define('MAIL_FROM_NAME',     getenv('MAIL_FROM_NAME')     ?: 'HookPool');
+define('MAIL_FROM_NAME',     getenv('MAIL_FROM_NAME')     ?: 'Hookpool');
 define('ADMIN_EMAIL',        getenv('ADMIN_EMAIL')        ?: '');
 define('TOKEN_EXPIRY_HOURS', (int)(getenv('TOKEN_EXPIRY_HOURS') ?: 72));
 define('DEFAULT_LANG',       getenv('DEFAULT_LANG')       ?: 'en');
@@ -38,5 +38,5 @@ define('IGNORED_HEADERS', array_values(array_filter(array_map(
 define('SUPPORTED_LANGS',    ['en', 'it']);
 define('HOOK_TOKEN_LENGTH',  32);
 define('WEBHOOK_CODE_LENGTH', 6);
-define('APP_NAME',           'HookPool');
+define('APP_NAME',           'Hookpool');
 define('APP_VERSION',        '1.0.0');

@@ -1,12 +1,12 @@
-# HookPool
+# Hookpool
 
-HookPool is an open source, self-hostable webhook inbox for developers, makers, side projects, automations, and personal infrastructure.
+Hookpool is an open source, self-hostable webhook inbox for developers, makers, side projects, automations, and personal infrastructure.
 
 The project has a very explicit design preference: webhook URLs should stay as short as possible while still being safe, unique, and practical to manage.
 
 ## Project Identity
 
-HookPool is built to run in two equally valid ways:
+Hookpool is built to run in two equally valid ways:
 
 - personal or self-hosted single-user mode
 - public multi-user mode with GitHub login
@@ -22,7 +22,7 @@ Set the mode in `.env`, Docker environment variables, or `env.php`.
 
 ## URL Design
 
-HookPool prefers short public webhook URLs.
+Hookpool prefers short public webhook URLs.
 
 The target format is:
 
@@ -50,7 +50,7 @@ Example:
 - project name: `Chess`
 - preferred slug: `/chess/`
 
-If the slug is already taken, HookPool must automatically resolve collisions:
+If the slug is already taken, Hookpool must automatically resolve collisions:
 
 - `/chess/`
 - `/chess-1/`
@@ -103,7 +103,7 @@ As a practical baseline, `6` base36 characters is a reasonable starting point fo
 
 ## Product Direction
 
-HookPool is not trying to produce long, ugly, over-engineered webhook endpoints.
+Hookpool is not trying to produce long, ugly, over-engineered webhook endpoints.
 
 The design preference is:
 
@@ -117,6 +117,6 @@ This preference should inform routing, slug generation, validation rules, and UI
 
 ## Self-Hosting
 
-HookPool is intended to be installable on personal servers and small VPS environments without heavy infrastructure requirements.
+Hookpool is intended to be installable on personal servers and small VPS environments without heavy infrastructure requirements.
 
 Configuration is environment-based and works with Docker or plain PHP deployment.

@@ -2,7 +2,7 @@
 
 start:
 	docker compose up -d --build
-	@echo "HookPool disponibile su http://localhost:$${PORT:-8080}"
+	@echo "Hookpool disponibile su http://localhost:$${PORT:-8080}"
 
 stop:
 	docker compose down

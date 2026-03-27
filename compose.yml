@@ -19,7 +19,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       MAIL_FROM: ${MAIL_FROM:-noreply@hookpool.com}
-      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-HookPool}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Hookpool}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       TOKEN_EXPIRY_HOURS: ${TOKEN_EXPIRY_HOURS:-72}
       DEFAULT_LANG: ${DEFAULT_LANG:-en}
