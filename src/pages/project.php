@@ -56,20 +56,18 @@ if ($action === 'create') {
 
         $slug = uniqueProjectSlug($db, $slugInput !== '' ? $slugInput : $name);
 
-        // Insert project — fallback to numeric random slug on duplicate key violation
+        // Safety check: if slug is still taken (race condition or bypass), force a numeric slug
+        $slugCheck = $db->prepare('SELECT id FROM projects WHERE slug = ? AND deleted_at IS NULL');
+        $slugCheck->execute([$slug]);
+        if ($slugCheck->fetch()) {
+            $slug = 'p' . rand(100000, 999999);
+        }
+
+        // Insert project
         $ins = $db->prepare(
             'INSERT INTO projects (user_id, category_id, name, emoji, slug, description, active) VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
-        try {
-            $ins->execute([$userId, $categoryId, $name, $emoji, $slug, $description, $active]);
-        } catch (PDOException $e) {
-            if ((string)$e->getCode() === '23000') {
-                $slug = 'p' . rand(100000, 999999);
-                $ins->execute([$userId, $categoryId, $name, $emoji, $slug, $description, $active]);
-            } else {
-                throw $e;
-            }
-        }
+        $ins->execute([$userId, $categoryId, $name, $emoji, $slug, $description, $active]);
         $projectId = (int)$db->lastInsertId();
 
         // Auto-create first webhook
