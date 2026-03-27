@@ -15,7 +15,7 @@ if ($action === 'check_slug') {
     }
     $taken = isReservedProjectSlug($slug);
     if (!$taken) {
-        $stmt = $db->prepare('SELECT id FROM projects WHERE slug = ? AND deleted_at IS NULL');
+        $stmt = $db->prepare('SELECT id FROM projects WHERE slug = ?');
         $stmt->execute([$slug]);
         $taken = (bool)$stmt->fetch();
     }
@@ -56,8 +56,8 @@ if ($action === 'create') {
 
         $slug = uniqueProjectSlug($db, $slugInput !== '' ? $slugInput : $name);
 
-        // Safety check: if slug is still taken (race condition or bypass), force a numeric slug
-        $slugCheck = $db->prepare('SELECT id FROM projects WHERE slug = ? AND deleted_at IS NULL');
+        // Safety check: if slug is still taken by any row (including soft-deleted), force a numeric slug
+        $slugCheck = $db->prepare('SELECT id FROM projects WHERE slug = ?');
         $slugCheck->execute([$slug]);
         if ($slugCheck->fetch()) {
             $slug = 'p' . rand(100000, 999999);

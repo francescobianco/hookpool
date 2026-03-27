@@ -410,7 +410,7 @@ function uniqueProjectSlug(PDO $db, string $nameOrSlug, ?int $excludeId = null):
             continue;
         }
 
-        $q = 'SELECT id FROM projects WHERE slug = ? AND deleted_at IS NULL';
+        $q = 'SELECT id FROM projects WHERE slug = ?';
         $params = [$slug];
         if ($excludeId !== null) {
             $q .= ' AND id != ?';
