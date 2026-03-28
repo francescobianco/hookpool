@@ -3,7 +3,7 @@ env.php
 data/app.db
 data/emails/
 .deploy/
+__pycache__/
 *.lftp
 .idea/
 *.log
-__pycache__/

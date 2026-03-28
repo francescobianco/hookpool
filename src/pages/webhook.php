@@ -564,7 +564,7 @@ if ($action === 'settings') {
             header('Location: ' . BASE_URL . '/?page=webhook&action=settings&id=' . $webhookId);
             exit;
         }
-        $allowed = ['', 'pixel', 'file_upload', 'autocall'];
+        $allowed = ['', 'pixel', 'file_upload', 'autocall', 'http_relay'];
         $fn = $_POST['special_function'] ?? '';
         if (!in_array($fn, $allowed, true)) {
             setFlash('error', __('msg.invalid'));
@@ -736,6 +736,13 @@ if ($action === 'settings') {
                         <div class="special-fn-desc"><?= __('webhook.sfn_autocall_desc') ?></div>
                     </label>
 
+                    <label class="special-fn-card<?= $currentFn === 'http_relay' ? ' active' : '' ?>">
+                        <input type="radio" name="special_function" value="http_relay" <?= $currentFn === 'http_relay' ? 'checked' : '' ?> onchange="sfnChange(this)">
+                        <div class="special-fn-icon">🔀</div>
+                        <div class="special-fn-title"><?= __('webhook.sfn_http_relay') ?></div>
+                        <div class="special-fn-desc"><?= __('webhook.sfn_http_relay_desc') ?></div>
+                    </label>
+
                 </div>
 
                 <!-- Autocall config panel -->
@@ -810,6 +817,24 @@ function sfnChange(radio) {
                     <tr><td>Schedule</td><td><code><?= e($wh['cron_expression']) ?></code></td></tr>
                     <tr><td><?= __('webhook.autocall_next_run') ?></td><td><code><?= e($wh['cron_next_run']) ?></code></td></tr>
                 </table>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($currentFn === 'http_relay'):
+                $relayUrl = BASE_URL . '/' . rawurlencode($wh['project_slug']) . '/' . rawurlencode($wh['token']);
+            ?>
+            <div class="special-fn-detail special-fn-note" style="margin-top:1.5rem">
+                <div class="special-fn-note-icon">⚠️</div>
+                <div>
+                    <strong><?= __('webhook.sfn_relay_note_title') ?></strong>
+                    <p style="margin:0.35rem 0 0"><?= __('webhook.sfn_relay_note_body') ?></p>
+                </div>
+            </div>
+            <div class="special-fn-detail" style="margin-top:1rem">
+                <p class="text-muted" style="font-size:0.88rem;margin-bottom:0.5rem"><?= __('webhook.sfn_relay_public_label') ?></p>
+                <code class="pixel-url-code"><?= e($relayUrl) ?></code>
+                <p class="text-muted" style="font-size:0.88rem;margin:1rem 0 0.5rem"><?= __('webhook.sfn_relay_demo_label') ?></p>
+                <code class="example-curl">python3 tests/relay_demo.py '<?= e($relayUrl) ?>'</code>
             </div>
             <?php endif; ?>
         </div>

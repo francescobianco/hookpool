@@ -130,6 +130,12 @@ if (strpos($ip, ',') !== false) {
     $ip = trim(explode(',', $ip)[0]);
 }
 
+// ── HTTP Relay: private polling side (PATCH only) ────────────────────────────
+if (($webhook['special_function'] ?? '') === 'http_relay' && $method === 'PATCH') {
+    relayHandlePoll($db, $webhook, $body);
+    exit;
+}
+
 // Evaluate guards
 $validated       = 1;
 $rejectionReason = null;
@@ -170,6 +176,12 @@ $insertStmt->execute([
     $rejectionReason,
 ]);
 $eventId = (int)$db->lastInsertId();
+
+// ── HTTP Relay: public side — queue request and wait for relay response ───────
+if (($webhook['special_function'] ?? '') === 'http_relay' && $validated) {
+    relayHandlePublic($db, $webhook, $method, $path, $queryStringClean, $headers, $body);
+    exit;
+}
 
 // ── File upload mode ──────────────────────────────────────────────────────────
 if (($webhook['special_function'] ?? '') === 'file_upload' && !empty($_FILES)) {
@@ -331,4 +343,183 @@ function ipInCidr(string $ip, string $cidr): bool {
     if ($ipLong === false || $rngLong === false) return false;
     $maskLong = $mask === 0 ? 0 : (~0 << (32 - $mask));
     return ($ipLong & $maskLong) === ($rngLong & $maskLong);
+}
+
+// ── HTTP Relay helpers ─────────────────────────────────────────────────────────
+
+/**
+ * PATCH side: relay client long-poll.
+ *
+ * If the PATCH carries X-Relay-Seq + body, deliver the response for that
+ * transaction first, then wait for the next pending public request.
+ * Responds with the request payload + X-Relay-Seq, or 204 on poll timeout.
+ */
+function relayHandlePoll(PDO $db, array $webhook, string $body): void
+{
+    set_time_limit(50);
+    @ini_set('output_buffering', 'off');
+    @ini_set('zlib.output_compression', '0');
+
+    $webhookId = (int)$webhook['id'];
+
+    // Purge stale entries (done/expired older than 2 minutes)
+    $db->prepare("DELETE FROM relay_queue
+                  WHERE webhook_id = ? AND state IN ('done','expired')
+                  AND created_at < datetime('now','-120 seconds')")
+       ->execute([$webhookId]);
+
+    // If PATCH carries a response, persist it
+    $responseSeq = isset($_SERVER['HTTP_X_RELAY_SEQ']) ? (int)$_SERVER['HTTP_X_RELAY_SEQ'] : 0;
+    if ($responseSeq > 0 && $body !== '') {
+        $payload = json_decode($body, true);
+        if (is_array($payload) && array_key_exists('status', $payload)) {
+            $db->prepare("UPDATE relay_queue
+                          SET state = 'done',
+                              resp_status  = ?,
+                              resp_headers = ?,
+                              resp_body    = ?,
+                              resp_b64     = ?,
+                              responded_at = datetime('now')
+                          WHERE webhook_id = ? AND id = ? AND state = 'dispatched'")
+               ->execute([
+                   (int)($payload['status'] ?? 200),
+                   json_encode($payload['headers'] ?? []),
+                   (string)($payload['body'] ?? ''),
+                   ($payload['body_base64'] ?? false) ? 1 : 0,
+                   $webhookId,
+                   $responseSeq,
+               ]);
+        }
+    }
+
+    // Long-poll: wait up to 28 s for the next pending entry
+    $deadline = time() + 28;
+    while (time() < $deadline) {
+        $stmt = $db->prepare("SELECT * FROM relay_queue
+                              WHERE webhook_id = ? AND state = 'pending'
+                              ORDER BY id ASC LIMIT 1");
+        $stmt->execute([$webhookId]);
+        $entry = $stmt->fetch();
+
+        if ($entry) {
+            // Atomically claim the row (another process may race us)
+            $upd = $db->prepare("UPDATE relay_queue
+                                 SET state = 'dispatched', dispatched_at = datetime('now')
+                                 WHERE id = ? AND state = 'pending'");
+            $upd->execute([(int)$entry['id']]);
+            if ($upd->rowCount() === 0) {
+                usleep(100_000); // lost the race, retry
+                continue;
+            }
+
+            $respBody = json_encode([
+                'method'       => $entry['req_method'],
+                'path'         => $entry['req_path'],
+                'query_string' => $entry['req_qs'],
+                'headers'      => json_decode($entry['req_headers'], true) ?: [],
+                'body'         => $entry['req_body'],
+                'body_base64'  => (bool)$entry['req_b64'],
+            ]);
+
+            http_response_code(200);
+            header('Content-Type: application/json');
+            header('X-Relay-Seq: ' . $entry['id']);
+            header('Cache-Control: no-cache, no-store');
+            header('Content-Length: ' . strlen($respBody));
+            echo $respBody;
+            return;
+        }
+
+        sleep(1);
+    }
+
+    // Poll timeout — client must reconnect immediately
+    http_response_code(204);
+    header('X-Relay-Seq: 0');
+    header('Cache-Control: no-cache, no-store');
+}
+
+/**
+ * Public side (non-PATCH): queue the request and wait for the relay response.
+ *
+ * Returns 503 if the queue is saturated (relay client not connected).
+ * Returns 504 if the relay client does not respond within the timeout.
+ * Otherwise proxies the relay client's response back to the caller.
+ */
+function relayHandlePublic(
+    PDO    $db,
+    array  $webhook,
+    string $method,
+    string $path,
+    string $qs,
+    array  $headers,
+    string $body
+): void {
+    set_time_limit(50);
+
+    $webhookId = (int)$webhook['id'];
+
+    // Refuse if too many requests are already queued (relay client disconnected)
+    $pending = $db->prepare("SELECT COUNT(*) FROM relay_queue WHERE webhook_id = ? AND state = 'pending'");
+    $pending->execute([$webhookId]);
+    if ((int)$pending->fetchColumn() >= 5) {
+        http_response_code(503);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Service Unavailable', 'detail' => 'Relay queue saturated — client not connected']);
+        return;
+    }
+
+    // Encode body as base64 if not valid UTF-8
+    $bodyB64 = 0;
+    $bodyStr = $body;
+    if ($body !== '' && !mb_check_encoding($body, 'UTF-8')) {
+        $bodyStr = base64_encode($body);
+        $bodyB64 = 1;
+    }
+
+    $db->prepare("INSERT INTO relay_queue
+                  (webhook_id, state, req_method, req_path, req_qs, req_headers, req_body, req_b64)
+                  VALUES (?, 'pending', ?, ?, ?, ?, ?, ?)")
+       ->execute([$webhookId, $method, $path, $qs, json_encode($headers), $bodyStr, $bodyB64]);
+
+    $queueId = (int)$db->lastInsertId();
+
+    // Wait up to 30 s for the relay client to deliver the response
+    $deadline = time() + 30;
+    while (time() < $deadline) {
+        $stmt = $db->prepare("SELECT * FROM relay_queue WHERE id = ? AND state = 'done'");
+        $stmt->execute([$queueId]);
+        $entry = $stmt->fetch();
+
+        if ($entry) {
+            $status      = (int)($entry['resp_status'] ?? 200);
+            $respHeaders = json_decode($entry['resp_headers'] ?? '{}', true) ?: [];
+            $respBody    = (string)($entry['resp_body'] ?? '');
+            if ($entry['resp_b64']) {
+                $respBody = (string)base64_decode($respBody);
+            }
+
+            http_response_code($status);
+            foreach ($respHeaders as $hk => $hv) {
+                $hk = preg_replace('/[^a-zA-Z0-9\-]/', '', (string)$hk);
+                if ($hk === '') continue;
+                if (in_array(strtoupper($hk), ['TRANSFER-ENCODING', 'CONNECTION', 'CONTENT-LENGTH'], true)) continue;
+                header("$hk: $hv");
+            }
+            header('Content-Length: ' . strlen($respBody));
+            header('X-Hookpool-Relay: 1');
+            echo $respBody;
+
+            $db->prepare("DELETE FROM relay_queue WHERE id = ?")->execute([$queueId]);
+            return;
+        }
+
+        sleep(1);
+    }
+
+    // Timeout: mark expired and return 504
+    $db->prepare("UPDATE relay_queue SET state = 'expired' WHERE id = ?")->execute([$queueId]);
+    http_response_code(504);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Gateway Timeout', 'detail' => 'Relay client did not respond in time']);
 }

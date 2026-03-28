@@ -250,6 +250,12 @@ return [
     'webhook.sfn_copy_markdown'      => 'Markdown',
     'webhook.sfn_file_note_title'    => 'Modalità buffer — non per hosting',
     'webhook.sfn_file_note_body'     => 'I file vengono conservati assieme al log degli eventi come buffer temporaneo per i tuoi flussi. Non è prevista alcuna forma di backup. Non usare questo sistema per l\'hosting permanente di file.',
+    'webhook.sfn_http_relay'         => 'HTTP Relay',
+    'webhook.sfn_http_relay_desc'    => 'Trasforma il webhook in un gateway trasparente per servizi privati. Un client relay nella tua rete effettua long-polling via PATCH; tutte le altre richieste vengono inoltrate tramite esso.',
+    'webhook.sfn_relay_public_label' => 'Endpoint pubblico (i chiamanti usano questo URL)',
+    'webhook.sfn_relay_demo_label'   => 'Avvia il client relay demo',
+    'webhook.sfn_relay_note_title'   => 'Client relay richiesto',
+    'webhook.sfn_relay_note_body'    => 'Le richieste in ingresso vengono tenute aperte finché il client relay non consegna una risposta. Senza un client connesso i chiamanti riceveranno 503. Usa tests/relay_demo.py per iniziare.',
 
     // Event files
     'event.files'     => 'File Allegati',
