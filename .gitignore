@@ -1,6 +1,8 @@
 .env
 env.php
 data/app.db
+data/app.db-shm
+data/app.db-wal
 data/emails/
 .deploy/
 __pycache__/
