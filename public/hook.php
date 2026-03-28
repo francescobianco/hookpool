@@ -502,11 +502,37 @@ function relayHandlePublic(
 
     $queueId = (int)$db->lastInsertId();
 
-    // Wait up to 30 s for the relay client to deliver the response.
-    // Fresh DB connection guarantees each SELECT sees the latest WAL state.
-    $pollDb   = relayOpenDb();
-    $deadline = time() + 30;
-    while (time() < $deadline) {
+    // Two-phase wait — fresh DB connection for WAL snapshot isolation.
+    $pollDb = relayOpenDb();
+
+    // Phase 1 (≤ 5 s): wait for any relay client to claim the request (pending → dispatched).
+    // If nobody picks it up in time the service is considered unreachable.
+    $claimDeadline = time() + 5;
+    $claimed = false;
+    while (time() < $claimDeadline) {
+        $stmt = $pollDb->prepare("SELECT state FROM relay_queue WHERE id = ?");
+        $stmt->execute([$queueId]);
+        $row = $stmt->fetch();
+        $stmt->closeCursor();
+
+        if ($row && $row['state'] !== 'pending') {
+            $claimed = true;
+            break;
+        }
+        usleep(500000); // 0.5 s
+    }
+
+    if (!$claimed) {
+        try { $db->prepare("DELETE FROM relay_queue WHERE id = ?")->execute([$queueId]); } catch (\Exception $e) {}
+        http_response_code(503);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Service Unavailable', 'detail' => 'No relay client connected']);
+        return;
+    }
+
+    // Phase 2 (≤ 25 s more): wait for the relay client to deliver the response (dispatched → done).
+    $responseDeadline = time() + 25;
+    while (time() < $responseDeadline) {
         $stmt = $pollDb->prepare("SELECT * FROM relay_queue WHERE id = ? AND state = 'done'");
         $stmt->execute([$queueId]);
         $entry = $stmt->fetch();
@@ -531,7 +557,7 @@ function relayHandlePublic(
             header('X-Hookpool-Relay: 1');
             echo $respBody;
 
-            // Best-effort cleanup — the periodic purge in relayHandlePoll handles failures
+            // Best-effort cleanup — periodic purge in relayHandlePoll handles failures
             try { $db->prepare("DELETE FROM relay_queue WHERE id = ?")->execute([$queueId]); } catch (\Exception $e) {}
             return;
         }
@@ -539,7 +565,7 @@ function relayHandlePublic(
         usleep(500000); // 0.5 s
     }
 
-    // Timeout: mark expired and return 504
+    // Phase 2 timeout: client claimed the request but never delivered a response
     try { $db->prepare("UPDATE relay_queue SET state = 'expired' WHERE id = ?")->execute([$queueId]); } catch (\Exception $e) {}
     http_response_code(504);
     header('Content-Type: application/json');
