@@ -393,18 +393,17 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
     }
 
     // Long-poll: wait up to 28 s for the next pending entry.
-    // Each iteration wraps the SELECT in an explicit transaction so SQLite
-    // always starts a fresh read snapshot and sees writes from other processes.
+    // Uses a fresh DB connection so each SELECT starts a new WAL snapshot,
+    // guaranteeing visibility of writes from concurrent processes.
+    $pollDb   = relayOpenDb();
     $deadline = time() + 28;
     while (time() < $deadline) {
-        $db->exec('BEGIN');
-        $stmt = $db->prepare("SELECT * FROM relay_queue
-                              WHERE webhook_id = ? AND state = 'pending'
-                              ORDER BY id ASC LIMIT 1");
+        $stmt = $pollDb->prepare("SELECT * FROM relay_queue
+                                  WHERE webhook_id = ? AND state = 'pending'
+                                  ORDER BY id ASC LIMIT 1");
         $stmt->execute([$webhookId]);
         $entry = $stmt->fetch();
         $stmt->closeCursor();
-        $db->exec('COMMIT');
 
         if ($entry) {
             // Atomically claim the row (another process may race us)
@@ -490,15 +489,14 @@ function relayHandlePublic(
     $queueId = (int)$db->lastInsertId();
 
     // Wait up to 30 s for the relay client to deliver the response.
-    // Explicit BEGIN/COMMIT forces a fresh SQLite read snapshot each iteration.
+    // Fresh DB connection guarantees each SELECT sees the latest WAL state.
+    $pollDb   = relayOpenDb();
     $deadline = time() + 30;
     while (time() < $deadline) {
-        $db->exec('BEGIN');
-        $stmt = $db->prepare("SELECT * FROM relay_queue WHERE id = ? AND state = 'done'");
+        $stmt = $pollDb->prepare("SELECT * FROM relay_queue WHERE id = ? AND state = 'done'");
         $stmt->execute([$queueId]);
         $entry = $stmt->fetch();
         $stmt->closeCursor();
-        $db->exec('COMMIT');
 
         if ($entry) {
             $status      = (int)($entry['resp_status'] ?? 200);
@@ -519,7 +517,8 @@ function relayHandlePublic(
             header('X-Hookpool-Relay: 1');
             echo $respBody;
 
-            $db->prepare("DELETE FROM relay_queue WHERE id = ?")->execute([$queueId]);
+            // Best-effort cleanup — the periodic purge in relayHandlePoll handles failures
+            try { $db->prepare("DELETE FROM relay_queue WHERE id = ?")->execute([$queueId]); } catch (\Exception $e) {}
             return;
         }
 
@@ -527,8 +526,30 @@ function relayHandlePublic(
     }
 
     // Timeout: mark expired and return 504
-    $db->prepare("UPDATE relay_queue SET state = 'expired' WHERE id = ?")->execute([$queueId]);
+    try { $db->prepare("UPDATE relay_queue SET state = 'expired' WHERE id = ?")->execute([$queueId]); } catch (\Exception $e) {}
     http_response_code(504);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'Gateway Timeout', 'detail' => 'Relay client did not respond in time']);
+}
+
+/**
+ * Open a fresh, isolated PDO connection to the database.
+ * Used in long-polling loops so each SELECT starts from the latest WAL snapshot
+ * without inheriting cursor or transaction state from the main connection.
+ */
+function relayOpenDb(): PDO
+{
+    if (DB_TYPE === 'sqlite') {
+        $pdo = new PDO('sqlite:' . DB_PATH);
+        $pdo->exec('PRAGMA journal_mode=WAL');
+        $pdo->exec('PRAGMA busy_timeout=5000'); // wait up to 5 s on lock contention
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        return $pdo;
+    }
+    $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+    $pdo = new PDO($dsn, DB_USER, DB_PASSWORD);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    return $pdo;
 }
