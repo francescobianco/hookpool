@@ -18,6 +18,22 @@ The technique is based on **long-polling**: a lightweight relay client runs insi
 
 ---
 
+## Sub-Path Routing
+
+Any path segment after the webhook token is forwarded to the local server as-is.
+
+| Incoming public request               | Forwarded to local server |
+|---------------------------------------|---------------------------|
+| `GET  /slug/token`                    | `GET  /`                  |
+| `GET  /slug/token/api/v1/users`       | `GET  /api/v1/users`      |
+| `POST /slug/token/orders?page=2`      | `POST /orders?page=2`     |
+| `DELETE /slug/token/items/42`         | `DELETE /items/42`        |
+
+The relay client receives the stripped path in the `path` field of the request payload.
+The query string is forwarded unchanged in the `query_string` field.
+
+---
+
 ## How It Works — Step by Step
 
 1. The relay client inside the private network opens a long-poll connection:

@@ -463,6 +463,20 @@ function relayHandlePublic(
 
     $webhookId = (int)$webhook['id'];
 
+    // Strip the webhook URL prefix from the path so the relay client sees only
+    // the sub-path (e.g. /hook/token/api/v1 → /api/v1, or /slug/token → /).
+    $slugPart  = $webhook['project_slug'] ?? '';
+    $tokenPart = $webhook['token'] ?? '';
+    $relayPath = '/';
+    foreach (["/{$slugPart}/{$tokenPart}", "/hook/{$tokenPart}"] as $webhookBase) {
+        if ($webhookBase !== '/' && str_starts_with($path, $webhookBase)) {
+            $remainder = substr($path, strlen($webhookBase));
+            $relayPath = ($remainder === '' || $remainder[0] !== '/') ? '/' . ltrim($remainder, '/') : $remainder;
+            if ($relayPath === '') $relayPath = '/';
+            break;
+        }
+    }
+
     // Refuse if too many requests are already queued (relay client disconnected)
     $pending = $db->prepare("SELECT COUNT(*) FROM relay_queue WHERE webhook_id = ? AND state = 'pending'");
     $pending->execute([$webhookId]);
@@ -484,7 +498,7 @@ function relayHandlePublic(
     $db->prepare("INSERT INTO relay_queue
                   (webhook_id, state, req_method, req_path, req_qs, req_headers, req_body, req_b64)
                   VALUES (?, 'pending', ?, ?, ?, ?, ?, ?)")
-       ->execute([$webhookId, $method, $path, $qs, json_encode($headers), $bodyStr, $bodyB64]);
+       ->execute([$webhookId, $method, $relayPath, $qs, json_encode($headers), $bodyStr, $bodyB64]);
 
     $queueId = (int)$db->lastInsertId();
 
