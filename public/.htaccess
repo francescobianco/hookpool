@@ -6,10 +6,14 @@ RewriteRule ^hook/([a-zA-Z0-9]+)\.png$ hook.php?token=$1&_pixel=1 [QSA,L]
 # Route /project-slug/hookcode.png to hook.php (pixel tracking)
 RewriteRule ^([a-z0-9-]+)/([a-z0-9]+)\.png$ hook.php?project=$1&token=$2&_pixel=1 [QSA,L]
 
-# Route /hook/TOKEN[/sub-path] to hook.php
+# Route /hook/TOKEN[/sub-path] to hook.php (skip real files/dirs)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^hook/([a-zA-Z0-9]+)(/.*)?$ hook.php?token=$1 [QSA,L]
 
-# Route /project-slug/hookcode[/sub-path] to hook.php
+# Route /project-slug/hookcode[/sub-path] to hook.php (skip real files/dirs)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^([a-z0-9-]+)/([a-z0-9]+)(/.*)?$ hook.php?project=$1&token=$2 [QSA,L]
 
 # Route everything else to index.php (skip real files and directories)
