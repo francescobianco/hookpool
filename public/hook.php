@@ -481,9 +481,11 @@ function relayHandlePublic(
     $pending = $db->prepare("SELECT COUNT(*) FROM relay_queue WHERE webhook_id = ? AND state = 'pending'");
     $pending->execute([$webhookId]);
     if ((int)$pending->fetchColumn() >= 5) {
-        http_response_code(503);
-        header('Content-Type: application/json');
-        echo json_encode(['error' => 'Service Unavailable', 'detail' => 'Relay queue saturated — client not connected']);
+        relayErrorResponse(503,
+            'No Relay Client Connected',
+            'The relay queue is saturated — the relay client is not processing requests.',
+            'Ensure the relay client process is running and connected to this webhook.'
+        );
         return;
     }
 
@@ -524,9 +526,11 @@ function relayHandlePublic(
 
     if (!$claimed) {
         try { $db->prepare("DELETE FROM relay_queue WHERE id = ?")->execute([$queueId]); } catch (\Exception $e) {}
-        http_response_code(503);
-        header('Content-Type: application/json');
-        echo json_encode(['error' => 'Service Unavailable', 'detail' => 'No relay client connected']);
+        relayErrorResponse(503,
+            'No Relay Client Connected',
+            'The relay client that should forward requests to the private service is not currently connected.',
+            'Start the relay client process inside the private network and ensure it can reach this webhook endpoint.'
+        );
         return;
     }
 
@@ -567,9 +571,87 @@ function relayHandlePublic(
 
     // Phase 2 timeout: client claimed the request but never delivered a response
     try { $db->prepare("UPDATE relay_queue SET state = 'expired' WHERE id = ?")->execute([$queueId]); } catch (\Exception $e) {}
-    http_response_code(504);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'Gateway Timeout', 'detail' => 'Relay client did not respond in time']);
+    relayErrorResponse(504,
+        'Relay Gateway Timeout',
+        'The relay client received the request but did not return a response from the private service in time.',
+        'Check that the private service is running and reachable from the relay client. The relay client may be overloaded or the local service is too slow.'
+    );
+}
+
+/**
+ * Send a relay error response.
+ *
+ * Browsers suppress 5xx responses with small bodies and show their own error page,
+ * hiding useful diagnostic information. This function:
+ *  - Returns text/html (with a clear, styled page) when the caller is a browser
+ *    (Accept header contains text/html), keeping the body well over the ~512-byte
+ *    Chrome/Firefox suppression threshold.
+ *  - Returns application/json for all other clients (curl, API consumers, etc.).
+ */
+function relayErrorResponse(int $code, string $title, string $detail, string $hint = ''): void
+{
+    http_response_code($code);
+    $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+    if (stripos($accept, 'text/html') !== false) {
+        // Browser path — return a styled HTML page large enough to bypass browser
+        // built-in error page suppression (Chrome threshold ~512 B, Firefox ~200 B).
+        header('Content-Type: text/html; charset=utf-8');
+        $codeLabel  = htmlspecialchars((string)$code, ENT_QUOTES);
+        $titleLabel = htmlspecialchars($title,        ENT_QUOTES);
+        $detailHtml = htmlspecialchars($detail,       ENT_QUOTES);
+        $iconMap    = [503 => '🔌', 504 => '⏱'];
+        $icon       = $iconMap[$code] ?? '⚠️';
+        $hintBlock  = $hint
+            ? '<div class="hint">' . htmlspecialchars($hint, ENT_QUOTES) . '</div>'
+            : '';
+        echo <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTTP {$codeLabel} — {$titleLabel}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:#f4f5f7;display:flex;align-items:center;justify-content:center;
+         min-height:100vh;padding:2rem}
+    .card{background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.1);
+          max-width:540px;width:100%;padding:2.5rem 2rem}
+    .icon{font-size:3rem;margin-bottom:1rem;text-align:center}
+    .code{font-size:.85rem;font-weight:700;letter-spacing:.08em;color:#6b7280;
+          text-transform:uppercase;text-align:center;margin-bottom:.4rem}
+    h1{font-size:1.4rem;color:#111827;text-align:center;margin-bottom:1.25rem}
+    .detail{background:#fef3c7;border-left:4px solid #f59e0b;border-radius:4px;
+            padding:.85rem 1rem;color:#92400e;line-height:1.5;margin-bottom:1rem}
+    .hint{background:#eff6ff;border-left:4px solid #3b82f6;border-radius:4px;
+          padding:.85rem 1rem;color:#1e40af;line-height:1.5;font-size:.9rem}
+    .footer{margin-top:1.75rem;text-align:center;font-size:.8rem;color:#9ca3af}
+    .footer a{color:#6b7280;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">{$icon}</div>
+    <div class="code">HTTP {$codeLabel} &mdash; Hookpool HTTP Relay</div>
+    <h1>{$titleLabel}</h1>
+    <div class="detail">{$detailHtml}</div>
+    {$hintBlock}
+    <div class="footer">Powered by <a href="https://hookpool.io" target="_blank">Hookpool</a></div>
+  </div>
+</body>
+</html>
+HTML;
+    } else {
+        // API / CLI path — plain JSON
+        header('Content-Type: application/json');
+        echo json_encode([
+            'error'  => $title,
+            'detail' => $detail,
+            'hint'   => $hint,
+            'status' => $code,
+        ]);
+    }
 }
 
 /**
