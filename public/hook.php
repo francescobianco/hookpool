@@ -392,14 +392,19 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
         }
     }
 
-    // Long-poll: wait up to 28 s for the next pending entry
+    // Long-poll: wait up to 28 s for the next pending entry.
+    // Each iteration wraps the SELECT in an explicit transaction so SQLite
+    // always starts a fresh read snapshot and sees writes from other processes.
     $deadline = time() + 28;
     while (time() < $deadline) {
+        $db->exec('BEGIN');
         $stmt = $db->prepare("SELECT * FROM relay_queue
                               WHERE webhook_id = ? AND state = 'pending'
                               ORDER BY id ASC LIMIT 1");
         $stmt->execute([$webhookId]);
         $entry = $stmt->fetch();
+        $stmt->closeCursor();
+        $db->exec('COMMIT');
 
         if ($entry) {
             // Atomically claim the row (another process may race us)
@@ -408,7 +413,7 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
                                  WHERE id = ? AND state = 'pending'");
             $upd->execute([(int)$entry['id']]);
             if ($upd->rowCount() === 0) {
-                usleep(100_000); // lost the race, retry
+                usleep(100000); // lost the race, retry
                 continue;
             }
 
@@ -430,7 +435,7 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
             return;
         }
 
-        sleep(1);
+        usleep(500000); // 0.5 s — keep latency low
     }
 
     // Poll timeout — client must reconnect immediately
@@ -484,12 +489,16 @@ function relayHandlePublic(
 
     $queueId = (int)$db->lastInsertId();
 
-    // Wait up to 30 s for the relay client to deliver the response
+    // Wait up to 30 s for the relay client to deliver the response.
+    // Explicit BEGIN/COMMIT forces a fresh SQLite read snapshot each iteration.
     $deadline = time() + 30;
     while (time() < $deadline) {
+        $db->exec('BEGIN');
         $stmt = $db->prepare("SELECT * FROM relay_queue WHERE id = ? AND state = 'done'");
         $stmt->execute([$queueId]);
         $entry = $stmt->fetch();
+        $stmt->closeCursor();
+        $db->exec('COMMIT');
 
         if ($entry) {
             $status      = (int)($entry['resp_status'] ?? 200);
@@ -514,7 +523,7 @@ function relayHandlePublic(
             return;
         }
 
-        sleep(1);
+        usleep(500000); // 0.5 s
     }
 
     // Timeout: mark expired and return 504

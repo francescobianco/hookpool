@@ -936,6 +936,7 @@ $recentEvents = $evtStmt->fetchAll();
 $isPaused      = !empty($wh['paused_until']) && strtotime($wh['paused_until']) > time();
 $webhookUrl    = webhookUrl($wh['slug'] ?? $wh['project_slug'] ?? '', $wh['token']);
 $isPixelMode   = ($wh['special_function'] ?? '') === 'pixel';
+$isRelayMode   = ($wh['special_function'] ?? '') === 'http_relay';
 $pixelUrlDetail = $webhookUrl . '.png';
 $pixelImgTag    = '<img src="' . $pixelUrlDetail . '" width="1" height="1" alt="" style="display:none">';
 $pixelMdDetail  = '![track](' . $pixelUrlDetail . ')';
@@ -1005,6 +1006,22 @@ ob_start();
             <?= __('webhook.sfn_pixel_desc') ?>
             <br>
             <code class="example-curl">&lt;img src="<?= e($pixelUrlDetail) ?>" width="1" height="1" alt=""&gt;</code>
+        </div>
+        <?php elseif ($isRelayMode): ?>
+        <div class="card-label" style="display:flex;align-items:center;gap:6px">
+            🔀 <?= __('webhook.sfn_http_relay') ?>
+            <span class="badge badge-muted" style="font-size:0.72rem">relay</span>
+        </div>
+        <div class="endpoint-row">
+            <code class="endpoint-url" id="endpointUrl"><?= e($webhookUrl) ?></code>
+            <button class="btn btn-outline copy-btn" onclick="copyToClipboard('<?= e($webhookUrl) ?>', this)">
+                <?= __('webhook.copy') ?>
+            </button>
+        </div>
+        <div class="endpoint-hint">
+            <?= __('webhook.sfn_http_relay_desc') ?>
+            <br>
+            <code class="example-curl">python3 tests/relay_demo.py '<?= e($webhookUrl) ?>'</code>
         </div>
         <?php else: ?>
         <div class="card-label">Webhook Endpoint</div>
