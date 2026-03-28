@@ -6,3 +6,4 @@ data/emails/
 *.lftp
 .idea/
 *.log
+__pycache__/
