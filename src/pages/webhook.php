@@ -648,7 +648,7 @@ if ($action === 'settings') {
             <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>" class="form">
                 <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
                 <input type="hidden" name="_action" value="rename">
-                <div class="form-row" style="align-items:flex-end">
+                <div class="form-row webhook-rename-row" style="align-items:flex-end">
                     <div class="form-group flex-1" style="margin-bottom:0">
                         <input type="text" name="name" value="<?= e($wh['name']) ?>" maxlength="100" required>
                     </div>
@@ -835,7 +835,7 @@ function sfnChange(radio) {
                 <p class="text-muted" style="font-size:0.88rem;margin-bottom:0.5rem"><?= __('webhook.sfn_relay_public_label') ?></p>
                 <code class="pixel-url-code"><?= e($publicRelayUrl) ?></code>
                 <p class="text-muted" style="font-size:0.88rem;margin:1rem 0 0.5rem"><?= __('webhook.sfn_relay_demo_label') ?></p>
-                <code class="example-curl">python3 tests/relay_demo.py '<?= e($relayUrl) ?>'</code>
+                <code class="example-curl">python3 tests/relay_demo.py '<?= e($publicRelayUrl) ?>'</code>
             </div>
             <?php endif; ?>
         </div>
@@ -1024,7 +1024,7 @@ ob_start();
         <div class="endpoint-hint">
             <?= __('webhook.sfn_http_relay_desc') ?>
             <br>
-            <code class="example-curl">python3 tests/relay_demo.py '<?= e($relayWebhookUrl) ?>'</code>
+            <code class="example-curl">python3 tests/relay_demo.py '<?= e($webhookUrl) ?>'</code>
         </div>
         <?php else: ?>
         <div class="card-label">Webhook Endpoint</div>
@@ -1227,30 +1227,32 @@ ob_start();
             <p class="text-muted">Try sending: <code>curl -X POST <?= e($webhookUrl) ?></code></p>
         </div>
         <?php else: ?>
-        <table class="events-table" id="recentEventsTable">
-            <thead>
-                <tr>
-                    <th class="col-method"><?= __('event.method') ?></th>
-                    <th class="col-time"><?= __('event.received_at') ?></th>
-                    <th class="col-path"><?= __('event.path') ?></th>
-                    <th class="col-ip"><?= __('event.ip') ?></th>
-                    <th class="col-status">Status</th>
-                    <th class="col-info">Info</th>
-                </tr>
-            </thead>
-            <tbody id="recentEventsBody">
-                <?php foreach ($recentEvents as $ev): ?>
-                <tr class="event-row" onclick="window.location='<?= BASE_URL ?>/?page=event&id=<?= $ev['id'] ?>'">
-                    <td class="col-method"><span class="badge-method <?= strtolower($ev['method']) ?>"><?= e($ev['method']) ?></span></td>
-                    <td class="col-time"><span title="<?= e($ev['received_at']) ?>"><?= e(date('H:i:s', strtotime($ev['received_at']))) ?></span></td>
-                    <td class="col-path mono"><?= e($ev['path'] . ($ev['query_string'] !== '' ? '?' . $ev['query_string'] : '')) ?></td>
-                    <td class="col-ip mono"><?= e($knownIpMap[$ev['ip']] ?? $ev['ip']) ?></td>
-                    <td class="col-status"><?= strtoupper($ev['method']) === 'ALARM' ? '<span class="badge badge-warning">Alarm</span>' : ($ev['validated'] ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>') ?></td>
-                    <td class="col-info text-muted"><?= strtoupper($ev['method']) === 'ALARM' ? e($ev['body']) : '' ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+        <div class="table-scroll-wrapper">
+            <table class="events-table" id="recentEventsTable">
+                <thead>
+                    <tr>
+                        <th class="col-method"><?= __('event.method') ?></th>
+                        <th class="col-time"><?= __('event.received_at') ?></th>
+                        <th class="col-path"><?= __('event.path') ?></th>
+                        <th class="col-ip"><?= __('event.ip') ?></th>
+                        <th class="col-status">Status</th>
+                        <th class="col-info">Info</th>
+                    </tr>
+                </thead>
+                <tbody id="recentEventsBody">
+                    <?php foreach ($recentEvents as $ev): ?>
+                    <tr class="event-row" onclick="window.location='<?= BASE_URL ?>/?page=event&id=<?= $ev['id'] ?>'">
+                        <td class="col-method"><span class="badge-method <?= strtolower($ev['method']) ?>"><?= e($ev['method']) ?></span></td>
+                        <td class="col-time"><span class="js-relative-time" data-received-at="<?= e($ev['received_at']) ?>" title="<?= e($ev['received_at']) ?>"></span></td>
+                        <td class="col-path mono"><?= e($ev['path'] . ($ev['query_string'] !== '' ? '?' . $ev['query_string'] : '')) ?></td>
+                        <td class="col-ip mono"><?= e($knownIpMap[$ev['ip']] ?? $ev['ip']) ?></td>
+                        <td class="col-status"><?= strtoupper($ev['method']) === 'ALARM' ? '<span class="badge badge-warning">Alarm</span>' : ($ev['validated'] ? '<span class="badge badge-success">Valid</span>' : '<span class="badge badge-error">Guard</span>') ?></td>
+                        <td class="col-info text-muted"><?= strtoupper($ev['method']) === 'ALARM' ? e($ev['body']) : '' ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
         <?php endif; ?>
     </section>
 </div>
@@ -1275,10 +1277,19 @@ function escapeHtml(value) {
         if (!value) return '';
         const ts = new Date(value.replace(' ', 'T'));
         const ago = Math.floor((Date.now() - ts.getTime()) / 1000);
+        if (Number.isNaN(ts.getTime())) return value;
+        if (ago < 5) return 'now';
         if (ago < 60) return ago + 's ago';
         if (ago < 3600) return Math.round(ago / 60) + 'm ago';
         if (ago < 86400) return Math.round(ago / 3600) + 'h ago';
-        return ts.toLocaleTimeString();
+        return Math.round(ago / 86400) + 'd ago';
+    }
+
+    function refreshDisplayedTimes(root = document) {
+        root.querySelectorAll('.js-relative-time').forEach(el => {
+            const value = el.getAttribute('data-received-at') || '';
+            el.textContent = renderTime(value);
+        });
     }
 
     function ensureTable() {
@@ -1292,19 +1303,21 @@ function escapeHtml(value) {
         if (empty) empty.remove();
 
         section.insertAdjacentHTML('beforeend', `
-            <table class="events-table" id="recentEventsTable">
-                <thead>
-                    <tr>
-                        <th class="col-method"><?= __('event.method') ?></th>
-                        <th class="col-time"><?= __('event.received_at') ?></th>
-                        <th class="col-path"><?= __('event.path') ?></th>
-                        <th class="col-ip"><?= __('event.ip') ?></th>
-                        <th class="col-status">Status</th>
-                        <th class="col-info">Info</th>
-                    </tr>
-                </thead>
-                <tbody id="recentEventsBody"></tbody>
-            </table>
+            <div class="table-scroll-wrapper">
+                <table class="events-table" id="recentEventsTable">
+                    <thead>
+                        <tr>
+                            <th class="col-method"><?= __('event.method') ?></th>
+                            <th class="col-time"><?= __('event.received_at') ?></th>
+                            <th class="col-path"><?= __('event.path') ?></th>
+                            <th class="col-ip"><?= __('event.ip') ?></th>
+                            <th class="col-status">Status</th>
+                            <th class="col-info">Info</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentEventsBody"></tbody>
+                </table>
+            </div>
         `);
 
         return document.getElementById('recentEventsTable');
@@ -1342,7 +1355,7 @@ function escapeHtml(value) {
                     const infoCell = method === 'ALARM' ? escapeHtml(ev.body || '') : '';
                     tr.innerHTML = `
                         <td class="col-method"><span class="badge-method ${methodLower}">${escapeHtml(method)}</span></td>
-                        <td class="col-time"><span title="${escapeHtml(ev.received_at || '')}">${escapeHtml(renderTime(ev.received_at || ''))}</span></td>
+                        <td class="col-time"><span class="js-relative-time" data-received-at="${escapeHtml(ev.received_at || '')}" title="${escapeHtml(ev.received_at || '')}">${escapeHtml(renderTime(ev.received_at || ''))}</span></td>
                         <td class="col-path mono">${escapeHtml((ev.path || '/') + (ev.query_string ? '?' + ev.query_string : ''))}</td>
                         <td class="col-ip mono">${escapeHtml(knownIps[ev.ip] || ev.ip || '')}</td>
                         <td class="col-status">${statusBadge}</td>
@@ -1359,6 +1372,8 @@ function escapeHtml(value) {
                 if (rows.length > 20) {
                     for (let i = 20; i < rows.length; i++) rows[i].remove();
                 }
+
+                refreshDisplayedTimes(tbody);
             })
             .catch(() => {})
             .finally(() => {
@@ -1366,6 +1381,8 @@ function escapeHtml(value) {
             });
     }
 
+    refreshDisplayedTimes();
+    setInterval(refreshDisplayedTimes, 1000);
     setInterval(poll, refreshInterval);
 })();
 </script>

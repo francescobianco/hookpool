@@ -17,7 +17,7 @@ $widgets = $wStmt->fetchAll();
 
 // Load all webhooks for the URL picker
 $whPickerStmt = $cpDb->prepare('
-    SELECT w.id, w.name, w.token, p.slug AS project_slug
+    SELECT w.id, w.name, w.token, p.slug AS project_slug, p.name AS project_name
     FROM webhooks w
     JOIN projects p ON p.id = w.project_id
     WHERE p.user_id = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
@@ -27,6 +27,8 @@ $whPickerStmt->execute([$userId]);
 $webhooksForPicker = $whPickerStmt->fetchAll();
 $webhookPickerJson = json_encode(array_map(fn($wh) => [
     'name' => $wh['name'],
+    'project_name' => $wh['project_name'],
+    'label' => $wh['project_name'] . ' > ' . $wh['name'],
     'url'  => webhookUrl($wh['project_slug'], $wh['token']),
 ], $webhooksForPicker));
 
@@ -171,17 +173,18 @@ $WIDGET_TYPES = [
                 <input type="hidden" id="cpEditId" value="">
                 <input type="hidden" id="cpEditType" value="">
 
-                <div class="form-group">
-                    <label class="form-label"><?= __('cp.widget_title') ?></label>
-                    <input type="text" class="form-control" id="cpFTitle" placeholder="<?= __('cp.widget_title_placeholder') ?>">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label"><?= __('cp.widget_width') ?></label>
-                    <select class="form-control" id="cpFWidth">
-                        <option value="1"><?= __('cp.width_1') ?></option>
-                        <option value="2"><?= __('cp.width_2') ?></option>
-                    </select>
+                <div class="form-row cp-config-header-row">
+                    <div class="form-group flex-1">
+                        <label class="form-label"><?= __('cp.widget_title') ?></label>
+                        <input type="text" class="form-control" id="cpFTitle" placeholder="<?= __('cp.widget_title_placeholder') ?>">
+                    </div>
+                    <div class="form-group form-group-sm">
+                        <label class="form-label"><?= __('cp.widget_width') ?></label>
+                        <select class="form-control" id="cpFWidth">
+                            <option value="1"><?= __('cp.width_1') ?></option>
+                            <option value="2"><?= __('cp.width_2') ?></option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Button widget fields -->
@@ -212,76 +215,89 @@ $WIDGET_TYPES = [
 
                 <!-- UpDown widget fields -->
                 <div id="cpFieldsUpdown" class="cp-type-fields" style="display:none">
-                    <p class="form-hint">▲ Su</p>
-                    <div class="form-group">
-                        <label class="form-label"><?= __('cp.field_label') ?></label>
-                        <input type="text" class="form-control" id="cpFUpLabel" placeholder="Su">
+                    <div class="cp-action-tabs" role="tablist" aria-label="Azioni widget updown">
+                        <button type="button" class="cp-action-tab active" id="cpUpdownTabUp" role="tab" aria-selected="true" aria-controls="cpUpdownPanelUp" onclick="cpSwitchUpdownTab('up')">▲ Su</button>
+                        <button type="button" class="cp-action-tab" id="cpUpdownTabDown" role="tab" aria-selected="false" aria-controls="cpUpdownPanelDown" onclick="cpSwitchUpdownTab('down')">▼ Giù</button>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group" style="flex:2">
-                            <label class="form-label">URL</label>
-                            <div class="cp-url-row">
-                                <input type="text" class="form-control" id="cpFUpUrl" placeholder="https://...">
-                                <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFUpUrl', this)">🔗 Webhooks</button>
+                    <div class="cp-action-panel" id="cpUpdownPanelUp" role="tabpanel" aria-labelledby="cpUpdownTabUp">
+                        <div class="form-group">
+                            <label class="form-label"><?= __('cp.field_label') ?></label>
+                            <input type="text" class="form-control" id="cpFUpLabel" placeholder="Su">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:2">
+                                <label class="form-label">URL</label>
+                                <div class="cp-url-row">
+                                    <input type="text" class="form-control" id="cpFUpUrl" placeholder="https://...">
+                                    <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFUpUrl', this)">🔗 Webhooks</button>
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex:1">
+                                <label class="form-label"><?= __('cp.field_method') ?></label>
+                                <select class="form-control" id="cpFUpMethod">
+                                    <option>GET</option><option>POST</option><option>PUT</option>
+                                    <option>DELETE</option><option>PATCH</option>
+                                </select>
                             </div>
                         </div>
-                        <div class="form-group" style="flex:1">
-                            <label class="form-label"><?= __('cp.field_method') ?></label>
-                            <select class="form-control" id="cpFUpMethod">
-                                <option>GET</option><option>POST</option><option>PUT</option>
-                                <option>DELETE</option><option>PATCH</option>
-                            </select>
+                        <div class="form-group" id="cpFUpBodyGroup">
+                            <label class="form-label">Body</label>
+                            <input type="text" class="form-control" id="cpFUpBody" placeholder="Opzionale">
                         </div>
                     </div>
-                    <div class="form-group" id="cpFUpBodyGroup">
-                        <label class="form-label">Body</label>
-                        <input type="text" class="form-control" id="cpFUpBody" placeholder="Opzionale">
-                    </div>
-                    <p class="form-hint" style="margin-top:8px">▼ Giù</p>
-                    <div class="form-group">
-                        <label class="form-label"><?= __('cp.field_label') ?></label>
-                        <input type="text" class="form-control" id="cpFDownLabel" placeholder="Giù">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group" style="flex:2">
-                            <label class="form-label">URL</label>
-                            <div class="cp-url-row">
-                                <input type="text" class="form-control" id="cpFDownUrl" placeholder="https://...">
-                                <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDownUrl', this)">🔗 Webhooks</button>
+                    <div class="cp-action-panel" id="cpUpdownPanelDown" role="tabpanel" aria-labelledby="cpUpdownTabDown" style="display:none">
+                        <div class="form-group">
+                            <label class="form-label"><?= __('cp.field_label') ?></label>
+                            <input type="text" class="form-control" id="cpFDownLabel" placeholder="Giù">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:2">
+                                <label class="form-label">URL</label>
+                                <div class="cp-url-row">
+                                    <input type="text" class="form-control" id="cpFDownUrl" placeholder="https://...">
+                                    <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDownUrl', this)">🔗 Webhooks</button>
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex:1">
+                                <label class="form-label"><?= __('cp.field_method') ?></label>
+                                <select class="form-control" id="cpFDownMethod">
+                                    <option>GET</option><option>POST</option><option>PUT</option>
+                                    <option>DELETE</option><option>PATCH</option>
+                                </select>
                             </div>
                         </div>
-                        <div class="form-group" style="flex:1">
-                            <label class="form-label"><?= __('cp.field_method') ?></label>
-                            <select class="form-control" id="cpFDownMethod">
-                                <option>GET</option><option>POST</option><option>PUT</option>
-                                <option>DELETE</option><option>PATCH</option>
-                            </select>
+                        <div class="form-group" id="cpFDownBodyGroup">
+                            <label class="form-label">Body</label>
+                            <input type="text" class="form-control" id="cpFDownBody" placeholder="Opzionale">
                         </div>
-                    </div>
-                    <div class="form-group" id="cpFDownBodyGroup">
-                        <label class="form-label">Body</label>
-                        <input type="text" class="form-control" id="cpFDownBody" placeholder="Opzionale">
                     </div>
                 </div>
 
                 <!-- DPad widget fields -->
                 <div id="cpFieldsDpad" class="cp-type-fields" style="display:none">
+                    <div class="cp-action-tabs" role="tablist" aria-label="Direzioni widget dpad">
+                        <button type="button" class="cp-action-tab active" id="cpDpadTabUp" role="tab" aria-selected="true" aria-controls="cpDpadPanelUp" onclick="cpSwitchDpadTab('up')">▲ Su</button>
+                        <button type="button" class="cp-action-tab" id="cpDpadTabDown" role="tab" aria-selected="false" aria-controls="cpDpadPanelDown" onclick="cpSwitchDpadTab('down')">▼ Giù</button>
+                        <button type="button" class="cp-action-tab" id="cpDpadTabLeft" role="tab" aria-selected="false" aria-controls="cpDpadPanelLeft" onclick="cpSwitchDpadTab('left')">◀ Sinistra</button>
+                        <button type="button" class="cp-action-tab" id="cpDpadTabRight" role="tab" aria-selected="false" aria-controls="cpDpadPanelRight" onclick="cpSwitchDpadTab('right')">▶ Destra</button>
+                    </div>
                     <?php foreach (['up'=>'▲ Su','down'=>'▼ Giù','left'=>'◀ Sinistra','right'=>'▶ Destra'] as $dir => $dirLabel): ?>
-                    <p class="form-hint"><?= $dirLabel ?></p>
-                    <div class="form-row">
-                        <div class="form-group" style="flex:2">
-                            <label class="form-label">URL</label>
-                            <div class="cp-url-row">
-                                <input type="text" class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Url" placeholder="https://...">
-                                <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDpad<?= ucfirst($dir) ?>Url', this)">🔗 Webhooks</button>
+                    <div class="cp-action-panel" id="cpDpadPanel<?= ucfirst($dir) ?>" role="tabpanel" aria-labelledby="cpDpadTab<?= ucfirst($dir) ?>"<?= $dir === 'up' ? '' : ' style="display:none"' ?>>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:2">
+                                <label class="form-label">URL</label>
+                                <div class="cp-url-row">
+                                    <input type="text" class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Url" placeholder="https://...">
+                                    <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDpad<?= ucfirst($dir) ?>Url', this)">🔗 Webhooks</button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="form-group" style="flex:1">
-                            <label class="form-label"><?= __('cp.field_method') ?></label>
-                            <select class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Method">
-                                <option>GET</option><option>POST</option><option>PUT</option>
-                                <option>DELETE</option><option>PATCH</option>
-                            </select>
+                            <div class="form-group" style="flex:1">
+                                <label class="form-label"><?= __('cp.field_method') ?></label>
+                                <select class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Method">
+                                    <option>GET</option><option>POST</option><option>PUT</option>
+                                    <option>DELETE</option><option>PATCH</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -443,6 +459,8 @@ $WIDGET_TYPES = [
         cpSyncMethodBodyVisibility('cpFBtnMethod', 'cpFBtnBodyGroup');
         cpSyncMethodBodyVisibility('cpFUpMethod', 'cpFUpBodyGroup');
         cpSyncMethodBodyVisibility('cpFDownMethod', 'cpFDownBodyGroup');
+        if (type === 'updown') cpSwitchUpdownTab('up');
+        if (type === 'dpad') cpSwitchDpadTab('up');
         cpShowStep('config');
     };
 
@@ -460,6 +478,34 @@ $WIDGET_TYPES = [
         document.querySelectorAll('.cp-type-fields').forEach(el => el.style.display = 'none');
         const fieldsEl = document.getElementById('cpFields' + type.charAt(0).toUpperCase() + type.slice(1));
         if (fieldsEl) fieldsEl.style.display = '';
+    }
+
+    window.cpSwitchUpdownTab = function(tab) {
+        const isUp = tab !== 'down';
+        const upTab = document.getElementById('cpUpdownTabUp');
+        const downTab = document.getElementById('cpUpdownTabDown');
+        const upPanel = document.getElementById('cpUpdownPanelUp');
+        const downPanel = document.getElementById('cpUpdownPanelDown');
+        if (!upTab || !downTab || !upPanel || !downPanel) return;
+        upTab.classList.toggle('active', isUp);
+        downTab.classList.toggle('active', !isUp);
+        upTab.setAttribute('aria-selected', isUp ? 'true' : 'false');
+        downTab.setAttribute('aria-selected', isUp ? 'false' : 'true');
+        upPanel.style.display = isUp ? '' : 'none';
+        downPanel.style.display = isUp ? 'none' : '';
+    }
+
+    window.cpSwitchDpadTab = function(tab) {
+        ['Up', 'Down', 'Left', 'Right'].forEach(dir => {
+            const key = dir.toLowerCase();
+            const isActive = key === tab;
+            const tabEl = document.getElementById('cpDpadTab' + dir);
+            const panelEl = document.getElementById('cpDpadPanel' + dir);
+            if (!tabEl || !panelEl) return;
+            tabEl.classList.toggle('active', isActive);
+            tabEl.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            panelEl.style.display = isActive ? '' : 'none';
+        });
     }
 
     function cpMethodSupportsBody(method) {
@@ -512,6 +558,7 @@ $WIDGET_TYPES = [
                 document.getElementById('cpFDpad' + d + 'Url').value    = cfg[key + '_url']    || '';
                 document.getElementById('cpFDpad' + d + 'Method').value = cfg[key + '_method'] || 'GET';
             });
+            cpSwitchDpadTab('up');
         } else if (type === 'send') {
             document.getElementById('cpFSendUrl').value         = cfg.url          || '';
             document.getElementById('cpFSendMethod').value      = cfg.method       || 'POST';
@@ -618,7 +665,7 @@ $WIDGET_TYPES = [
             CP_WEBHOOKS.forEach(wh => {
                 const li = document.createElement('li');
                 li.className = 'cp-picker-item';
-                li.innerHTML = '<span class="cp-picker-name">' + wh.name.replace(/</g,'&lt;') + '</span>'
+                li.innerHTML = '<span class="cp-picker-name">' + wh.label.replace(/</g,'&lt;') + '</span>'
                              + '<span class="cp-picker-url">' + wh.url.replace(/</g,'&lt;') + '</span>';
                 li.onclick = () => {
                     document.getElementById(_cpPickerTargetId).value = wh.url;

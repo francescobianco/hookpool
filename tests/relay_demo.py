@@ -8,13 +8,13 @@ Usage:
     python3 relay_demo.py <webhook_url> [local_port]
 
 Arguments:
-    webhook_url   Full URL of the Hookpool relay endpoint
-                  e.g. https://hookpool.example.com/myproj/abc.relay
+    webhook_url   Full URL of the Hookpool public webhook endpoint
+                  e.g. https://hookpool.example.com/myproj/abc
     local_port    Port for the local demo server (default: 9876)
 
 What it does:
     1. Starts a local demo HTTP server on the given port.
-    2. Runs a relay client that long-polls the .relay endpoint via PATCH.
+    2. Runs a relay client that long-polls the internal .relay endpoint via PATCH.
     3. When a request arrives on the webhook public side (any method except
        PATCH), it is forwarded to the local demo server and the response is
        returned to the original caller — transparently.
@@ -272,6 +272,14 @@ def _log(component: str, msg: str) -> None:
     print(f'[{ts}] [{component}] {msg}', flush=True)
 
 
+def _normalize_urls(webhook_url: str) -> tuple[str, str]:
+    public_url = webhook_url.rstrip('/')
+    if public_url.endswith('.relay'):
+        public_url = public_url[:-6]
+    relay_url = public_url + '.relay'
+    return public_url, relay_url
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 
@@ -280,7 +288,7 @@ def main() -> None:
         print(__doc__)
         sys.exit(1)
 
-    webhook_url = sys.argv[1]
+    public_webhook_url, relay_webhook_url = _normalize_urls(sys.argv[1])
     local_port  = int(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_LOCAL_PORT
     local_base  = f'http://127.0.0.1:{local_port}'
 
@@ -296,7 +304,7 @@ def main() -> None:
     stop_event = threading.Event()
     relay_thread = threading.Thread(
         target=relay_client,
-        args=(webhook_url, local_base, stop_event),
+        args=(relay_webhook_url, local_base, stop_event),
         daemon=True,
         name='relay-client',
     )
@@ -308,12 +316,13 @@ def main() -> None:
     print(sep)
     print('  HTTP Relay Demo — running')
     print(sep)
-    print(f'  Webhook URL  : {webhook_url}')
+    print(f'  Public URL   : {public_webhook_url}')
+    print(f'  Relay URL    : {relay_webhook_url}')
     print(f'  Local server : {local_base}')
     print()
     print('  Call the webhook with any non-PATCH method:')
     print()
-    print(f'    curl -X POST \'{webhook_url}\' \\')
+    print(f'    curl -X POST \'{public_webhook_url}\' \\')
     print( '         -H \'Content-Type: application/json\' \\')
     print( '         -d \'{"hello":"world"}\'')
     print()

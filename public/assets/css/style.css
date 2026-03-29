@@ -970,9 +970,16 @@ tr:last-child td { border-bottom: none; }
 .events-table {
     font-family: var(--font-mono);
     font-size: 0.84rem;
+    min-width: 720px;
 }
 .events-table.hidden { display: none; }
 .events-table th { font-family: var(--font-sans); }
+
+.table-scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
 
 .event-row {
     cursor: pointer;
@@ -1737,6 +1744,7 @@ tr:last-child td { border-bottom: none; }
 
 /* --- Responsive ------------------------------------------------------------ */
 @media (max-width: 900px) {
+    .app-body { background: transparent; }
     .sidebar-toggle { display: flex; }
     .sidebar {
         position: fixed;
@@ -1753,7 +1761,7 @@ tr:last-child td { border-bottom: none; }
     .sidebar.open {
         transform: translateX(0);
         box-shadow: 4px 0 20px rgba(0,0,0,0.15);
-        background: #fff2e7;
+        background: var(--bg-secondary);
         backdrop-filter: blur(14px);
     }
     .main-content.with-sidebar { max-width: 100%; }
@@ -1771,6 +1779,8 @@ tr:last-child td { border-bottom: none; }
     .filters-bar select { width: 100%; }
     .table-scroll-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .form-row { flex-direction: column; }
+    .webhook-rename-row { flex-direction: row; align-items: stretch; gap: 0.75rem; }
+    .webhook-rename-row .btn { align-self: stretch; }
     .form-group.form-group-sm { width: 100%; }
     .cards-grid, .cards-grid-2 { grid-template-columns: 1fr; }
     .event-meta-grid { grid-template-columns: 1fr 1fr; }
@@ -2289,3 +2299,57 @@ tr:last-child td { border-bottom: none; }
 .cp-picker-name { font-weight: 600; font-size: 0.88rem; color: var(--text-primary); }
 .cp-picker-url  { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cp-picker-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.88rem; }
+
+.cp-action-tabs {
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    margin: 0 0 -1px;
+    border-bottom: 1px solid var(--border);
+}
+
+.cp-action-tab {
+    appearance: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 10px 10px 0 0;
+    transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+}
+
+.cp-action-tab:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--bg-card) 82%, var(--accent) 18%);
+}
+
+.cp-action-tab.active {
+    color: var(--text-primary);
+    background: var(--bg-card);
+    border-color: var(--border);
+}
+
+.cp-action-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.webhook-rename-row {
+    flex-wrap: nowrap;
+}
+
+.webhook-rename-row .form-group {
+    min-width: 0;
+}
+
+.webhook-rename-row .btn {
+    flex-shrink: 0;
+}
