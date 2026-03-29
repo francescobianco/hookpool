@@ -137,6 +137,12 @@ if (isset($_GET['sort_by'])) {
        ->execute([$sortBy, $sortDir, $viewId]);
 }
 
+// ---- Load known IPs ----
+$knownIpMap = [];
+$kipStmt = $db->prepare('SELECT ip, label FROM known_ips WHERE user_id = ? AND deleted_at IS NULL');
+$kipStmt->execute([$userId]);
+foreach ($kipStmt->fetchAll() as $k) $knownIpMap[$k['ip']] = $k['label'];
+
 // ---- Load events (max 2000 for performance) ----
 $evStmt = $db->prepare('
     SELECT id, method, received_at, path, query_string, body, validated, ip
@@ -147,6 +153,13 @@ $evStmt = $db->prepare('
 ');
 $evStmt->execute([$webhookId]);
 $allEvents = $evStmt->fetchAll();
+
+// Enrich each event with known_ip
+foreach ($allEvents as &$ev) {
+    $ev['known_ip'] = $knownIpMap[$ev['ip']] ?? $ev['ip'];
+}
+unset($ev);
+
 $totalCount = count($allEvents);
 
 // ---- Compute custom field values for each row (ungrouped mode) ----
@@ -279,11 +292,11 @@ ob_start();
             </select>
         </form>
 
+        <span class="text-muted analytics-total"><?= number_format($totalCount) ?> events</span>
+
         <button class="btn btn-primary analytics-add-field-btn" onclick="openModal('addFieldModal')">
             + Add custom field
         </button>
-
-        <span class="text-muted analytics-total"><?= number_format($totalCount) ?> events</span>
     </div>
 
     <!-- Custom fields list (chips) -->
@@ -316,30 +329,21 @@ ob_start();
         <table class="analytics-table">
             <thead>
                 <tr>
-                    <th class="col-ts"><?= analyticsColLink($viewId, 'received_at', $sortBy, $sortDir, 'Timestamp') ?></th>
-                    <th class="col-method"><?= analyticsColLink($viewId, 'method', $sortBy, $sortDir, 'Method') ?></th>
-                    <th class="col-path"><?= analyticsColLink($viewId, 'path', $sortBy, $sortDir, 'Path') ?></th>
-                    <th class="col-status"><?= analyticsColLink($viewId, 'validated', $sortBy, $sortDir, 'Status') ?></th>
+                    <th class="col-ts col-fixed"><?= analyticsColLink($viewId, 'received_at', $sortBy, $sortDir, 'Timestamp') ?></th>
+                    <th class="col-method col-fixed"><?= analyticsColLink($viewId, 'method', $sortBy, $sortDir, 'Method') ?></th>
+                    <th class="col-path col-fixed"><?= analyticsColLink($viewId, 'path', $sortBy, $sortDir, 'Path') ?></th>
                     <?php foreach ($fields as $fIdx => $field): ?>
-                    <th><?= analyticsColLink($viewId, 'field_' . $fIdx, $sortBy, $sortDir, $field['name']) ?></th>
+                    <th class="col-custom-field"><?= analyticsColLink($viewId, 'field_' . $fIdx, $sortBy, $sortDir, $field['name']) ?></th>
                     <?php endforeach; ?>
+                    <th class="col-status col-fixed"><?= analyticsColLink($viewId, 'validated', $sortBy, $sortDir, 'Status') ?></th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($computedRows as $row): ?>
                 <tr class="event-row" onclick="window.location='<?= BASE_URL ?>/?page=event&id=<?= (int)$row['id'] ?>'">
-                    <td class="col-ts mono"><?= e(date('Y-m-d H:i:s', strtotime($row['received_at']))) ?></td>
-                    <td class="col-method"><span class="badge-method <?= strtolower($row['method']) ?>"><?= e($row['method']) ?></span></td>
-                    <td class="col-path mono"><?= e($row['path'] . ($row['query_string'] !== '' ? '?' . $row['query_string'] : '')) ?></td>
-                    <td class="col-status">
-                        <?php if (strtoupper($row['method']) === 'ALARM'): ?>
-                            <span class="badge badge-warning">Alarm</span>
-                        <?php elseif ($row['validated']): ?>
-                            <span class="badge badge-success">Valid</span>
-                        <?php else: ?>
-                            <span class="badge badge-error">Guard</span>
-                        <?php endif; ?>
-                    </td>
+                    <td class="col-ts col-fixed mono"><?= e(date('Y-m-d H:i:s', strtotime($row['received_at']))) ?></td>
+                    <td class="col-method col-fixed"><span class="badge-method <?= strtolower($row['method']) ?>"><?= e($row['method']) ?></span></td>
+                    <td class="col-path col-fixed mono"><?= e($row['path'] . ($row['query_string'] !== '' ? '?' . $row['query_string'] : '')) ?></td>
                     <?php foreach ($fields as $fIdx => $field): ?>
                     <td class="analytics-field-val">
                         <?php
@@ -351,6 +355,15 @@ ob_start();
                         ?>
                     </td>
                     <?php endforeach; ?>
+                    <td class="col-status col-fixed">
+                        <?php if (strtoupper($row['method']) === 'ALARM'): ?>
+                            <span class="badge badge-warning">Alarm</span>
+                        <?php elseif ($row['validated']): ?>
+                            <span class="badge badge-success">Valid</span>
+                        <?php else: ?>
+                            <span class="badge badge-error">Guard</span>
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -408,12 +421,12 @@ ob_start();
 
 <!-- Add field modal -->
 <div id="addFieldModal" class="modal" style="display:none" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-wide">
         <div class="modal-header">
             <h3>Add Custom Field</h3>
             <button onclick="closeModal('addFieldModal')" class="modal-close">&times;</button>
         </div>
-        <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>">
+        <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>" id="addFieldForm" onsubmit="return validateFormulaBeforeSubmit(event)">
             <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
             <input type="hidden" name="_analytics_action" value="add_field">
             <div class="modal-body">
@@ -423,15 +436,40 @@ ob_start();
                 </div>
                 <div class="form-group">
                     <label for="field_formula">Formula</label>
-                    <input type="text" id="field_formula" name="field_formula" placeholder="e.g. COUNT BEFORE" required class="mono" autocomplete="off">
-                    <p class="form-hint">
-                        Examples: <code>COUNT BEFORE</code> · <code>COUNT AFTER WITH STATUS = 1</code> · <code>DAYS BEFORE LAST</code> · <code>COUNT STREAK AFTER WITH VALUE = 0</code> · <code>HOURS AFTER FIRST WITH METHOD = "POST"</code>
-                        <br>Fields: <code>VALUE</code> (body as number) · <code>STATUS</code> (1=valid) · <code>TS</code> (unix timestamp) · <code>METHOD</code>
-                    </p>
+                    <input type="text" id="field_formula" name="field_formula" placeholder="e.g. COUNT BEFORE" required class="mono" autocomplete="off" oninput="clearFormulaError()">
+                    <p id="formula_error" class="form-hint formula-error" style="display:none"></p>
+                    <p id="formula_ok" class="form-hint formula-ok" style="display:none">✓ Valid formula</p>
+                </div>
+
+                <div class="dsl-hint">
+                    <div class="dsl-hint-section">
+                        <div class="dsl-hint-title">Metrics</div>
+                        <div class="dsl-hint-row"><code>COUNT BEFORE</code> <code>COUNT AFTER</code></div>
+                        <div class="dsl-hint-row"><code>COUNT STREAK BEFORE</code> <code>COUNT STREAK AFTER</code></div>
+                        <div class="dsl-hint-row"><code>SECONDS|MINUTES|HOURS|DAYS&nbsp;BEFORE&nbsp;LAST</code></div>
+                        <div class="dsl-hint-row"><code>SECONDS|MINUTES|HOURS|DAYS&nbsp;AFTER&nbsp;FIRST</code></div>
+                    </div>
+                    <div class="dsl-hint-section">
+                        <div class="dsl-hint-title">Filter (optional)</div>
+                        <div class="dsl-hint-row"><code>WITH&nbsp;&lt;expr&gt;</code> — e.g. <code>COUNT BEFORE WITH {{status}} = 1</code></div>
+                        <div class="dsl-hint-row">Operators: <code>=</code> <code>!=</code> <code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code> <code>AND</code> <code>OR</code> <code>NOT</code></div>
+                    </div>
+                    <div class="dsl-hint-section">
+                        <div class="dsl-hint-title">Built-in variables</div>
+                        <div class="dsl-hint-grid">
+                            <code>{{body}}</code><span>raw request body</span>
+                            <code>{{status}}</code><span>1 = valid, 0 = guard</span>
+                            <code>{{method}}</code><span>HTTP method</span>
+                            <code>{{ts}}</code><span>Unix timestamp</span>
+                            <code>{{ip}}</code><span>sender IP</span>
+                            <code>{{known_ip}}</code><span>IP label or raw IP</span>
+                            <code>{{path}}</code><span>request path</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="submit" class="btn btn-primary">Add field</button>
+                <button type="submit" id="addFieldSubmitBtn" class="btn btn-primary">Add field</button>
                 <button type="button" onclick="closeModal('addFieldModal')" class="btn btn-outline">Cancel</button>
             </div>
         </form>
@@ -460,6 +498,55 @@ ob_start();
 </div>
 
 <script>
+// ---- Formula validation ----
+let _formulaValidating = false;
+
+function clearFormulaError() {
+    document.getElementById('formula_error').style.display = 'none';
+    document.getElementById('formula_ok').style.display = 'none';
+}
+
+function validateFormulaBeforeSubmit(e) {
+    e.preventDefault();
+    const formula = document.getElementById('field_formula').value.trim();
+    if (!formula) return;
+
+    const btn = document.getElementById('addFieldSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Checking…';
+
+    fetch('<?= BASE_URL ?>/?page=api&action=validate_formula', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({ _csrf: csrfToken, formula })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.textContent = 'Add field';
+        if (!data.ok) {
+            const el = document.getElementById('formula_error');
+            el.textContent = '⚠ ' + data.error;
+            el.style.display = '';
+            document.getElementById('formula_ok').style.display = 'none';
+        } else {
+            // Normalise formula in the input before submitting
+            if (data.normalized) {
+                document.getElementById('field_formula').value = data.normalized;
+            }
+            document.getElementById('formula_error').style.display = 'none';
+            document.getElementById('addFieldForm').submit();
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.textContent = 'Add field';
+        // On network error, submit anyway
+        document.getElementById('addFieldForm').submit();
+    });
+}
+
+// ---- Save view to sidebar ----
 function saveViewToSidebar() {
     const name = document.getElementById('saveViewName').value.trim();
     if (!name) {

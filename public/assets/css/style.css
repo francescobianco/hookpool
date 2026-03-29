@@ -1844,8 +1844,9 @@ tr:last-child td { border-bottom: none; }
 .analytics-control-label { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
 .analytics-groupby-form { display: inline-flex; align-items: center; gap: 0.4rem; width: auto; flex-shrink: 0; }
 .analytics-groupby-form select,
-.analytics-select { font-size: 0.82rem !important; padding: 5px 28px 5px 8px !important; width: auto !important; max-width: 130px !important; flex-shrink: 0 !important; }
-.analytics-add-field-btn { font-size: 0.85rem; padding: 6px 14px; }
+.analytics-select { font-size: 0.88rem !important; padding: 6px 28px 6px 10px !important; width: auto !important; max-width: 150px !important; flex-shrink: 0 !important; }
+.analytics-total { font-size: 0.8rem; color: var(--text-dim); margin-left: auto; }
+.analytics-add-field-btn { font-size: 0.85rem; padding: 6px 14px; flex-shrink: 0; }
 
 .analytics-fields-bar {
     display: flex;
@@ -1909,11 +1910,61 @@ tr:last-child td { border-bottom: none; }
 .analytics-table tbody tr:last-child { border-bottom: none; }
 .analytics-table tbody tr:hover { background: var(--surface); }
 .analytics-table td { padding: 9px 12px; vertical-align: middle; }
+.analytics-table .col-fixed { width: 1%; white-space: nowrap; }
 .analytics-table td.col-ts { white-space: nowrap; }
-.analytics-table td.analytics-field-val { font-family: var(--font-mono); font-size: 0.82rem; text-align: right; }
+.analytics-table .col-custom-field { width: auto; text-align: center; }
+.analytics-table td.analytics-field-val { font-family: var(--font-mono); font-size: 0.82rem; text-align: center; }
+.analytics-table .col-status { text-align: center; }
 
 .col-sort-link { color: inherit; text-decoration: none; }
 .col-sort-link:hover { color: var(--accent); }
+
+/* Add-field modal — wider */
+.modal-dialog-wide { max-width: 640px; width: 95vw; }
+
+/* Formula validation feedback */
+.formula-error { color: var(--color-danger, #e74c3c) !important; }
+.formula-ok    { color: #27ae60 !important; }
+
+/* DSL hint block inside modal */
+.dsl-hint {
+    margin-top: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.82rem;
+}
+.dsl-hint-section {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.dsl-hint-section:last-child { border-bottom: none; }
+.dsl-hint-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 0.45rem;
+}
+.dsl-hint-row { margin-bottom: 0.25rem; line-height: 1.6; }
+.dsl-hint-row:last-child { margin-bottom: 0; }
+.dsl-hint-row code, .dsl-hint code {
+    white-space: nowrap;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+.dsl-hint-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.2rem 0.75rem;
+    align-items: center;
+}
+.dsl-hint-grid span { color: var(--text-muted); }
 
 .analytics-view-name-badge {
     font-size: 0.75rem;

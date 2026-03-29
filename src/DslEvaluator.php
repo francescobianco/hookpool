@@ -3,7 +3,7 @@
 /**
  * DSL Evaluator for sequential log analytics.
  *
- * Supports formulas like:
+ * Metric phrases:
  *   COUNT BEFORE
  *   COUNT AFTER
  *   COUNT STREAK BEFORE
@@ -12,23 +12,31 @@
  *   DAYS|HOURS|MINUTES|SECONDS AFTER FIRST
  *   Any of the above followed by: WITH <boolean_expression>
  *
- * Available fields in boolean expressions:
- *   VALUE  — body content parsed as float (0 if non-numeric)
- *   STATUS — validated flag (1 or 0)
- *   TS     — received_at as Unix timestamp
- *   METHOD — HTTP method string
+ * Built-in placeholders (resolved from the candidate row):
+ *   {{body}}     — raw body string
+ *   {{status}}   — validated flag (1 or 0)
+ *   {{ts}}       — received_at as Unix integer timestamp
+ *   {{method}}   — HTTP method string
+ *   {{ip}}       — sender IP address
+ *   {{known_ip}} — known-IP label, or raw IP if no label defined
+ *   {{path}}     — request path
  *
- * Placeholders reference other custom fields: {{field_name}}
+ * Custom field placeholders reference previously-computed fields: {{field_name}}
  */
 class DslEvaluator
 {
+    /** Built-in placeholder names (lowercase). */
+    private const BUILTINS = ['body', 'status', 'ts', 'method', 'ip', 'known_ip', 'path'];
+
+    // ---- Public API ----
+
     /**
      * Evaluate a DSL formula for a specific row in an ordered sequence.
      *
      * @param string $formula      The DSL formula string
      * @param array  $rows         All rows (events) ordered by received_at ASC
      * @param int    $idx          Zero-based index of the current row in $rows
-     * @param array  $placeholders Map of placeholder_name => scalar value for current row
+     * @param array  $placeholders Map of custom_field_name => value for current row
      * @return mixed Numeric result, or null if undefined/error
      */
     public static function evaluate(string $formula, array $rows, int $idx, array $placeholders = []): mixed
@@ -39,7 +47,7 @@ class DslEvaluator
         $withPos = self::findWith($formula);
         if ($withPos !== false) {
             $metricStr = trim(substr($formula, 0, $withPos));
-            $withStr   = trim(substr($formula, $withPos + 5)); // skip ' WITH'
+            $withStr   = trim(substr($formula, $withPos + 5));
         } else {
             $metricStr = $formula;
             $withStr   = null;
@@ -48,13 +56,119 @@ class DslEvaluator
         return self::evalMetric($metricStr, $withStr, $rows, $idx, $placeholders);
     }
 
+    /**
+     * Validate a formula string without evaluating it.
+     * Returns null if valid, or an error message string if invalid.
+     */
+    public static function validate(string $formula): ?string
+    {
+        $formula = trim($formula);
+        if ($formula === '') return 'Formula cannot be empty.';
+
+        $withPos = self::findWith($formula);
+        if ($withPos !== false) {
+            $metricStr = trim(substr($formula, 0, $withPos));
+            $withStr   = trim(substr($formula, $withPos + 5));
+            if ($withStr === '') return 'WITH clause cannot be empty.';
+        } else {
+            $metricStr = $formula;
+            $withStr   = null;
+        }
+
+        // Validate metric phrase
+        $metric = strtoupper(preg_replace('/\s+/', ' ', trim($metricStr)));
+        $knownMetrics = [
+            'COUNT BEFORE', 'COUNT AFTER',
+            'COUNT STREAK BEFORE', 'COUNT STREAK AFTER',
+        ];
+        $timePattern = '/^(SECONDS|MINUTES|HOURS|DAYS) (BEFORE|AFTER) (LAST|FIRST)$/';
+
+        if (!in_array($metric, $knownMetrics, true) && !preg_match($timePattern, $metric)) {
+            return 'Unknown metric "' . $metricStr . '". '
+                 . 'Valid metrics: COUNT BEFORE, COUNT AFTER, COUNT STREAK BEFORE, COUNT STREAK AFTER, '
+                 . 'SECONDS|MINUTES|HOURS|DAYS BEFORE|AFTER LAST|FIRST.';
+        }
+
+        // Validate WITH expression
+        if ($withStr !== null) {
+            $tokens = self::tokenize($withStr);
+            $pos    = 0;
+            try {
+                self::parseOr($tokens, $pos, [], []);
+            } catch (\Throwable $e) {
+                return 'Syntax error in WITH clause: ' . $e->getMessage();
+            }
+            if ($pos < count($tokens)) {
+                $unexpected = $tokens[$pos]['value'] ?? $tokens[$pos]['type'];
+                return 'Unexpected token in WITH clause: "' . $unexpected . '"';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalize a formula: uppercase all keywords, trim whitespace.
+     * Built-in placeholder names are lowercased; custom placeholder names are preserved.
+     */
+    public static function normalize(string $formula): string
+    {
+        $formula = trim($formula);
+        if ($formula === '') return '';
+
+        // Uppercase metric + WITH keyword
+        $withPos = self::findWith($formula);
+        if ($withPos !== false) {
+            $metricPart = trim(substr($formula, 0, $withPos));
+            $withPart   = trim(substr($formula, $withPos + 5));
+        } else {
+            $metricPart = $formula;
+            $withPart   = null;
+        }
+
+        // Normalize metric: collapse whitespace + uppercase
+        $metricNorm = strtoupper(preg_replace('/\s+/', ' ', $metricPart));
+
+        if ($withPart === null) return $metricNorm;
+
+        // Normalize WITH expression: uppercase logical/comparison keywords,
+        // lowercase built-in placeholder names, preserve strings and custom placeholders
+        $withNorm = self::normalizeWithExpr($withPart);
+
+        return $metricNorm . ' WITH ' . $withNorm;
+    }
+
     // ---- Private helpers ----
+
+    private static function normalizeWithExpr(string $expr): string
+    {
+        $tokens = self::tokenize($expr);
+        $parts  = [];
+        foreach ($tokens as $tok) {
+            $parts[] = match($tok['type']) {
+                'and'         => 'AND',
+                'or'          => 'OR',
+                'not'         => 'NOT',
+                'null'        => 'NULL',
+                'op'          => $tok['value'],
+                'lparen'      => '(',
+                'rparen'      => ')',
+                'number'      => (string)$tok['value'],
+                'string'      => '"' . $tok['value'] . '"',
+                'field'       => strtoupper($tok['value']),
+                'placeholder' => '{{' . (in_array(strtolower($tok['value']), self::BUILTINS, true)
+                                    ? strtolower($tok['value'])
+                                    : $tok['value']) . '}}',
+                default       => $tok['value'] ?? '',
+            };
+        }
+        return implode(' ', $parts);
+    }
 
     private static function findWith(string $formula): int|false
     {
         $upper = strtoupper($formula);
-        // Match " WITH " as a bounded keyword
-        $pos = strpos($upper, ' WITH ');
+        $pos   = strpos($upper, ' WITH ');
         return $pos !== false ? $pos : false;
     }
 
@@ -65,7 +179,6 @@ class DslEvaluator
         int $idx,
         array $placeholders
     ): mixed {
-        // Normalise whitespace
         $metric = strtoupper(preg_replace('/\s+/', ' ', trim($metric)));
 
         switch ($metric) {
@@ -97,7 +210,6 @@ class DslEvaluator
                 return $count;
 
             default:
-                // TIME_UNIT BEFORE|AFTER LAST|FIRST
                 if (preg_match(
                     '/^(SECONDS|MINUTES|HOURS|DAYS) (BEFORE|AFTER) (LAST|FIRST)$/',
                     $metric, $m
@@ -111,19 +223,16 @@ class DslEvaluator
                     if ($withStr !== null) $cands = self::filterWith($cands, $withStr, $placeholders);
                     if (empty($cands)) return null;
 
-                    // LAST → nearest (most-recent past / nearest future)
-                    // FIRST → furthest (oldest past / furthest future)
-                    if ($anchor === 'LAST') {
-                        $target = $dir === 'BEFORE' ? end($cands) : reset($cands);
-                    } else {
-                        $target = $dir === 'BEFORE' ? reset($cands) : end($cands);
-                    }
+                    $target = ($anchor === 'LAST')
+                        ? ($dir === 'BEFORE' ? end($cands)   : reset($cands))
+                        : ($dir === 'BEFORE' ? reset($cands) : end($cands));
 
                     if (!$target) return null;
 
-                    $tsCurrent = (int)strtotime($rows[$idx]['received_at']);
-                    $tsTarget  = (int)strtotime($target['received_at']);
-                    $diffSec   = abs($tsCurrent - $tsTarget);
+                    $diffSec = abs(
+                        (int)strtotime($rows[$idx]['received_at']) -
+                        (int)strtotime($target['received_at'])
+                    );
 
                     return match($unit) {
                         'SECONDS' => $diffSec,
@@ -152,7 +261,7 @@ class DslEvaluator
     private static function evalExpr(string $expr, array $row, array $placeholders): mixed
     {
         $tokens = self::tokenize($expr);
-        $pos = 0;
+        $pos    = 0;
         return self::parseOr($tokens, $pos, $row, $placeholders);
     }
 
@@ -161,8 +270,8 @@ class DslEvaluator
     private static function tokenize(string $expr): array
     {
         $tokens = [];
-        $i = 0;
-        $len = strlen($expr);
+        $i      = 0;
+        $len    = strlen($expr);
 
         while ($i < $len) {
             $ch = $expr[$i];
@@ -183,8 +292,7 @@ class DslEvaluator
 
             // String literal
             if ($ch === '"' || $ch === "'") {
-                $q = $ch;
-                $i++;
+                $q = $ch; $i++;
                 $str = '';
                 while ($i < $len && $expr[$i] !== $q) $str .= $expr[$i++];
                 $i++;
@@ -192,7 +300,7 @@ class DslEvaluator
                 continue;
             }
 
-            // Number (no leading minus — handled by unary)
+            // Number
             if (ctype_digit($ch) || ($ch === '.' && $i + 1 < $len && ctype_digit($expr[$i + 1]))) {
                 $num = '';
                 while ($i < $len && (ctype_digit($expr[$i]) || $expr[$i] === '.')) {
@@ -225,7 +333,7 @@ class DslEvaluator
                 while ($i < $len && (ctype_alnum($expr[$i]) || $expr[$i] === '_')) {
                     $word .= $expr[$i++];
                 }
-                $upper = strtoupper($word);
+                $upper    = strtoupper($word);
                 $tokens[] = match($upper) {
                     'AND'  => ['type' => 'and'],
                     'OR'   => ['type' => 'or'],
@@ -236,7 +344,7 @@ class DslEvaluator
                 continue;
             }
 
-            $i++; // skip unknown char
+            $i++;
         }
 
         return $tokens;
@@ -268,7 +376,7 @@ class DslEvaluator
 
     private static function parseCmp(array $t, int &$p, array $row, array $ph): mixed
     {
-        $v = self::parseAdd($t, $p, $row, $ph);
+        $v      = self::parseAdd($t, $p, $row, $ph);
         $cmpOps = ['=', '!=', '>', '>=', '<', '<='];
         if ($p < count($t) && $t[$p]['type'] === 'op' && in_array($t[$p]['value'], $cmpOps, true)) {
             $op = $t[$p]['value'];
@@ -327,23 +435,31 @@ class DslEvaluator
         if ($p >= count($t)) return null;
         $tok = $t[$p];
 
-        if ($tok['type'] === 'number')      { $p++; return $tok['value']; }
-        if ($tok['type'] === 'string')      { $p++; return $tok['value']; }
-        if ($tok['type'] === 'null')        { $p++; return null; }
+        if ($tok['type'] === 'number')  { $p++; return $tok['value']; }
+        if ($tok['type'] === 'string')  { $p++; return $tok['value']; }
+        if ($tok['type'] === 'null')    { $p++; return null; }
+
         if ($tok['type'] === 'placeholder') {
             $p++;
-            return $ph[$tok['value']] ?? null;
-        }
-        if ($tok['type'] === 'field') {
-            $p++;
-            return match($tok['value']) {
-                'VALUE'  => is_numeric($row['body'] ?? '') ? (float)$row['body'] : 0.0,
-                'STATUS' => (int)($row['validated'] ?? 0),
-                'TS'     => (int)strtotime($row['received_at'] ?? 'now'),
-                'METHOD' => $row['method'] ?? '',
-                default  => null,
+            $name  = $tok['value'];
+            $lower = strtolower($name);
+            // Built-in variables resolved from the candidate row
+            return match($lower) {
+                'body'     => $row['body'] ?? '',
+                'status'   => (int)($row['validated'] ?? 0),
+                'ts'       => (int)strtotime($row['received_at'] ?? 'now'),
+                'method'   => $row['method'] ?? '',
+                'ip'       => $row['ip'] ?? '',
+                'known_ip' => $row['known_ip'] ?? $row['ip'] ?? '',
+                'path'     => $row['path'] ?? '',
+                // Custom field reference (case-sensitive, uses the name as defined)
+                default    => $ph[$name] ?? null,
             };
         }
+
+        // Bare identifiers (e.g. leftover words) — treat as null
+        if ($tok['type'] === 'field') { $p++; return null; }
+
         if ($tok['type'] === 'lparen') {
             $p++;
             $v = self::parseOr($t, $p, $row, $ph);
