@@ -161,12 +161,28 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
         </select>
         <?php endif; ?>
 
-        <select name="project_id" onchange="this.form.submit()">
+        <select name="scope" onchange="this.form.submit()">
             <option value=""><?= __('dashboard.filter_project') ?></option>
-            <?php foreach ($allProjects as $proj): ?>
-            <option value="<?= $proj['id'] ?>"<?= $filterProjectId === (int)$proj['id'] ? ' selected' : '' ?>>
+            <?php foreach ($allProjects as $proj):
+                $pid = (int)$proj['id'];
+                $projWhs = $webhooksByProject[$pid] ?? [];
+            ?>
+            <?php if (!empty($projWhs)): ?>
+            <optgroup label="<?= e($proj['name']) ?>">
+                <option value="p_<?= $pid ?>"<?= $scopeParam === 'p_' . $pid ? ' selected' : '' ?>>
+                    <?= e($proj['name']) ?>
+                </option>
+                <?php foreach ($projWhs as $wh): ?>
+                <option value="w_<?= (int)$wh['id'] ?>"<?= $scopeParam === 'w_' . (int)$wh['id'] ? ' selected' : '' ?>>
+                    ↳ <?= e($wh['name']) ?>
+                </option>
+                <?php endforeach; ?>
+            </optgroup>
+            <?php else: ?>
+            <option value="p_<?= $pid ?>"<?= $scopeParam === 'p_' . $pid ? ' selected' : '' ?>>
                 <?= e($proj['name']) ?>
             </option>
+            <?php endif; ?>
             <?php endforeach; ?>
         </select>
 
