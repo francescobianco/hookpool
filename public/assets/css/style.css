@@ -679,6 +679,13 @@ details > summary { cursor: pointer; user-select: none; }
 }
 .btn-outline:hover { background: var(--bg-hover); color: var(--text-primary); border-color: #e5b9a8; }
 
+.btn-pin-sidebar {
+    background: #ffffff;
+    color: var(--accent);
+    border-color: var(--accent);
+}
+.btn-pin-sidebar:hover { background: var(--accent-light); border-color: var(--accent-hover); color: var(--accent-hover); }
+
 .btn-danger {
     background: var(--error);
     color: #fff;

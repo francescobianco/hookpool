@@ -54,18 +54,27 @@ if ($viewId > 0) {
         header('Location: ' . BASE_URL . '/?page=dashboard');
         exit;
     }
-    // Find existing unsaved working view
+    // 1. Prefer the existing unsaved working view
     $vStmt = $db->prepare(
         'SELECT * FROM analytics_views WHERE user_id = ? AND webhook_id = ? AND name IS NULL AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1'
     );
     $vStmt->execute([$userId, $webhookId]);
     $view = $vStmt->fetch();
+
     if (!$view) {
-        // Create a new working view
+        // 2. Fall back to the most recent saved view for this webhook
+        $vStmt2 = $db->prepare(
+            'SELECT * FROM analytics_views WHERE user_id = ? AND webhook_id = ? AND name IS NOT NULL AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1'
+        );
+        $vStmt2->execute([$userId, $webhookId]);
+        $view = $vStmt2->fetch();
+    }
+
+    if (!$view) {
+        // 3. Nothing exists yet — create a blank working view
         $db->prepare(
             "INSERT INTO analytics_views (user_id, webhook_id, name, fields, groupby, sort_by, sort_dir) VALUES (?, ?, NULL, '[]', 'none', 'received_at', 'desc')"
         )->execute([$userId, $webhookId]);
-        $viewId = (int)$db->lastInsertId();
         $vStmt->execute([$userId, $webhookId]);
         $view = $vStmt->fetch();
     }
@@ -317,7 +326,7 @@ ob_start();
         </div>
         <div class="header-actions">
             <a href="<?= BASE_URL ?>/?page=webhook&action=detail&id=<?= $webhookId ?>" class="btn btn-sm btn-outline">← Back</a>
-            <button class="btn btn-sm btn-primary" onclick="openSaveViewModal()">⊕ Save to sidebar</button>
+            <button class="btn btn-sm btn-pin-sidebar" onclick="openSaveViewModal()">📌 Save to sidebar</button>
         </div>
     </div>
 
