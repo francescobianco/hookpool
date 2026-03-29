@@ -229,7 +229,7 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
         <div id="scrollSpinner" style="display:none;text-align:center;padding:1.2rem 0">
             <span class="scroll-spinner"></span>
         </div>
-        <div id="noMoreEvents" style="text-align:center;padding:1.2rem 0;color:var(--text-muted,#888);<?= count($events) < 100 ? '' : 'display:none' ?>">— No more logs —</div>
+        <div id="noMoreEvents" style="text-align:center;padding:1.2rem 0;color:var(--text-muted,#888);display:none">— No more logs —</div>
     </div>
 </div>
 

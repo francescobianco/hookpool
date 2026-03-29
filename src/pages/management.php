@@ -26,7 +26,7 @@ $WIDGET_TYPES = [
     <div class="page-header">
         <div class="page-header-left">
             <h1><?= __('cp.title') ?></h1>
-            <p class="page-subtitle"><?= __('cp.subtitle') ?></p>
+
         </div>
     </div>
 

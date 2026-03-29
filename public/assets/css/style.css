@@ -326,7 +326,8 @@ details > summary { cursor: pointer; user-select: none; }
     overflow-y: auto;
     position: sticky;
     top: var(--header-height);
-    height: calc(100vh - var(--header-height));
+    height: fit-content;
+    max-height: calc(100vh - var(--header-height));
     backdrop-filter: blur(12px);
 }
 

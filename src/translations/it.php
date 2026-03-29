@@ -309,8 +309,8 @@ return [
     'pagination.next'       => 'Successivo',
 
     // Control Panel
-    'nav.control_panel'              => 'Pannello di Controllo',
-    'cp.title'                       => 'Pannello di Controllo',
+    'nav.control_panel'              => 'Management',
+    'cp.title'                       => 'Management',
     'cp.subtitle'                    => 'Dashboard componibile con widget configurabili.',
     'cp.add_widget'                  => 'Aggiungi Widget',
     'cp.edit_widget'                 => 'Modifica Widget',

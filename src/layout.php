@@ -38,7 +38,7 @@
             <a href="<?= BASE_URL ?>/?page=dashboard" class="nav-link<?= (($_GET['page'] ?? '') === 'dashboard') ? ' active' : '' ?>">
                 <?= __('nav.dashboard') ?>
             </a>
-            <a href="<?= BASE_URL ?>/?page=control-panel" class="nav-link<?= (($_GET['page'] ?? '') === 'control-panel') ? ' active' : '' ?>">
+            <a href="<?= BASE_URL ?>/?page=management" class="nav-link<?= (($_GET['page'] ?? '') === 'management') ? ' active' : '' ?>">
                 <?= __('nav.control_panel') ?>
             </a>
             <a href="<?= BASE_URL ?>/?page=project" class="nav-link<?= (($_GET['page'] ?? '') === 'project') ? ' active' : '' ?>">
@@ -142,8 +142,8 @@
                         <button class="sidebar-filter-delete" onclick="deleteFilter(<?= (int)$fp['id'] ?>, this)" title="Rimuovi">&times;</button>
                     </li>
                     <?php endforeach; ?>
-                    <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'control-panel') ? ' active' : '' ?>">
-                        <a href="<?= BASE_URL ?>/?page=control-panel"><?= __('nav.control_panel') ?></a>
+                    <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'management') ? ' active' : '' ?>">
+                        <a href="<?= BASE_URL ?>/?page=management"><?= __('nav.control_panel') ?></a>
                     </li>
                     <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'settings') ? ' active' : '' ?>">
                         <a href="<?= BASE_URL ?>/?page=settings"><?= __('nav.settings') ?></a>
