@@ -22,5 +22,8 @@ return static function (PDO $db): void {
             responded_at  DATETIME DEFAULT NULL
         )
     ");
+    if (DB_TYPE === 'mysql') {
+        $db->exec("ALTER TABLE relay_queue MODIFY COLUMN state VARCHAR(20) NOT NULL DEFAULT 'pending'");
+    }
     execSQL($db, "CREATE INDEX IF NOT EXISTS idx_relay_queue_webhook_state ON relay_queue(webhook_id, state)");
 };
