@@ -347,7 +347,8 @@ ob_start();
         <span class="text-muted analytics-total"><?= number_format($totalCount) ?> events</span>
 
         <button class="btn btn-primary analytics-add-field-btn" onclick="openModal('addFieldModal')">
-            + Add custom field
+            <span class="label-full">+ Add custom field</span>
+            <span class="label-short"><?= $lang === 'it' ? 'Agg. CP' : 'Add CF' ?></span>
         </button>
     </div>
 
