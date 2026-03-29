@@ -1964,7 +1964,7 @@ tr:last-child td { border-bottom: none; }
 }
 .dsl-hint-grid {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto 1fr;
     gap: 0.2rem 0.75rem;
     align-items: center;
 }

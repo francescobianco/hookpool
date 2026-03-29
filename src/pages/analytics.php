@@ -539,6 +539,7 @@ ob_start();
                             <code>{{ip}}</code><span>sender IP</span>
                             <code>{{known_ip}}</code><span>IP label or raw IP</span>
                             <code>{{path}}</code><span>request path</span>
+                            <span></span><span></span>
                         </div>
                     </div>
                 </div>
@@ -597,6 +598,7 @@ ob_start();
                             <code>{{ip}}</code><span>sender IP</span>
                             <code>{{known_ip}}</code><span>IP label or raw IP</span>
                             <code>{{path}}</code><span>request path</span>
+                            <span></span><span></span>
                         </div>
                     </div>
                 </div>
