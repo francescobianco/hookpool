@@ -636,13 +636,37 @@ details > summary { cursor: pointer; user-select: none; }
     white-space: nowrap;
 }
 .endpoint-hint { font-size: 0.9rem; color: var(--text-muted); }
+.example-curl-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 0.5rem;
+}
 .example-curl {
     display: block;
-    margin-top: 0.5rem;
+    flex: 1;
+    min-width: 0;
     font-size: 0.84rem;
     color: var(--text-dim);
     word-break: break-all;
+    margin-top: 0;
 }
+.example-curl-copy {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    font-family: var(--font-sans);
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    line-height: 1.6;
+}
+.example-curl-copy:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--text-dim); }
+.example-curl-copy.copied { background: var(--success-bg); border-color: var(--success); color: var(--success); }
 
 /* --- Buttons --------------------------------------------------------------- */
 .btn {
@@ -1992,4 +2016,220 @@ tr:last-child td { border-bottom: none; }
     padding: 2px 10px;
     margin-left: 0.6rem;
     vertical-align: middle;
+}
+
+/* =============================================================================
+   Control Panel
+   ============================================================================= */
+
+.cp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 4px;
+}
+
+/* Widget card */
+.cp-widget {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 140px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.15s;
+}
+.cp-widget:hover { box-shadow: var(--shadow); }
+.cp-widget--wide { grid-column: span 2; }
+
+.cp-widget-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.cp-widget-title {
+    flex: 1;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cp-widget-actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.cp-widget:hover .cp-widget-actions { opacity: 1; }
+.cp-widget-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    line-height: 1;
+    transition: background 0.12s, color 0.12s;
+}
+.cp-widget-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.cp-widget-action-delete:hover { color: var(--error); }
+
+.cp-widget-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    gap: 8px;
+}
+
+/* Generic widget button */
+.cp-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    padding: 9px 16px;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    transition: background 0.12s, transform 0.08s, box-shadow 0.12s, border-color 0.12s, color 0.12s;
+    user-select: none;
+    text-align: center;
+}
+.cp-btn:hover { background: var(--bg-hover); box-shadow: var(--shadow-sm); }
+.cp-btn:active { transform: scale(0.96); }
+.cp-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cp-btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.cp-btn--full { width: 100%; }
+.cp-btn--icon {
+    padding: 9px;
+    font-size: 1rem;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.cp-btn.loading { opacity: 0.55; pointer-events: none; }
+.cp-btn.success { background: var(--success-bg) !important; border-color: var(--success) !important; color: var(--success) !important; }
+.cp-btn.error   { background: var(--error-bg)   !important; border-color: var(--error)   !important; color: var(--error)   !important; }
+
+/* D-Pad grid */
+.cp-dpad-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 6px;
+    align-items: center;
+    justify-items: center;
+}
+
+/* Send widget */
+.cp-send-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    align-items: center;
+}
+.cp-send-input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-sans);
+    font-size: 0.88rem;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s;
+}
+.cp-send-input:focus { border-color: var(--border-focus); }
+
+/* Add widget cell */
+.cp-add-cell {
+    background: transparent;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-lg);
+    min-height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.cp-add-cell:hover { border-color: var(--accent); background: var(--accent-light); }
+.cp-add-cell-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-dim);
+    pointer-events: none;
+}
+.cp-add-cell-icon {
+    font-size: 2rem;
+    line-height: 1;
+    font-weight: 300;
+    transition: color 0.15s;
+}
+.cp-add-cell-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    transition: color 0.15s;
+}
+.cp-add-cell:hover .cp-add-cell-icon,
+.cp-add-cell:hover .cp-add-cell-label { color: var(--accent); }
+
+/* Widget type picker */
+.cp-type-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.cp-type-card {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.15s, background 0.15s;
+    background: var(--bg-secondary);
+}
+.cp-type-card:hover,
+.cp-type-card.selected { border-color: var(--accent); background: var(--accent-light); }
+.cp-type-card-icon { font-size: 1.5rem; display: block; margin-bottom: 5px; }
+.cp-type-card-name { font-size: 0.82rem; font-weight: 700; color: var(--text-primary); display: block; }
+.cp-type-card-desc { font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 2px; }
+
+/* Toast notification */
+.cp-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 10px 18px;
+    border-radius: var(--radius);
+    background: var(--text-primary);
+    color: #fff;
+    font-size: 0.85rem;
+    z-index: 9999;
+    box-shadow: var(--shadow);
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+.cp-toast--success { background: var(--success); }
+.cp-toast--error   { background: var(--error); }
+
+/* Responsive: on narrow screens span-2 falls back to 1 */
+@media (max-width: 500px) {
+    .cp-widget--wide { grid-column: span 1; }
 }

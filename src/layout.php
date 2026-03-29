@@ -38,11 +38,11 @@
             <a href="<?= BASE_URL ?>/?page=dashboard" class="nav-link<?= (($_GET['page'] ?? '') === 'dashboard') ? ' active' : '' ?>">
                 <?= __('nav.dashboard') ?>
             </a>
-            <a href="<?= BASE_URL ?>/?page=project" class="nav-link<?= (($_GET['page'] ?? '') === 'project') ? ' active' : '' ?>">
-                <?= __('nav.projects') ?>
-            </a>
             <a href="<?= BASE_URL ?>/?page=control_panel" class="nav-link<?= (($_GET['page'] ?? '') === 'control_panel') ? ' active' : '' ?>">
                 <?= __('nav.control_panel') ?>
+            </a>
+            <a href="<?= BASE_URL ?>/?page=project" class="nav-link<?= (($_GET['page'] ?? '') === 'project') ? ' active' : '' ?>">
+                <?= __('nav.projects') ?>
             </a>
             <a href="<?= BASE_URL ?>/?page=settings" class="nav-link<?= (($_GET['page'] ?? '') === 'settings') ? ' active' : '' ?>">
                 <?= __('nav.settings') ?>
@@ -441,6 +441,30 @@ function deleteFilter(id, btn) {
         }
     });
 }
+
+// Auto-wrap .example-curl with a copy button
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('code.example-curl').forEach(code => {
+        const wrap = document.createElement('span');
+        wrap.className = 'example-curl-wrap';
+        code.parentNode.insertBefore(wrap, code);
+        wrap.appendChild(code);
+
+        const btn = document.createElement('button');
+        btn.className = 'example-curl-copy';
+        btn.textContent = 'Copia';
+        btn.onclick = () => {
+            copyToClipboard(code.textContent, btn);
+            btn.textContent = '✓';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = 'Copia';
+                btn.classList.remove('copied');
+            }, 1800);
+        };
+        wrap.appendChild(btn);
+    });
+});
 
 // Auto-dismiss alerts after 5s
 document.addEventListener('DOMContentLoaded', () => {
