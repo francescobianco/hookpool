@@ -8,10 +8,24 @@ Each field has a **name** and a **formula** written in a small, safe DSL designe
 ## Formula syntax
 
 ```
-METRIC_PHRASE [WITH BOOLEAN_EXPR]
+ARITH_EXPR
 ```
 
-The `WITH` clause is optional. When present, only rows that satisfy its condition are considered by the metric.
+A formula is an arithmetic expression over one or more metric phrases:
+
+```
+COUNT BEFORE + COUNT AFTER
+DAYS BEFORE LAST - DAYS AFTER FIRST
+(COUNT STREAK BEFORE + COUNT STREAK AFTER) * 2
+```
+
+Each metric phrase may include an optional `WITH` clause:
+
+```
+COUNT BEFORE WITH {{status}} = 1  +  COUNT AFTER WITH {{method}} = "POST"
+```
+
+The `WITH` clause filters candidate rows before the metric is computed. Arithmetic operators (`+`, `-`, `*`, `/`) between metric phrases are formula-level; arithmetic inside a `WITH` expression (e.g. `{{ts}} + 3600 > 0`) is handled correctly and does not interfere.
 
 ---
 
