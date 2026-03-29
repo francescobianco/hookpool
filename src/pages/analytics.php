@@ -615,13 +615,36 @@ ob_start();
             <button onclick="closeModal('saveViewModal')" class="modal-close">&times;</button>
         </div>
         <div class="modal-body">
-            <div class="form-group">
-                <label for="saveViewName">View name</label>
-                <input type="text" id="saveViewName" placeholder="e.g. Daily POST activity" maxlength="80" class="w-full">
+            <!-- Step 1: name input (shown when not already saved) -->
+            <div id="saveViewStep1">
+                <div class="form-group">
+                    <label for="saveViewName">View name</label>
+                    <input type="text" id="saveViewName" placeholder="e.g. Daily POST activity" maxlength="80"
+                           value="<?= e($view['name'] ?? '') ?>">
+                </div>
+            </div>
+            <!-- Step 2: update or add new (shown when already saved) -->
+            <div id="saveViewStep2" style="display:none">
+                <p style="margin:0 0 1rem">The view <strong id="saveViewCurrentName"></strong> is already saved in the sidebar.</p>
+                <div class="save-view-choices">
+                    <button class="btn btn-outline save-view-choice" onclick="doSaveView('update')">
+                        <span style="font-size:1.1em">↻</span> Update existing
+                    </button>
+                    <button class="btn btn-outline save-view-choice" onclick="showSaveAsNew()">
+                        <span style="font-size:1.1em">⊕</span> Save as new
+                    </button>
+                </div>
+            </div>
+            <!-- Step 3: new name when saving as new from an already-saved view -->
+            <div id="saveViewStep3" style="display:none">
+                <div class="form-group">
+                    <label for="saveViewNameNew">New view name</label>
+                    <input type="text" id="saveViewNameNew" placeholder="e.g. Daily POST activity" maxlength="80">
+                </div>
             </div>
             <p id="saveViewError" class="form-hint" style="color:var(--color-danger);display:none"></p>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" id="saveViewFooter">
             <button class="btn btn-primary" onclick="saveViewToSidebar()">Save</button>
             <button type="button" onclick="closeModal('saveViewModal')" class="btn btn-outline">Cancel</button>
         </div>
@@ -730,22 +753,64 @@ function validateFormulaBeforeSubmit(e) {
 }
 
 // ---- Save view to sidebar ----
+const _viewAlreadySaved = <?= $view['name'] !== null ? 'true' : 'false' ?>;
+const _viewCurrentName  = <?= json_encode($view['name'] ?? '') ?>;
+
+function openSaveViewModal() {
+    document.getElementById('saveViewError').style.display = 'none';
+    if (_viewAlreadySaved) {
+        document.getElementById('saveViewStep1').style.display = 'none';
+        document.getElementById('saveViewStep2').style.display = '';
+        document.getElementById('saveViewStep3').style.display = 'none';
+        document.getElementById('saveViewCurrentName').textContent = _viewCurrentName;
+        document.getElementById('saveViewFooter').style.display = 'none';
+    } else {
+        document.getElementById('saveViewStep1').style.display = '';
+        document.getElementById('saveViewStep2').style.display = 'none';
+        document.getElementById('saveViewStep3').style.display = 'none';
+        document.getElementById('saveViewFooter').style.display = '';
+    }
+    openModal('saveViewModal');
+}
+
+function showSaveAsNew() {
+    document.getElementById('saveViewStep2').style.display = 'none';
+    document.getElementById('saveViewStep3').style.display = '';
+    document.getElementById('saveViewFooter').style.display = '';
+    document.getElementById('saveViewNameNew').focus();
+}
+
 function saveViewToSidebar() {
-    const name = document.getElementById('saveViewName').value.trim();
+    let name, mode = 'new';
+    if (_viewAlreadySaved && document.getElementById('saveViewStep3').style.display === '') {
+        name = document.getElementById('saveViewNameNew').value.trim();
+        mode = 'new';
+    } else {
+        name = document.getElementById('saveViewName').value.trim();
+        mode = 'new';
+    }
     if (!name) {
         document.getElementById('saveViewError').textContent = 'Please enter a name.';
         document.getElementById('saveViewError').style.display = '';
         return;
     }
     document.getElementById('saveViewError').style.display = 'none';
+    _doSaveView(name, mode);
+}
 
+function doSaveView(mode) {
+    _doSaveView(_viewCurrentName, mode);
+}
+
+function _doSaveView(name, mode) {
     fetch('<?= BASE_URL ?>/?page=api&action=save_analytics_view', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: new URLSearchParams({
             _csrf: csrfToken,
             view_id: <?= $viewId ?>,
-            name: name,
+            name,
+            mode, // 'new' or 'update'
         })
     })
     .then(r => r.json())
@@ -757,19 +822,21 @@ function saveViewToSidebar() {
         }
         closeModal('saveViewModal');
 
-        // Add link to sidebar
         const list = document.getElementById('sidebarFilterList');
         if (list) {
-            const li = document.createElement('li');
-            li.className = 'sidebar-webhook sidebar-filter-item';
-            li.setAttribute('data-filter-id', data.preset_id);
-            li.innerHTML = `<a href="${data.url}">${data.name}</a>
-                <button class="sidebar-filter-delete" onclick="deleteFilter(${data.preset_id}, this)" title="Remove">&times;</button>`;
-            // Insert before the Settings li (last item)
-            const lastLi = list.querySelector('li:last-child');
-            list.insertBefore(li, lastLi);
+            if (mode === 'update') {
+                // Update the existing link text/href
+                const existing = list.querySelector(`[data-filter-id="${data.preset_id}"] a`);
+                if (existing) { existing.textContent = data.name; existing.href = data.url; }
+            } else {
+                const li = document.createElement('li');
+                li.className = 'sidebar-webhook sidebar-filter-item';
+                li.setAttribute('data-filter-id', data.preset_id);
+                li.innerHTML = `<a href="${data.url}">${data.name}</a>
+                    <button class="sidebar-filter-delete" onclick="deleteFilter(${data.preset_id}, this)" title="Remove">&times;</button>`;
+                list.insertBefore(li, list.querySelector('li:last-child'));
+            }
         }
-        // Show confirmation
         const btn = document.querySelector('[onclick*="saveViewModal"]');
         if (btn) {
             const orig = btn.textContent;
