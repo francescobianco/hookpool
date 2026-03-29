@@ -361,7 +361,7 @@ switch ($action) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }
         if (!verifyCsrfToken($_POST['_csrf'] ?? '')) { http_response_code(403); echo json_encode(['error' => 'csrf']); break; }
 
-        require_once __DIR__ . '/../DslEvaluator.php';
+        require_once __DIR__ . '/../classes/DslEvaluator.php';
         $formula   = trim($_POST['formula'] ?? '');
         $error     = DslEvaluator::validate($formula);
         $normalized = $error === null ? DslEvaluator::normalize($formula) : null;

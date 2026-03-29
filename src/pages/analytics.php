@@ -2,7 +2,7 @@
 $current_user = requireAuth($db);
 $userId       = (int)$current_user['id'];
 
-require_once __DIR__ . '/../DslEvaluator.php';
+require_once __DIR__ . '/../classes/DslEvaluator.php';
 
 // ---- Resolve view ----
 // Entry via webhook_id: create or load a working (unsaved) view for this user+webhook
@@ -139,7 +139,7 @@ if (isset($_GET['sort_by'])) {
 
 // ---- Load known IPs ----
 $knownIpMap = [];
-$kipStmt = $db->prepare('SELECT ip, label FROM known_ips WHERE user_id = ? AND deleted_at IS NULL');
+$kipStmt = $db->prepare('SELECT ip, label FROM known_ips WHERE user_id = ?');
 $kipStmt->execute([$userId]);
 foreach ($kipStmt->fetchAll() as $k) $knownIpMap[$k['ip']] = $k['label'];
 

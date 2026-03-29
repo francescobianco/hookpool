@@ -141,22 +141,22 @@ COUNT BEFORE
 How many events came before this one.
 
 ```
-COUNT AFTER WITH STATUS = 1
+COUNT AFTER WITH {{status}} = 1
 ```
 How many valid events follow this one.
 
 ```
-COUNT STREAK AFTER WITH VALUE = 0
+COUNT STREAK AFTER WITH {{body}} = "0"
 ```
-How many consecutive events after this one have a zero body value.
+How many consecutive events after this one have body equal to `"0"`.
 
 ```
-SECONDS AFTER FIRST WITH METHOD = "POST"
+SECONDS AFTER FIRST WITH {{method}} = "POST"
 ```
 Seconds until the next POST event.
 
 ```
-DAYS BEFORE LAST WITH STATUS = 1
+DAYS BEFORE LAST WITH {{status}} = 1
 ```
 Days since the most recent valid event.
 
@@ -189,9 +189,8 @@ CMP_EXPR    := ADD_EXPR ( COMP_OP ADD_EXPR )? ;
 ADD_EXPR    := MUL_EXPR ( ("+" | "-") MUL_EXPR )* ;
 MUL_EXPR    := UNARY ( ("*" | "/") UNARY )* ;
 UNARY       := ("NOT" | "-") UNARY | PRIMARY ;
-PRIMARY     := NUMBER | STRING | FIELD | PLACEHOLDER | "(" BOOL_EXPR ")" ;
+PRIMARY     := NUMBER | STRING | PLACEHOLDER | "(" BOOL_EXPR ")" ;
 
 COMP_OP     := "=" | "!=" | ">" | ">=" | "<" | "<=" ;
-FIELD       := "VALUE" | "STATUS" | "TS" | "METHOD" ;
 PLACEHOLDER := "{{" name "}}" ;
 ```
