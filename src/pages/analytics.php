@@ -317,7 +317,7 @@ ob_start();
         </div>
         <div class="header-actions">
             <a href="<?= BASE_URL ?>/?page=webhook&action=detail&id=<?= $webhookId ?>" class="btn btn-sm btn-outline">← Back</a>
-            <button class="btn btn-sm btn-primary" onclick="openModal('saveViewModal')">⊕ Save to sidebar</button>
+            <button class="btn btn-sm btn-primary" onclick="openSaveViewModal()">⊕ Save to sidebar</button>
         </div>
     </div>
 

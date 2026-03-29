@@ -194,6 +194,21 @@
                     $wl = $whLookup->fetch();
                     if ($wl) $currentProjectId = (int)$wl['project_id'];
                 }
+            } elseif ($currentPage === 'analytics' && isset($_GET['view_id'])) {
+                $avLookup = $sidebarDb->prepare(
+                    'SELECT webhook_id FROM analytics_views WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1'
+                );
+                $avLookup->execute([(int)$_GET['view_id'], $sidebarUserId]);
+                $av = $avLookup->fetch();
+                if ($av) {
+                    $currentWebhookId = (int)$av['webhook_id'];
+                    $whLookup = $sidebarDb->prepare(
+                        'SELECT project_id FROM webhooks WHERE id = ? AND deleted_at IS NULL LIMIT 1'
+                    );
+                    $whLookup->execute([$currentWebhookId]);
+                    $wl = $whLookup->fetch();
+                    if ($wl) $currentProjectId = (int)$wl['project_id'];
+                }
             }
             ?>
 

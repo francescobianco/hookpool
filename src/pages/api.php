@@ -375,6 +375,7 @@ switch ($action) {
 
         $viewId  = (int)($_POST['view_id'] ?? 0);
         $name    = trim($_POST['name'] ?? '');
+        $mode    = $_POST['mode'] ?? 'new'; // 'new' or 'update'
         if ($name === '') { http_response_code(400); echo json_encode(['error' => 'name_required']); break; }
 
         // Verify ownership of the analytics view
@@ -383,26 +384,47 @@ switch ($action) {
         $av = $avStmt->fetch();
         if (!$av) { http_response_code(404); echo json_encode(['error' => 'view_not_found']); break; }
 
-        // If the view already has a name, create a new named copy
-        if ($av['name'] !== null) {
+        if ($mode === 'update' && $av['name'] !== null) {
+            // Update existing named view: rename it and update its filter_preset
+            $savedViewId = $viewId;
+            $db->prepare('UPDATE analytics_views SET name = ? WHERE id = ?')->execute([$name, $viewId]);
+
+            // Find and update the existing filter_preset for this view
+            $fpStmt = $db->prepare("SELECT id FROM filter_presets WHERE user_id = ? AND params LIKE ? AND deleted_at IS NULL");
+            $fpStmt->execute([$userId, '%"view_id":' . $viewId . '%']);
+            $fp = $fpStmt->fetch();
+            if ($fp) {
+                $db->prepare('UPDATE filter_presets SET name = ?, params = ? WHERE id = ?')
+                   ->execute([$name, json_encode(['page' => 'analytics', 'view_id' => $savedViewId]), $fp['id']]);
+                $presetId = (int)$fp['id'];
+            } else {
+                // No preset yet — create one
+                $ins = $db->prepare('INSERT INTO filter_presets (user_id, name, params, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)');
+                $ins->execute([$userId, $name, json_encode(['page' => 'analytics', 'view_id' => $savedViewId])]);
+                $presetId = (int)$db->lastInsertId();
+            }
+        } elseif ($av['name'] === null) {
+            // Name the working (unsaved) view for the first time
+            $db->prepare('UPDATE analytics_views SET name = ? WHERE id = ?')->execute([$name, $viewId]);
+            $savedViewId = $viewId;
+
+            $ins = $db->prepare('INSERT INTO filter_presets (user_id, name, params, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)');
+            $ins->execute([$userId, $name, json_encode(['page' => 'analytics', 'view_id' => $savedViewId])]);
+            $presetId = (int)$db->lastInsertId();
+        } else {
+            // mode=new on an already-named view: create a new named copy
             $db->prepare('
                 INSERT INTO analytics_views (user_id, webhook_id, name, fields, groupby, sort_by, sort_dir)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ')->execute([$userId, $av['webhook_id'], $name, $av['fields'], $av['groupby'], $av['sort_by'], $av['sort_dir']]);
             $savedViewId = (int)$db->lastInsertId();
-        } else {
-            // Name the working view
-            $db->prepare('UPDATE analytics_views SET name = ? WHERE id = ?')->execute([$name, $viewId]);
-            $savedViewId = $viewId;
+
+            $ins = $db->prepare('INSERT INTO filter_presets (user_id, name, params, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)');
+            $ins->execute([$userId, $name, json_encode(['page' => 'analytics', 'view_id' => $savedViewId])]);
+            $presetId = (int)$db->lastInsertId();
         }
 
         $url = BASE_URL . '/?page=analytics&view_id=' . $savedViewId;
-
-        // Save to filter_presets so it appears in sidebar Links
-        $ins = $db->prepare('INSERT INTO filter_presets (user_id, name, params, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)');
-        $ins->execute([$userId, $name, json_encode(['page' => 'analytics', 'view_id' => $savedViewId])]);
-        $presetId = (int)$db->lastInsertId();
-
         echo json_encode(['ok' => true, 'id' => $savedViewId, 'preset_id' => $presetId, 'name' => $name, 'url' => $url]) . "\n";
         break;
 
