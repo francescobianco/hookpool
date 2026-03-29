@@ -267,23 +267,23 @@ ob_start();
 
     <!-- Controls bar -->
     <div class="analytics-controls card">
-        <!-- Groupby selector -->
         <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>" class="analytics-groupby-form" id="groupbyForm">
             <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
             <input type="hidden" name="_analytics_action" value="update_groupby">
-            <label for="groupbySelect" class="analytics-control-label">Group by:</label>
+            <label for="groupbySelect" class="analytics-control-label">Group by</label>
             <select name="groupby" id="groupbySelect" class="analytics-select" onchange="this.form.submit()">
-                <option value="none"  <?= $groupby === 'none'  ? 'selected' : '' ?>>No grouping</option>
+                <option value="none"  <?= $groupby === 'none'  ? 'selected' : '' ?>>None</option>
                 <option value="day"   <?= $groupby === 'day'   ? 'selected' : '' ?>>Day</option>
                 <option value="week"  <?= $groupby === 'week'  ? 'selected' : '' ?>>Week</option>
                 <option value="month" <?= $groupby === 'month' ? 'selected' : '' ?>>Month</option>
             </select>
         </form>
 
-        <div class="analytics-controls-right">
-            <span class="text-muted analytics-total"><?= number_format($totalCount) ?> events (showing up to 2,000)</span>
-            <button class="btn btn-sm btn-outline" onclick="openModal('addFieldModal')">+ Add field</button>
-        </div>
+        <button class="btn btn-primary analytics-add-field-btn" onclick="openModal('addFieldModal')">
+            + Add custom field
+        </button>
+
+        <span class="text-muted analytics-total"><?= number_format($totalCount) ?> events</span>
     </div>
 
     <!-- Custom fields list (chips) -->
