@@ -18,9 +18,21 @@ switch ($action) {
     case 'events':
         $afterId       = isset($_GET['after_id'])  ? (int)$_GET['after_id']  : 0;
         $beforeId      = isset($_GET['before_id']) ? (int)$_GET['before_id'] : 0;
-        $filterCatId   = isset($_GET['category_id']) && $_GET['category_id'] !== '' ? (int)$_GET['category_id'] : null;
-        $filterProjId  = isset($_GET['project_id']) && $_GET['project_id'] !== '' ? (int)$_GET['project_id'] : null;
-        $filterWebhookId = isset($_GET['webhook_id']) && $_GET['webhook_id'] !== '' ? (int)$_GET['webhook_id'] : null;
+        // scope param: c_N = category, p_N = project, w_N = webhook
+        // also accept legacy category_id / project_id / webhook_id for saved presets
+        $filterCatId     = null;
+        $filterProjId    = null;
+        $filterWebhookId = null;
+        $scopeP = trim($_GET['scope'] ?? '');
+        if ($scopeP !== '') {
+            if (str_starts_with($scopeP, 'c_'))     $filterCatId     = (int)substr($scopeP, 2);
+            elseif (str_starts_with($scopeP, 'p_')) $filterProjId    = (int)substr($scopeP, 2);
+            elseif (str_starts_with($scopeP, 'w_')) $filterWebhookId = (int)substr($scopeP, 2);
+        } else {
+            if (isset($_GET['category_id']) && $_GET['category_id'] !== '') $filterCatId     = (int)$_GET['category_id'];
+            if (isset($_GET['project_id'])  && $_GET['project_id']  !== '') $filterProjId    = (int)$_GET['project_id'];
+            if (isset($_GET['webhook_id'])  && $_GET['webhook_id']  !== '') $filterWebhookId = (int)$_GET['webhook_id'];
+        }
         $filterMethod  = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM','PIXEL','FILE'], true) ? $_GET['method'] : '';
         $filterStatus  = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
         $filterTime    = isset($_GET['time']) && in_array($_GET['time'], ['1h','24h','7d','30d'], true) ? $_GET['time'] : '';

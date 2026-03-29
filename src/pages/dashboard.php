@@ -4,16 +4,20 @@ $page_title   = __('nav.dashboard');
 $userId       = (int)$current_user['id'];
 
 // Filters from GET
-$filterCategoryId = isset($_GET['category_id']) && $_GET['category_id'] !== '' ? (int)$_GET['category_id'] : null;
+$filterCategoryId = null;
 $filterProjectId  = null;
 $filterWebhookId  = null;
 
-// scope param: "p_{id}" = project, "w_{id}" = webhook
-// also accept legacy project_id= for saved presets
+// scope param: "c_{id}" = category, "p_{id}" = project, "w_{id}" = webhook
+// also accept legacy category_id= / project_id= for saved presets
 $scopeParam = trim($_GET['scope'] ?? '');
 if ($scopeParam !== '') {
-    if (str_starts_with($scopeParam, 'p_')) $filterProjectId = (int)substr($scopeParam, 2);
-    elseif (str_starts_with($scopeParam, 'w_')) $filterWebhookId = (int)substr($scopeParam, 2);
+    if (str_starts_with($scopeParam, 'c_'))      $filterCategoryId = (int)substr($scopeParam, 2);
+    elseif (str_starts_with($scopeParam, 'p_'))  $filterProjectId  = (int)substr($scopeParam, 2);
+    elseif (str_starts_with($scopeParam, 'w_'))  $filterWebhookId  = (int)substr($scopeParam, 2);
+} elseif (isset($_GET['category_id']) && $_GET['category_id'] !== '') {
+    $filterCategoryId = (int)$_GET['category_id'];
+    $scopeParam = 'c_' . $filterCategoryId;
 } elseif (isset($_GET['project_id']) && $_GET['project_id'] !== '') {
     $filterProjectId = (int)$_GET['project_id'];
     $scopeParam = 'p_' . $filterProjectId;
@@ -94,9 +98,17 @@ foreach ($kipStmt->fetchAll() as $k) { $knownIpMap[$k['ip']] = $k['label']; }
 $catStmt = $db->prepare('SELECT id, name FROM categories WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order, name');
 $catStmt->execute([$userId]);
 $allCategories = $catStmt->fetchAll();
+$categoriesById = [];
+foreach ($allCategories as $cat) $categoriesById[(int)$cat['id']] = $cat['name'];
 
-// Get projects + webhooks for filter dropdown (scoped to user)
-$projStmt = $db->prepare('SELECT id, name FROM projects WHERE user_id = ? AND deleted_at IS NULL ORDER BY name');
+// Get projects + webhooks for filter dropdown (scoped to user), with category
+$projStmt = $db->prepare('
+    SELECT p.id, p.name, p.category_id, COALESCE(c.name, \'\') AS cat_name
+    FROM projects p
+    LEFT JOIN categories c ON c.id = p.category_id AND c.deleted_at IS NULL
+    WHERE p.user_id = ? AND p.deleted_at IS NULL
+    ORDER BY COALESCE(c.sort_order, 2147483647), COALESCE(c.name, \'\'), p.name
+');
 $projStmt->execute([$userId]);
 $allProjects = $projStmt->fetchAll();
 
@@ -115,24 +127,21 @@ foreach ($whStmt->fetchAll() as $wh) {
 
 // Build query params for AJAX polling
 $ajaxParams = array_filter([
-    'page'        => 'api',
-    'action'      => 'events',
-    'category_id' => $filterCategoryId !== null ? $filterCategoryId : '',
-    'project_id'  => $filterProjectId  !== null ? $filterProjectId  : '',
-    'webhook_id'  => $filterWebhookId  !== null ? $filterWebhookId  : '',
-    'method'      => $filterMethod,
-    'status'      => $filterStatus,
-    'time'        => $filterTime,
+    'page'   => 'api',
+    'action' => 'events',
+    'scope'  => $scopeParam,
+    'method' => $filterMethod,
+    'status' => $filterStatus,
+    'time'   => $filterTime,
 ]);
 $ajaxBase = '?' . http_build_query($ajaxParams);
 
 // Current active filter params (for save)
 $activeFilterParams = array_filter([
-    'category_id' => $filterCategoryId !== null ? $filterCategoryId : '',
-    'scope'       => $scopeParam,
-    'method'      => $filterMethod,
-    'status'      => $filterStatus,
-    'time'        => $filterTime,
+    'scope'  => $scopeParam,
+    'method' => $filterMethod,
+    'status' => $filterStatus,
+    'time'   => $filterTime,
 ]);
 $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''));
 ?>
@@ -150,39 +159,72 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
     <form class="filters-bar" id="filtersBar" method="get" action="">
         <input type="hidden" name="page" value="dashboard">
 
-        <?php if (!empty($allCategories)): ?>
-        <select name="category_id" onchange="this.form.submit()">
-            <option value=""><?= __('dashboard.filter_all_categories') ?></option>
-            <?php foreach ($allCategories as $cat): ?>
-            <option value="<?= $cat['id'] ?>"<?= $filterCategoryId === (int)$cat['id'] ? ' selected' : '' ?>>
+        <select name="scope" onchange="this.form.submit()" id="scopeSelect">
+            <option value="">Tutto</option>
+            <?php
+            // Group projects by category for 3-level hierarchy
+            $projsByCategory = [];
+            foreach ($allProjects as $proj) {
+                $catKey = $proj['category_id'] !== null ? (int)$proj['category_id'] : 0;
+                $projsByCategory[$catKey][] = $proj;
+            }
+            // Emit categories with their projects, then uncategorized projects
+            foreach ($allCategories as $cat):
+                $cid = (int)$cat['id'];
+                $cProjects = $projsByCategory[$cid] ?? [];
+                if (empty($cProjects)) continue;
+            ?>
+            <option value="c_<?= $cid ?>"
+                    data-type="cat"
+                    data-name="<?= e($cat['name']) ?>"
+                    <?= $scopeParam === 'c_' . $cid ? ' selected' : '' ?>>
                 <?= e($cat['name']) ?>
             </option>
-            <?php endforeach; ?>
-        </select>
-        <?php endif; ?>
-
-        <select name="scope" onchange="this.form.submit()">
-            <option value=""><?= __('dashboard.filter_project') ?></option>
-            <?php foreach ($allProjects as $proj):
+            <?php foreach ($cProjects as $proj):
                 $pid = (int)$proj['id'];
                 $projWhs = $webhooksByProject[$pid] ?? [];
             ?>
-            <?php if (!empty($projWhs)): ?>
-            <optgroup label="<?= e($proj['name']) ?>">
-                <option value="p_<?= $pid ?>"<?= $scopeParam === 'p_' . $pid ? ' selected' : '' ?>>
-                    <?= e($proj['name']) ?>
-                </option>
-                <?php foreach ($projWhs as $wh): ?>
-                <option value="w_<?= (int)$wh['id'] ?>"<?= $scopeParam === 'w_' . (int)$wh['id'] ? ' selected' : '' ?>>
-                    ↳ <?= e($wh['name']) ?>
-                </option>
-                <?php endforeach; ?>
-            </optgroup>
-            <?php else: ?>
-            <option value="p_<?= $pid ?>"<?= $scopeParam === 'p_' . $pid ? ' selected' : '' ?>>
+            <option value="p_<?= $pid ?>"
+                    data-type="proj"
+                    data-name="<?= e($proj['name']) ?>"
+                    data-cat="<?= e($cat['name']) ?>"
+                    <?= $scopeParam === 'p_' . $pid ? ' selected' : '' ?>>
+                &nbsp;&nbsp;&nbsp;<?= e($proj['name']) ?>
+            </option>
+            <?php foreach ($projWhs as $wh): ?>
+            <option value="w_<?= (int)$wh['id'] ?>"
+                    data-type="hook"
+                    data-name="<?= e($wh['name']) ?>"
+                    data-proj="<?= e($proj['name']) ?>"
+                    data-cat="<?= e($cat['name']) ?>"
+                    <?= $scopeParam === 'w_' . (int)$wh['id'] ? ' selected' : '' ?>>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?= e($wh['name']) ?>
+            </option>
+            <?php endforeach; ?>
+            <?php endforeach; ?>
+            <?php endforeach; ?>
+            <?php // Uncategorized projects
+            foreach ($projsByCategory[0] ?? [] as $proj):
+                $pid = (int)$proj['id'];
+                $projWhs = $webhooksByProject[$pid] ?? [];
+            ?>
+            <option value="p_<?= $pid ?>"
+                    data-type="proj"
+                    data-name="<?= e($proj['name']) ?>"
+                    data-cat=""
+                    <?= $scopeParam === 'p_' . $pid ? ' selected' : '' ?>>
                 <?= e($proj['name']) ?>
             </option>
-            <?php endif; ?>
+            <?php foreach ($projWhs as $wh): ?>
+            <option value="w_<?= (int)$wh['id'] ?>"
+                    data-type="hook"
+                    data-name="<?= e($wh['name']) ?>"
+                    data-proj="<?= e($proj['name']) ?>"
+                    data-cat=""
+                    <?= $scopeParam === 'w_' . (int)$wh['id'] ? ' selected' : '' ?>>
+                &nbsp;&nbsp;&nbsp;<?= e($wh['name']) ?>
+            </option>
+            <?php endforeach; ?>
             <?php endforeach; ?>
         </select>
 
@@ -360,6 +402,45 @@ function renderEventRow(array $event): string {
 
 <script>
 (function() {
+    // Scope select: strip indent spaces from selected webhook option when closed,
+    // restore them when the dropdown opens so they still show as indented in the list.
+    const scopeSel = document.getElementById('scopeSelect');
+    if (scopeSel) {
+        // Store original indented text for each option
+        const origText = new Map();
+        scopeSel.querySelectorAll('option[data-type]').forEach(opt => {
+            origText.set(opt, opt.textContent);
+        });
+
+        const restoreSpaces = () => {
+            origText.forEach((txt, opt) => { opt.textContent = txt; });
+        };
+
+        const buildBreadcrumb = (opt) => {
+            const type = opt.dataset.type;
+            const name = opt.dataset.name;
+            if (!type) return null;
+            if (type === 'cat')  return name;
+            if (type === 'proj') return opt.dataset.cat ? opt.dataset.cat + ' › ' + name : name;
+            if (type === 'hook') {
+                const parts = [opt.dataset.cat, opt.dataset.proj, name].filter(Boolean);
+                return parts.join(' › ');
+            }
+            return null;
+        };
+
+        const stripSpaces = () => {
+            const sel = scopeSel.options[scopeSel.selectedIndex];
+            if (!sel) return;
+            const label = buildBreadcrumb(sel);
+            if (label !== null) sel.textContent = label;
+        };
+
+        scopeSel.addEventListener('focus', restoreSpaces);
+        scopeSel.addEventListener('blur',  stripSpaces);
+        stripSpaces();
+    }
+
     let lastId   = <?= $lastId ?>;
     let oldestId = <?= !empty($events) ? (int)$events[array_key_last($events)]['id'] : 0 ?>;
     let infiniteScrollDone = <?= count($events) < 100 ? 'true' : 'false' ?>;
