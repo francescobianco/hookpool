@@ -453,7 +453,7 @@ if ($action === 'detail') {
         <!-- Project-level Guards -->
         <section class="section">
             <div class="section-header">
-                <h2>Project Guards <span class="text-muted text-sm">(apply to all webhooks)</span></h2>
+                <h2>Project Guards<br><span class="text-muted text-sm">(apply to all webhooks)</span></h2>
                 <button onclick="openModal('addGuardModal')" class="btn btn-sm btn-outline">+ <?= __('guard.create') ?></button>
             </div>
             <?php if (empty($guards)): ?>

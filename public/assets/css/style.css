@@ -2203,6 +2203,10 @@ tr:last-child td { border-bottom: none; }
     align-items: center;
     justify-content: center;
 }
+.cp-btn--icon .cp-dir-icon svg {
+    width: 18px;
+    height: 18px;
+}
 .cp-btn.loading { opacity: 0.55; pointer-events: none; }
 .cp-btn.success { background: var(--success-bg) !important; border-color: var(--success) !important; color: var(--success) !important; }
 .cp-btn.error   { background: var(--error-bg)   !important; border-color: var(--error)   !important; color: var(--error)   !important; }
@@ -2351,14 +2355,16 @@ tr:last-child td { border-bottom: none; }
     display: flex;
     align-items: flex-end;
     gap: 0;
-    margin: 0 0 -1px;
-    border-bottom: 1px solid var(--border);
+    margin: 0;
 }
 
 .cp-action-tab {
     appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
     border: 1px solid transparent;
-    border-bottom: none;
+    border-bottom: 1px solid var(--border);
     background: transparent;
     color: var(--text-muted);
     padding: 10px 14px;
@@ -2378,15 +2384,37 @@ tr:last-child td { border-bottom: none; }
     color: var(--text-primary);
     background: var(--bg-card);
     border-color: var(--border);
+    border-bottom-color: var(--bg-card);
+}
+
+.cp-action-tab.cp-action-tab--hide-bottom {
+    border-bottom-color: transparent;
 }
 
 .cp-action-panel {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 12px 12px;
+    margin-top: -1px;
+    border-radius: 0 12px 12px 12px;
     padding: 16px;
     box-shadow: var(--shadow-sm);
+}
+
+.cp-action-panel.cp-action-panel--round-left {
+    border-top-left-radius: 12px;
+}
+
+.cp-dir-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+}
+
+.cp-dir-icon svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
 }
 
 .webhook-rename-row {

@@ -38,6 +38,17 @@ $WIDGET_TYPES = [
     'dpad'   => ['icon' => '✛', 'label' => __('cp.type_dpad'),    'desc' => __('cp.type_dpad_desc')],
     'send'   => ['icon' => '↩', 'label' => __('cp.type_send'),    'desc' => __('cp.type_send_desc')],
 ];
+
+function cpDirIcon(string $dir): string {
+    $rotation = match ($dir) {
+        'right' => '90 12 12',
+        'down'  => '180 12 12',
+        'left'  => '270 12 12',
+        default => '0 12 12',
+    };
+
+    return '<span class="cp-dir-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><g transform="rotate(' . $rotation . ')"><path d="M12 5.5L19 18.5H5z"></path></g></svg></span>';
+}
 ?>
 <div class="page-container">
     <div class="page-header">
@@ -80,13 +91,13 @@ $WIDGET_TYPES = [
                             data-url="<?= e($cfg['up_url'] ?? '') ?>"
                             data-method="<?= e($cfg['up_method'] ?? 'GET') ?>"
                             data-body="<?= e($cfg['up_body'] ?? '') ?>">
-                        ▲ <?= e($cfg['up_label'] ?? 'Su') ?>
+                        <?= cpDirIcon('up') ?> <?= e($cfg['up_label'] ?? 'Su') ?>
                     </button>
                     <button class="cp-btn cp-btn--full cp-action-btn"
                             data-url="<?= e($cfg['down_url'] ?? '') ?>"
                             data-method="<?= e($cfg['down_method'] ?? 'GET') ?>"
                             data-body="<?= e($cfg['down_body'] ?? '') ?>">
-                        ▼ <?= e($cfg['down_label'] ?? 'Giù') ?>
+                        <?= cpDirIcon('down') ?> <?= e($cfg['down_label'] ?? 'Giù') ?>
                     </button>
 
                 <?php elseif ($type === 'dpad'): ?>
@@ -95,22 +106,22 @@ $WIDGET_TYPES = [
                         <button class="cp-btn cp-btn--icon cp-action-btn"
                                 data-url="<?= e($cfg['up_url'] ?? '') ?>"
                                 data-method="<?= e($cfg['up_method'] ?? 'GET') ?>"
-                                data-body="">▲</button>
+                                data-body=""><?= cpDirIcon('up') ?></button>
                         <div></div>
                         <button class="cp-btn cp-btn--icon cp-action-btn"
                                 data-url="<?= e($cfg['left_url'] ?? '') ?>"
                                 data-method="<?= e($cfg['left_method'] ?? 'GET') ?>"
-                                data-body="">◀</button>
+                                data-body=""><?= cpDirIcon('left') ?></button>
                         <div></div>
                         <button class="cp-btn cp-btn--icon cp-action-btn"
                                 data-url="<?= e($cfg['right_url'] ?? '') ?>"
                                 data-method="<?= e($cfg['right_method'] ?? 'GET') ?>"
-                                data-body="">▶</button>
+                                data-body=""><?= cpDirIcon('right') ?></button>
                         <div></div>
                         <button class="cp-btn cp-btn--icon cp-action-btn"
                                 data-url="<?= e($cfg['down_url'] ?? '') ?>"
                                 data-method="<?= e($cfg['down_method'] ?? 'GET') ?>"
-                                data-body="">▼</button>
+                                data-body=""><?= cpDirIcon('down') ?></button>
                         <div></div>
                     </div>
 
@@ -216,8 +227,8 @@ $WIDGET_TYPES = [
                 <!-- UpDown widget fields -->
                 <div id="cpFieldsUpdown" class="cp-type-fields" style="display:none">
                     <div class="cp-action-tabs" role="tablist" aria-label="Azioni widget updown">
-                        <button type="button" class="cp-action-tab active" id="cpUpdownTabUp" role="tab" aria-selected="true" aria-controls="cpUpdownPanelUp" onclick="cpSwitchUpdownTab('up')">▲ Su</button>
-                        <button type="button" class="cp-action-tab" id="cpUpdownTabDown" role="tab" aria-selected="false" aria-controls="cpUpdownPanelDown" onclick="cpSwitchUpdownTab('down')">▼ Giù</button>
+                        <button type="button" class="cp-action-tab active" id="cpUpdownTabUp" role="tab" aria-selected="true" aria-controls="cpUpdownPanelUp" onclick="cpSwitchUpdownTab('up')"><?= cpDirIcon('up') ?> Su</button>
+                        <button type="button" class="cp-action-tab" id="cpUpdownTabDown" role="tab" aria-selected="false" aria-controls="cpUpdownPanelDown" onclick="cpSwitchUpdownTab('down')"><?= cpDirIcon('down') ?> Giù</button>
                     </div>
                     <div class="cp-action-panel" id="cpUpdownPanelUp" role="tabpanel" aria-labelledby="cpUpdownTabUp">
                         <div class="form-group">
@@ -225,19 +236,19 @@ $WIDGET_TYPES = [
                             <input type="text" class="form-control" id="cpFUpLabel" placeholder="Su">
                         </div>
                         <div class="form-row">
+                            <div class="form-group cp-method-field">
+                                <label class="form-label"><?= __('cp.field_method') ?></label>
+                                <select class="form-control" id="cpFUpMethod">
+                                    <option>GET</option><option>POST</option><option>PUT</option>
+                                    <option>DELETE</option><option>PATCH</option>
+                                </select>
+                            </div>
                             <div class="form-group" style="flex:2">
                                 <label class="form-label">URL</label>
                                 <div class="cp-url-row">
                                     <input type="text" class="form-control" id="cpFUpUrl" placeholder="https://...">
                                     <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFUpUrl', this)">🔗 Webhooks</button>
                                 </div>
-                            </div>
-                            <div class="form-group" style="flex:1">
-                                <label class="form-label"><?= __('cp.field_method') ?></label>
-                                <select class="form-control" id="cpFUpMethod">
-                                    <option>GET</option><option>POST</option><option>PUT</option>
-                                    <option>DELETE</option><option>PATCH</option>
-                                </select>
                             </div>
                         </div>
                         <div class="form-group" id="cpFUpBodyGroup">
@@ -251,19 +262,19 @@ $WIDGET_TYPES = [
                             <input type="text" class="form-control" id="cpFDownLabel" placeholder="Giù">
                         </div>
                         <div class="form-row">
+                            <div class="form-group cp-method-field">
+                                <label class="form-label"><?= __('cp.field_method') ?></label>
+                                <select class="form-control" id="cpFDownMethod">
+                                    <option>GET</option><option>POST</option><option>PUT</option>
+                                    <option>DELETE</option><option>PATCH</option>
+                                </select>
+                            </div>
                             <div class="form-group" style="flex:2">
                                 <label class="form-label">URL</label>
                                 <div class="cp-url-row">
                                     <input type="text" class="form-control" id="cpFDownUrl" placeholder="https://...">
                                     <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDownUrl', this)">🔗 Webhooks</button>
                                 </div>
-                            </div>
-                            <div class="form-group" style="flex:1">
-                                <label class="form-label"><?= __('cp.field_method') ?></label>
-                                <select class="form-control" id="cpFDownMethod">
-                                    <option>GET</option><option>POST</option><option>PUT</option>
-                                    <option>DELETE</option><option>PATCH</option>
-                                </select>
                             </div>
                         </div>
                         <div class="form-group" id="cpFDownBodyGroup">
@@ -276,27 +287,27 @@ $WIDGET_TYPES = [
                 <!-- DPad widget fields -->
                 <div id="cpFieldsDpad" class="cp-type-fields" style="display:none">
                     <div class="cp-action-tabs" role="tablist" aria-label="Direzioni widget dpad">
-                        <button type="button" class="cp-action-tab active" id="cpDpadTabUp" role="tab" aria-selected="true" aria-controls="cpDpadPanelUp" onclick="cpSwitchDpadTab('up')">▲ Su</button>
-                        <button type="button" class="cp-action-tab" id="cpDpadTabDown" role="tab" aria-selected="false" aria-controls="cpDpadPanelDown" onclick="cpSwitchDpadTab('down')">▼ Giù</button>
-                        <button type="button" class="cp-action-tab" id="cpDpadTabLeft" role="tab" aria-selected="false" aria-controls="cpDpadPanelLeft" onclick="cpSwitchDpadTab('left')">◀ Sinistra</button>
-                        <button type="button" class="cp-action-tab" id="cpDpadTabRight" role="tab" aria-selected="false" aria-controls="cpDpadPanelRight" onclick="cpSwitchDpadTab('right')">▶ Destra</button>
+                        <button type="button" class="cp-action-tab active" id="cpDpadTabUp" role="tab" aria-selected="true" aria-controls="cpDpadPanelUp" onclick="cpSwitchDpadTab('up')"><?= cpDirIcon('up') ?> Su</button>
+                        <button type="button" class="cp-action-tab" id="cpDpadTabDown" role="tab" aria-selected="false" aria-controls="cpDpadPanelDown" onclick="cpSwitchDpadTab('down')"><?= cpDirIcon('down') ?> Giù</button>
+                        <button type="button" class="cp-action-tab" id="cpDpadTabLeft" role="tab" aria-selected="false" aria-controls="cpDpadPanelLeft" onclick="cpSwitchDpadTab('left')"><?= cpDirIcon('left') ?> Sinistra</button>
+                        <button type="button" class="cp-action-tab" id="cpDpadTabRight" role="tab" aria-selected="false" aria-controls="cpDpadPanelRight" onclick="cpSwitchDpadTab('right')"><?= cpDirIcon('right') ?> Destra</button>
                     </div>
                     <?php foreach (['up'=>'▲ Su','down'=>'▼ Giù','left'=>'◀ Sinistra','right'=>'▶ Destra'] as $dir => $dirLabel): ?>
                     <div class="cp-action-panel" id="cpDpadPanel<?= ucfirst($dir) ?>" role="tabpanel" aria-labelledby="cpDpadTab<?= ucfirst($dir) ?>"<?= $dir === 'up' ? '' : ' style="display:none"' ?>>
                         <div class="form-row">
+                            <div class="form-group cp-method-field">
+                                <label class="form-label"><?= __('cp.field_method') ?></label>
+                                <select class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Method">
+                                    <option>GET</option><option>POST</option><option>PUT</option>
+                                    <option>DELETE</option><option>PATCH</option>
+                                </select>
+                            </div>
                             <div class="form-group" style="flex:2">
                                 <label class="form-label">URL</label>
                                 <div class="cp-url-row">
                                     <input type="text" class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Url" placeholder="https://...">
                                     <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDpad<?= ucfirst($dir) ?>Url', this)">🔗 Webhooks</button>
                                 </div>
-                            </div>
-                            <div class="form-group" style="flex:1">
-                                <label class="form-label"><?= __('cp.field_method') ?></label>
-                                <select class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Method">
-                                    <option>GET</option><option>POST</option><option>PUT</option>
-                                    <option>DELETE</option><option>PATCH</option>
-                                </select>
                             </div>
                         </div>
                     </div>
@@ -313,14 +324,14 @@ $WIDGET_TYPES = [
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group" style="flex:1">
+                            <div class="form-group cp-method-field">
                             <label class="form-label"><?= __('cp.field_method') ?></label>
                             <select class="form-control" id="cpFSendMethod">
                                 <option>POST</option><option>GET</option><option>PUT</option>
                                 <option>PATCH</option>
                             </select>
                         </div>
-                        <div class="form-group" style="flex:1">
+                            <div class="form-group cp-method-field">
                             <label class="form-label"><?= __('cp.field_send_as') ?></label>
                             <select class="form-control" id="cpFSendAs">
                                 <option value="body">Body</option>
@@ -488,6 +499,16 @@ $WIDGET_TYPES = [
         if (fieldsEl) fieldsEl.style.display = '';
     }
 
+    function cpSyncPanelCorners(panelEls, activeIndex, tabEls = []) {
+        panelEls.forEach((panelEl, index) => {
+            if (!panelEl) return;
+            panelEl.classList.toggle('cp-action-panel--round-left', index !== 0 && index === activeIndex);
+        });
+        if (tabEls[0]) {
+            tabEls[0].classList.toggle('cp-action-tab--hide-bottom', activeIndex > 0);
+        }
+    }
+
     window.cpSwitchUpdownTab = function(tab) {
         const isUp = tab !== 'down';
         const upTab = document.getElementById('cpUpdownTabUp');
@@ -501,19 +522,25 @@ $WIDGET_TYPES = [
         downTab.setAttribute('aria-selected', isUp ? 'false' : 'true');
         upPanel.style.display = isUp ? '' : 'none';
         downPanel.style.display = isUp ? 'none' : '';
+        cpSyncPanelCorners([upPanel, downPanel], isUp ? 0 : 1, [upTab, downTab]);
     }
 
     window.cpSwitchDpadTab = function(tab) {
-        ['Up', 'Down', 'Left', 'Right'].forEach(dir => {
+        const panels = [];
+        const tabs = [];
+        ['Up', 'Down', 'Left', 'Right'].forEach((dir, index) => {
             const key = dir.toLowerCase();
             const isActive = key === tab;
             const tabEl = document.getElementById('cpDpadTab' + dir);
             const panelEl = document.getElementById('cpDpadPanel' + dir);
             if (!tabEl || !panelEl) return;
+            panels[index] = panelEl;
+            tabs[index] = tabEl;
             tabEl.classList.toggle('active', isActive);
             tabEl.setAttribute('aria-selected', isActive ? 'true' : 'false');
             panelEl.style.display = isActive ? '' : 'none';
         });
+        cpSyncPanelCorners(panels, ['up', 'down', 'left', 'right'].indexOf(tab), tabs);
     }
 
     function cpMethodSupportsBody(method) {
