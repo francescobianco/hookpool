@@ -163,9 +163,7 @@ $hasActiveFilters = !empty(array_filter($activeFilterParams, fn($v) => $v !== ''
         <div class="filter-actions">
             <a href="<?= BASE_URL ?>/?page=dashboard" class="btn btn-sm btn-outline">Reset</a>
             <?php if ($hasActiveFilters): ?>
-            <button type="button" class="btn btn-sm btn-outline" onclick="openModal('saveFilterModal')" title="Salva filtro">
-                ＋ Salva filtro
-            </button>
+            <button type="button" class="btn btn-sm btn-pin-sidebar" onclick="openModal('saveFilterModal')"><span>📌</span><span>Save to sidebar</span></button>
             <?php endif; ?>
             <span class="auto-refresh-indicator" id="refreshIndicator" title="Auto-refresh every 3s">
                 <span class="pulse-dot"></span> Live

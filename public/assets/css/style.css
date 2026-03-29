@@ -722,7 +722,9 @@ details > summary { cursor: pointer; user-select: none; }
     background: #ffffff;
     color: var(--accent);
     border-color: var(--accent);
+    gap: 6px;
 }
+.btn-sm.btn-pin-sidebar { padding-left: 9px; }
 .btn-pin-sidebar:hover { background: var(--accent-light); border-color: var(--accent-hover); color: var(--accent-hover); }
 
 .btn-danger {
