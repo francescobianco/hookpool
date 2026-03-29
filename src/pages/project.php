@@ -405,7 +405,12 @@ if ($action === 'detail') {
                     $isPixel    = $sfn === 'pixel';
                     $isFile     = $sfn === 'file_upload';
                     $isAutocall = $sfn === 'autocall';
-                    $whDot      = $isPixel ? '🖼️' : ($isFile ? '📎' : ($isAutocall ? '⏰' : '🌐'));
+                    $isRelay    = $sfn === 'http_relay';
+                    $whDot      = $isPixel ? '🖼️' : ($isFile ? '📎' : ($isAutocall ? '⏰' : ($isRelay ? '🔀' : '🌐')));
+                    $specialLabel = $isPixel ? __('webhook.sfn_pixel')
+                        : ($isFile ? __('webhook.sfn_file_upload')
+                        : ($isAutocall ? __('webhook.sfn_autocall')
+                        : ($isRelay ? __('webhook.sfn_http_relay') : '')));
                     $whBaseUrl  = webhookUrl($project['slug'], $wh['token']);
                     $whDispUrl  = $isPixel ? ($whBaseUrl . '.png') : $whBaseUrl;
                 ?>
@@ -419,22 +424,22 @@ if ($action === 'detail') {
                     </div>
                     <div class="webhook-url-row">
                         <code class="webhook-url"><?= e($whDispUrl) ?></code>
-                        <button class="btn btn-sm btn-outline copy-btn"
+                        <button class="webhook-url-copy copy-btn"
+                                type="button"
+                                aria-label="<?= __('webhook.copy') ?>"
+                                title="<?= __('webhook.copy') ?>"
                                 onclick="copyToClipboard(<?= htmlspecialchars(json_encode($whDispUrl)) ?>, this)">
-                            <?= __('webhook.copy') ?>
+                            <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+                                <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"></path>
+                            </svg>
                         </button>
                     </div>
-                    <?php if ($isPixel): ?>
-                    <div class="card-meta" style="font-size:0.8rem;color:var(--text-muted)">
-                        <?= __('webhook.sfn_pixel') ?>
-                    </div>
-                    <?php elseif ($isFile): ?>
-                    <div class="card-meta" style="font-size:0.8rem;color:var(--text-muted)">
-                        <?= __('webhook.sfn_file_upload') ?>
-                    </div>
-                    <?php endif; ?>
-                    <div class="card-meta">
+                    <div class="card-meta card-meta-split">
                         <span><?= (int)($eventCounts[(int)$wh['id']] ?? 0) ?> events</span>
+                        <?php if ($specialLabel !== ''): ?>
+                        <span class="card-meta-tag"><?= e($specialLabel) ?></span>
+                        <?php endif; ?>
                     </div>
                     <div class="card-actions">
                         <a href="<?= BASE_URL ?>/?page=webhook&action=detail&id=<?= $wh['id'] ?>" class="btn btn-sm btn-outline">View</a>

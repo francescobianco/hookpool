@@ -614,6 +614,10 @@ details > summary { cursor: pointer; user-select: none; }
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.25rem;
 }
+.cards-grid > .card,
+.cards-grid-2 > .card {
+    margin-bottom: 0;
+}
 .cards-grid-2 { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
 
 /* Endpoint Card */
@@ -1472,20 +1476,51 @@ tr:last-child td { border-bottom: none; }
 
 /* --- Webhook URL in project card ------------------------------------------ */
 .webhook-url-row {
+    position: relative;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    align-items: stretch;
     margin: 0.5rem 0;
-    flex-wrap: wrap;
 }
 .webhook-url {
     flex: 1;
-    font-size: 0.75rem;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    font-size: 0.82rem;
     font-family: var(--font-mono);
     color: var(--success);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 2.85rem 0.75rem 0.9rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.webhook-url-copy {
+    position: absolute;
+    top: 50%;
+    right: 0.35rem;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color 0.14s ease, background 0.14s ease, opacity 0.14s ease;
+}
+.webhook-url-copy:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+.webhook-url-copy.copied {
+    color: var(--success);
+    background: var(--success-bg);
 }
 
 /* --- Landing Page ---------------------------------------------------------- */
