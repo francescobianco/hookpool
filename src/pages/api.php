@@ -428,6 +428,57 @@ switch ($action) {
         echo json_encode(['ok' => true, 'id' => $savedViewId, 'preset_id' => $presetId, 'name' => $name, 'url' => $url]) . "\n";
         break;
 
+    // --- SAVE CONTROL PANEL WIDGET (POST) ---
+    case 'save_cp_widget':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) { http_response_code(403); echo json_encode(['error' => 'csrf']); break; }
+
+        $widgetId = (int)($_POST['id'] ?? 0);
+        $type     = trim($_POST['type'] ?? '');
+        $title    = trim($_POST['title'] ?? '');
+        $width    = max(1, min(2, (int)($_POST['width'] ?? 1)));
+        $configRaw = $_POST['config'] ?? '{}';
+
+        $allowed = ['button', 'updown', 'dpad', 'send'];
+        if (!in_array($type, $allowed, true)) { http_response_code(400); echo json_encode(['error' => 'invalid_type']); break; }
+
+        $configDecoded = json_decode($configRaw, true);
+        if (!is_array($configDecoded)) $configDecoded = [];
+        $configJson = json_encode($configDecoded);
+
+        if ($widgetId > 0) {
+            // Update — verify ownership
+            $ownStmt = $db->prepare('SELECT id FROM control_panel_widgets WHERE id = ? AND user_id = ?');
+            $ownStmt->execute([$widgetId, $userId]);
+            if (!$ownStmt->fetch()) { http_response_code(404); echo json_encode(['error' => 'not_found']); break; }
+
+            $db->prepare('UPDATE control_panel_widgets SET type = ?, title = ?, width = ?, config = ? WHERE id = ? AND user_id = ?')
+               ->execute([$type, $title, $width, $configJson, $widgetId, $userId]);
+            echo json_encode(['ok' => true, 'id' => $widgetId]) . "\n";
+        } else {
+            // Insert: sort_order = max + 1
+            $maxStmt = $db->prepare('SELECT COALESCE(MAX(sort_order), -1) FROM control_panel_widgets WHERE user_id = ?');
+            $maxStmt->execute([$userId]);
+            $sortOrder = (int)$maxStmt->fetchColumn() + 1;
+
+            $db->prepare('INSERT INTO control_panel_widgets (user_id, sort_order, type, title, width, config) VALUES (?, ?, ?, ?, ?, ?)')
+               ->execute([$userId, $sortOrder, $type, $title, $width, $configJson]);
+            $newId = (int)$db->lastInsertId();
+            echo json_encode(['ok' => true, 'id' => $newId]) . "\n";
+        }
+        break;
+
+    // --- DELETE CONTROL PANEL WIDGET (POST) ---
+    case 'delete_cp_widget':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) { http_response_code(403); echo json_encode(['error' => 'csrf']); break; }
+
+        $widgetId = (int)($_POST['id'] ?? 0);
+        $del = $db->prepare('DELETE FROM control_panel_widgets WHERE id = ? AND user_id = ?');
+        $del->execute([$widgetId, $userId]);
+        echo json_encode(['ok' => true]) . "\n";
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['error' => 'not_found']) . "\n";

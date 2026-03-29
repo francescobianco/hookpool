@@ -41,6 +41,9 @@
             <a href="<?= BASE_URL ?>/?page=project" class="nav-link<?= (($_GET['page'] ?? '') === 'project') ? ' active' : '' ?>">
                 <?= __('nav.projects') ?>
             </a>
+            <a href="<?= BASE_URL ?>/?page=control_panel" class="nav-link<?= (($_GET['page'] ?? '') === 'control_panel') ? ' active' : '' ?>">
+                <?= __('nav.control_panel') ?>
+            </a>
             <a href="<?= BASE_URL ?>/?page=settings" class="nav-link<?= (($_GET['page'] ?? '') === 'settings') ? ' active' : '' ?>">
                 <?= __('nav.settings') ?>
             </a>
@@ -139,6 +142,9 @@
                         <button class="sidebar-filter-delete" onclick="deleteFilter(<?= (int)$fp['id'] ?>, this)" title="Rimuovi">&times;</button>
                     </li>
                     <?php endforeach; ?>
+                    <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'control_panel') ? ' active' : '' ?>">
+                        <a href="<?= BASE_URL ?>/?page=control_panel"><?= __('nav.control_panel') ?></a>
+                    </li>
                     <li class="sidebar-webhook<?= (($_GET['page'] ?? '') === 'settings') ? ' active' : '' ?>">
                         <a href="<?= BASE_URL ?>/?page=settings"><?= __('nav.settings') ?></a>
                     </li>
