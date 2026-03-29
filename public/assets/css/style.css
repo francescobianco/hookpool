@@ -1869,7 +1869,10 @@ tr:last-child td { border-bottom: none; }
     border: 1px solid var(--border);
     border-radius: 20px;
     font-size: 0.82rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
 }
+.analytics-field-chip:hover { border-color: var(--accent); background: var(--surface); }
 .analytics-field-chip .chip-name { font-weight: 600; color: var(--text); }
 .analytics-field-chip .chip-formula { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); }
 .analytics-field-chip .chip-remove {
@@ -1916,8 +1919,8 @@ tr:last-child td { border-bottom: none; }
 .analytics-table td.analytics-field-val { font-family: var(--font-mono); font-size: 0.82rem; text-align: center; }
 .analytics-table .col-status { text-align: center; }
 
-.col-sort-link { color: inherit; text-decoration: none; }
-.col-sort-link:hover { color: var(--accent); }
+.col-sort-link { color: inherit; text-decoration: none; cursor: pointer; }
+.col-sort-link:hover { color: inherit; text-decoration: none; }
 
 /* Add-field modal — wider */
 .modal-dialog-wide { max-width: 640px; width: 95vw; }
@@ -1965,6 +1968,11 @@ tr:last-child td { border-bottom: none; }
     align-items: center;
 }
 .dsl-hint-grid span { color: var(--text-muted); }
+
+/* Aggregation selector in grouped table header */
+.agg-th { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.agg-form { margin: 0; }
+.agg-select { font-size: 0.72rem !important; padding: 2px 18px 2px 5px !important; width: auto !important; max-width: 70px !important; border-radius: 4px !important; cursor: pointer; font-weight: 700; letter-spacing: 0.03em; }
 
 .analytics-view-name-badge {
     font-size: 0.75rem;

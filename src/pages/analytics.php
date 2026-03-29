@@ -105,6 +105,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $csrfOk) {
         exit;
     }
 
+    if ($analyticsAction === 'update_field_agg') {
+        $fieldIdx = (int)($_POST['field_idx'] ?? -1);
+        $agg      = $_POST['agg'] ?? 'sum';
+        if (!in_array($agg, ['sum', 'max', 'min', 'avg'], true)) $agg = 'sum';
+        if (isset($fields[$fieldIdx])) {
+            $fields[$fieldIdx]['agg'] = $agg;
+            $db->prepare('UPDATE analytics_views SET fields = ? WHERE id = ?')
+               ->execute([json_encode(array_values($fields)), $viewId]);
+        }
+        header('Location: ' . BASE_URL . '/?page=analytics&view_id=' . $viewId . '&sort_by=' . urlencode($sortBy) . '&sort_dir=' . urlencode($sortDir));
+        exit;
+    }
+
+    if ($analyticsAction === 'edit_field') {
+        $fieldIdx     = (int)($_POST['field_idx'] ?? -1);
+        $fieldName    = trim($_POST['field_name'] ?? '');
+        $fieldFormula = trim($_POST['field_formula'] ?? '');
+        if (isset($fields[$fieldIdx]) && $fieldName !== '' && $fieldFormula !== '') {
+            $fields[$fieldIdx] = ['name' => $fieldName, 'formula' => $fieldFormula];
+            $db->prepare('UPDATE analytics_views SET fields = ? WHERE id = ?')
+               ->execute([json_encode(array_values($fields)), $viewId]);
+        }
+        header('Location: ' . BASE_URL . '/?page=analytics&view_id=' . $viewId . '&sort_by=' . urlencode($sortBy) . '&sort_dir=' . urlencode($sortDir));
+        exit;
+    }
+
     if ($analyticsAction === 'remove_field') {
         $fieldIdx = (int)($_POST['field_idx'] ?? -1);
         if (isset($fields[$fieldIdx])) {
@@ -162,53 +188,46 @@ unset($ev);
 
 $totalCount = count($allEvents);
 
-// ---- Compute custom field values for each row (ungrouped mode) ----
-$computedRows = []; // array of [event + computed field values]
-
-if ($groupby === 'none') {
-    foreach ($allEvents as $idx => $ev) {
-        $row = $ev;
-        $phValues = []; // placeholder name => value for this row
-
-        foreach ($fields as $fIdx => $field) {
-            try {
-                $val = DslEvaluator::evaluate($field['formula'], $allEvents, $idx, $phValues);
-            } catch (\Throwable $e) {
-                $val = 'ERR';
-            }
-            // Store for subsequent placeholders
-            $phValues[$field['name']] = $val;
-            $row['_field_' . $fIdx] = $val;
+// ---- Compute DSL field values for every row (always, needed by both modes) ----
+$computedRows = [];
+foreach ($allEvents as $idx => $ev) {
+    $row      = $ev;
+    $phValues = [];
+    foreach ($fields as $fIdx => $field) {
+        try {
+            $val = DslEvaluator::evaluate($field['formula'], $allEvents, $idx, $phValues);
+        } catch (\Throwable $e) {
+            $val = null;
         }
-        $computedRows[] = $row;
+        $phValues[$field['name']] = $val;
+        $row['_field_' . $fIdx]  = $val;
     }
+    $computedRows[] = $row;
+}
 
-    // Sort
-    $sortByField = $sortBy;
-    $sortDirMul  = $sortDir === 'asc' ? 1 : -1;
-
-    if ($sortByField === 'received_at' || $sortByField === 'method' || $sortByField === 'path' || $sortByField === 'ip' || $sortByField === 'validated') {
-        usort($computedRows, function ($a, $b) use ($sortByField, $sortDirMul) {
-            return $sortDirMul * strcmp((string)($a[$sortByField] ?? ''), (string)($b[$sortByField] ?? ''));
+// ---- Sort (ungrouped only) ----
+if ($groupby === 'none') {
+    $sortDirMul = $sortDir === 'asc' ? 1 : -1;
+    if (in_array($sortBy, ['received_at', 'method', 'path', 'ip', 'validated'], true)) {
+        usort($computedRows, function ($a, $b) use ($sortBy, $sortDirMul) {
+            return $sortDirMul * strcmp((string)($a[$sortBy] ?? ''), (string)($b[$sortBy] ?? ''));
         });
-    } elseif (preg_match('/^field_(\d+)$/', $sortByField, $fm)) {
+    } elseif (preg_match('/^field_(\d+)$/', $sortBy, $fm)) {
         $fIdx = (int)$fm[1];
         usort($computedRows, function ($a, $b) use ($fIdx, $sortDirMul) {
             $va = $a['_field_' . $fIdx] ?? null;
             $vb = $b['_field_' . $fIdx] ?? null;
-            if (is_numeric($va) && is_numeric($vb)) {
-                return $sortDirMul * ($va <=> $vb);
-            }
+            if (is_numeric($va) && is_numeric($vb)) return $sortDirMul * ($va <=> $vb);
             return $sortDirMul * strcmp((string)$va, (string)$vb);
         });
     }
 }
 
-// ---- Grouped data ----
+// ---- Grouped data (with aggregated custom fields) ----
 $groupedRows = [];
 if ($groupby !== 'none') {
-    foreach ($allEvents as $ev) {
-        $ts = strtotime($ev['received_at']);
+    foreach ($computedRows as $row) {
+        $ts  = strtotime($row['received_at']);
         $key = match($groupby) {
             'day'   => date('Y-m-d', $ts),
             'week'  => date('o', $ts) . '-W' . date('W', $ts),
@@ -217,26 +236,50 @@ if ($groupby !== 'none') {
         };
         if (!isset($groupedRows[$key])) {
             $groupedRows[$key] = [
-                'label'   => $key,
-                'count'   => 0,
-                'methods' => [],
-                'valid'   => 0,
-                'invalid' => 0,
+                'label'       => $key,
+                'count'       => 0,
+                'methods'     => [],
+                'valid'       => 0,
+                'invalid'     => 0,
+                '_field_vals' => [], // fIdx => [values]
             ];
         }
         $groupedRows[$key]['count']++;
-        $m = $ev['method'] ?? 'UNKNOWN';
+        $m = $row['method'] ?? 'UNKNOWN';
         $groupedRows[$key]['methods'][$m] = ($groupedRows[$key]['methods'][$m] ?? 0) + 1;
-        if ($ev['validated']) $groupedRows[$key]['valid']++;
+        if ($row['validated']) $groupedRows[$key]['valid']++;
         else $groupedRows[$key]['invalid']++;
+        // Collect per-field numeric values for aggregation
+        foreach ($fields as $fIdx => $field) {
+            $v = $row['_field_' . $fIdx] ?? null;
+            if (is_numeric($v)) {
+                $groupedRows[$key]['_field_vals'][$fIdx][] = (float)$v;
+            }
+        }
     }
 
-    // Sort grouped rows by label
-    if ($sortDir === 'asc') {
-        ksort($groupedRows);
-    } else {
-        krsort($groupedRows);
+    // Apply aggregation function to each group's field values
+    foreach ($groupedRows as &$gRow) {
+        foreach ($fields as $fIdx => $field) {
+            $agg    = $field['agg'] ?? 'sum';
+            $vals   = $gRow['_field_vals'][$fIdx] ?? [];
+            if (empty($vals)) {
+                $gRow['_field_agg_' . $fIdx] = null;
+            } else {
+                $gRow['_field_agg_' . $fIdx] = match($agg) {
+                    'max' => max($vals),
+                    'min' => min($vals),
+                    'avg' => round(array_sum($vals) / count($vals), 2),
+                    default => array_sum($vals), // sum
+                };
+            }
+        }
+        unset($gRow['_field_vals']);
     }
+    unset($gRow);
+
+    if ($sortDir === 'asc') ksort($groupedRows);
+    else                    krsort($groupedRows);
 }
 
 // ---- Helper: sort link ----
@@ -304,10 +347,10 @@ ob_start();
     <div class="analytics-fields-bar">
         <span class="analytics-fields-label">Custom fields:</span>
         <?php foreach ($fields as $fIdx => $field): ?>
-        <div class="analytics-field-chip">
+        <div class="analytics-field-chip" onclick="openEditFieldModal(<?= $fIdx ?>, <?= htmlspecialchars(json_encode($field['name'])) ?>, <?= htmlspecialchars(json_encode($field['formula'])) ?>)" title="Click to edit">
             <span class="chip-name"><?= e($field['name']) ?></span>
             <span class="chip-formula text-muted"><?= e($field['formula']) ?></span>
-            <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>" class="inline">
+            <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>" class="inline" onclick="event.stopPropagation()">
                 <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
                 <input type="hidden" name="_analytics_action" value="remove_field">
                 <input type="hidden" name="field_idx" value="<?= $fIdx ?>">
@@ -380,28 +423,48 @@ ob_start();
         <table class="analytics-table">
             <thead>
                 <tr>
-                    <th>
+                    <th class="col-fixed">
                         <?php $newDir = $sortDir === 'asc' ? 'desc' : 'asc'; ?>
                         <a href="<?= e(BASE_URL . '/?page=analytics&view_id=' . $viewId . '&sort_by=received_at&sort_dir=' . $newDir) ?>" class="col-sort-link">
                             Period <?= $sortDir === 'asc' ? '▲' : '▼' ?>
                         </a>
                     </th>
-                    <th>Events</th>
-                    <th>Methods</th>
-                    <th>Valid / Guard</th>
+                    <th class="col-fixed">Events</th>
+                    <th class="col-fixed">Methods</th>
+                    <th class="col-fixed">Valid / Guard</th>
+                    <?php foreach ($fields as $fIdx => $field):
+                        $currentAgg = $field['agg'] ?? 'sum';
+                    ?>
+                    <th class="col-custom-field">
+                        <div class="agg-th">
+                            <span><?= e($field['name']) ?></span>
+                            <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>" class="agg-form">
+                                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                                <input type="hidden" name="_analytics_action" value="update_field_agg">
+                                <input type="hidden" name="field_idx" value="<?= $fIdx ?>">
+                                <select name="agg" class="agg-select" onchange="this.form.submit()" onclick="event.stopPropagation()">
+                                    <option value="sum" <?= $currentAgg === 'sum' ? 'selected' : '' ?>>SUM</option>
+                                    <option value="max" <?= $currentAgg === 'max' ? 'selected' : '' ?>>MAX</option>
+                                    <option value="min" <?= $currentAgg === 'min' ? 'selected' : '' ?>>MIN</option>
+                                    <option value="avg" <?= $currentAgg === 'avg' ? 'selected' : '' ?>>AVG</option>
+                                </select>
+                            </form>
+                        </div>
+                    </th>
+                    <?php endforeach; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($groupedRows as $gRow): ?>
                 <tr>
-                    <td class="mono"><?= e($gRow['label']) ?></td>
-                    <td><?= (int)$gRow['count'] ?></td>
-                    <td>
+                    <td class="col-fixed mono"><?= e($gRow['label']) ?></td>
+                    <td class="col-fixed"><?= (int)$gRow['count'] ?></td>
+                    <td class="col-fixed">
                         <?php foreach ($gRow['methods'] as $method => $cnt): ?>
                         <span class="badge-method badge-method-sm <?= strtolower($method) ?>" style="margin-right:3px"><?= e($method) ?> <?= $cnt ?></span>
                         <?php endforeach; ?>
                     </td>
-                    <td>
+                    <td class="col-fixed">
                         <?php if ($gRow['valid'] > 0): ?>
                         <span class="badge badge-success"><?= $gRow['valid'] ?> valid</span>
                         <?php endif; ?>
@@ -409,6 +472,16 @@ ob_start();
                         <span class="badge badge-error"><?= $gRow['invalid'] ?> guard</span>
                         <?php endif; ?>
                     </td>
+                    <?php foreach ($fields as $fIdx => $field): ?>
+                    <td class="analytics-field-val">
+                        <?php
+                        $fVal = $gRow['_field_agg_' . $fIdx] ?? null;
+                        if ($fVal === null) echo '<span class="text-muted">—</span>';
+                        elseif (is_float($fVal) && $fVal != (int)$fVal) echo e(number_format($fVal, 2));
+                        else echo e((string)$fVal);
+                        ?>
+                    </td>
+                    <?php endforeach; ?>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -476,6 +549,64 @@ ob_start();
     </div>
 </div>
 
+<!-- Edit field modal -->
+<div id="editFieldModal" class="modal" style="display:none" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-wide">
+        <div class="modal-header">
+            <h3>Edit Custom Field</h3>
+            <button onclick="closeModal('editFieldModal')" class="modal-close">&times;</button>
+        </div>
+        <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>" id="editFieldForm" onsubmit="return validateEditFormulaBeforeSubmit(event)">
+            <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+            <input type="hidden" name="_analytics_action" value="edit_field">
+            <input type="hidden" name="field_idx" id="edit_field_idx" value="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="edit_field_name">Field name</label>
+                    <input type="text" id="edit_field_name" name="field_name" required maxlength="60">
+                </div>
+                <div class="form-group">
+                    <label for="edit_field_formula">Formula</label>
+                    <input type="text" id="edit_field_formula" name="field_formula" required class="mono" autocomplete="off" oninput="clearEditFormulaError()">
+                    <p id="edit_formula_error" class="form-hint formula-error" style="display:none"></p>
+                    <p id="edit_formula_ok" class="form-hint formula-ok" style="display:none">✓ Valid formula</p>
+                </div>
+
+                <div class="dsl-hint">
+                    <div class="dsl-hint-section">
+                        <div class="dsl-hint-title">Metrics</div>
+                        <div class="dsl-hint-row"><code>COUNT BEFORE</code> <code>COUNT AFTER</code></div>
+                        <div class="dsl-hint-row"><code>COUNT STREAK BEFORE</code> <code>COUNT STREAK AFTER</code></div>
+                        <div class="dsl-hint-row"><code>SECONDS|MINUTES|HOURS|DAYS&nbsp;BEFORE&nbsp;LAST</code></div>
+                        <div class="dsl-hint-row"><code>SECONDS|MINUTES|HOURS|DAYS&nbsp;AFTER&nbsp;FIRST</code></div>
+                    </div>
+                    <div class="dsl-hint-section">
+                        <div class="dsl-hint-title">Filter (optional)</div>
+                        <div class="dsl-hint-row"><code>WITH&nbsp;&lt;expr&gt;</code> — e.g. <code>COUNT BEFORE WITH {{status}} = 1</code></div>
+                        <div class="dsl-hint-row">Operators: <code>=</code> <code>!=</code> <code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code> <code>AND</code> <code>OR</code> <code>NOT</code></div>
+                    </div>
+                    <div class="dsl-hint-section">
+                        <div class="dsl-hint-title">Built-in variables</div>
+                        <div class="dsl-hint-grid">
+                            <code>{{body}}</code><span>raw request body</span>
+                            <code>{{status}}</code><span>1 = valid, 0 = guard</span>
+                            <code>{{method}}</code><span>HTTP method</span>
+                            <code>{{ts}}</code><span>Unix timestamp</span>
+                            <code>{{ip}}</code><span>sender IP</span>
+                            <code>{{known_ip}}</code><span>IP label or raw IP</span>
+                            <code>{{path}}</code><span>request path</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" id="editFieldSubmitBtn" class="btn btn-primary">Save changes</button>
+                <button type="button" onclick="closeModal('editFieldModal')" class="btn btn-outline">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Save to sidebar modal -->
 <div id="saveViewModal" class="modal" style="display:none" aria-hidden="true">
     <div class="modal-dialog">
@@ -504,6 +635,58 @@ let _formulaValidating = false;
 function clearFormulaError() {
     document.getElementById('formula_error').style.display = 'none';
     document.getElementById('formula_ok').style.display = 'none';
+}
+
+function openEditFieldModal(idx, name, formula) {
+    document.getElementById('edit_field_idx').value     = idx;
+    document.getElementById('edit_field_name').value    = name;
+    document.getElementById('edit_field_formula').value = formula;
+    document.getElementById('edit_formula_error').style.display = 'none';
+    document.getElementById('edit_formula_ok').style.display    = 'none';
+    openModal('editFieldModal');
+}
+
+function clearEditFormulaError() {
+    document.getElementById('edit_formula_error').style.display = 'none';
+    document.getElementById('edit_formula_ok').style.display    = 'none';
+}
+
+function validateEditFormulaBeforeSubmit(e) {
+    e.preventDefault();
+    const formula = document.getElementById('edit_field_formula').value.trim();
+    if (!formula) return;
+
+    const btn = document.getElementById('editFieldSubmitBtn');
+    btn.disabled    = true;
+    btn.textContent = 'Checking…';
+
+    fetch('<?= BASE_URL ?>/?page=api&action=validate_formula', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({ _csrf: csrfToken, formula })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled    = false;
+        btn.textContent = 'Save changes';
+        if (!data.ok) {
+            const el = document.getElementById('edit_formula_error');
+            el.textContent = '⚠ ' + data.error;
+            el.style.display = '';
+            document.getElementById('edit_formula_ok').style.display = 'none';
+        } else {
+            if (data.normalized) {
+                document.getElementById('edit_field_formula').value = data.normalized;
+            }
+            document.getElementById('edit_formula_error').style.display = 'none';
+            document.getElementById('editFieldForm').submit();
+        }
+    })
+    .catch(() => {
+        btn.disabled    = false;
+        btn.textContent = 'Save changes';
+        document.getElementById('editFieldForm').submit();
+    });
 }
 
 function validateFormulaBeforeSubmit(e) {
