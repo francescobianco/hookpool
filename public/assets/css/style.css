@@ -1842,8 +1842,9 @@ tr:last-child td { border-bottom: none; }
 }
 .analytics-total { font-size: 0.8rem; color: var(--text-dim); margin-left: auto; }
 .analytics-control-label { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
-.analytics-select { font-size: 0.82rem; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; width: auto; }
-.analytics-groupby-form { display: flex; align-items: center; gap: 0.4rem; }
+.analytics-groupby-form { display: inline-flex; align-items: center; gap: 0.4rem; width: auto; flex-shrink: 0; }
+.analytics-groupby-form select,
+.analytics-select { font-size: 0.82rem !important; padding: 5px 28px 5px 8px !important; width: auto !important; max-width: 130px !important; flex-shrink: 0 !important; }
 .analytics-add-field-btn { font-size: 0.85rem; padding: 6px 14px; }
 
 .analytics-fields-bar {
