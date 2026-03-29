@@ -348,14 +348,16 @@ ob_start();
         <span class="analytics-fields-label">Custom fields:</span>
         <?php foreach ($fields as $fIdx => $field): ?>
         <div class="analytics-field-chip" onclick="openEditFieldModal(<?= $fIdx ?>, <?= htmlspecialchars(json_encode($field['name'])) ?>, <?= htmlspecialchars(json_encode($field['formula'])) ?>)" title="Click to edit">
-            <span class="chip-name"><?= e($field['name']) ?></span>
-            <span class="chip-formula text-muted"><?= e($field['formula']) ?></span>
-            <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>" class="inline" onclick="event.stopPropagation()">
-                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
-                <input type="hidden" name="_analytics_action" value="remove_field">
-                <input type="hidden" name="field_idx" value="<?= $fIdx ?>">
-                <button type="submit" class="chip-remove" title="Remove field">&times;</button>
-            </form>
+            <div class="chip-inner">
+                <span class="chip-name"><?= e($field['name']) ?></span>
+                <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>" class="inline" onclick="event.stopPropagation()">
+                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                    <input type="hidden" name="_analytics_action" value="remove_field">
+                    <input type="hidden" name="field_idx" value="<?= $fIdx ?>">
+                    <button type="submit" class="chip-remove" title="Remove field">&times;</button>
+                </form>
+            </div>
+            <span class="chip-formula"><?= e($field['formula']) ?></span>
         </div>
         <?php endforeach; ?>
     </div>

@@ -1861,20 +1861,22 @@ tr:last-child td { border-bottom: none; }
 }
 .analytics-fields-label { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
 .analytics-field-chip {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 3px 8px 3px 10px;
-    background: var(--bg);
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 4px 8px 4px 10px;
+    background: var(--bg-card, #fff);
     border: 1px solid var(--border);
-    border-radius: 20px;
+    border-radius: 10px;
     font-size: 0.82rem;
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
 }
-.analytics-field-chip:hover { border-color: var(--accent); background: var(--surface); }
-.analytics-field-chip .chip-name { font-weight: 600; color: var(--text); }
-.analytics-field-chip .chip-formula { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); }
+.analytics-field-chip:hover { border-color: var(--accent); background: var(--bg-hover); }
+.analytics-field-chip .chip-inner { display: flex; align-items: center; gap: 0.4rem; width: 100%; }
+.analytics-field-chip .chip-name { font-weight: 600; color: var(--text-primary); }
+.analytics-field-chip .chip-formula { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
 .analytics-field-chip .chip-remove {
     background: none; border: none; cursor: pointer;
     color: var(--text-dim); font-size: 1rem; line-height: 1;
