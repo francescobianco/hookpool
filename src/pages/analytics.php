@@ -425,7 +425,7 @@ ob_start();
                     <label for="field_formula">Formula</label>
                     <input type="text" id="field_formula" name="field_formula" placeholder="e.g. COUNT BEFORE" required class="mono" autocomplete="off">
                     <p class="form-hint">
-                        Examples: <code>COUNT BEFORE</code> · <code>COUNT AFTER WITH STATUS = 1</code> · <code>DAYS BEFORE LAST</code> · <code>HOURS AFTER FIRST WITH METHOD = "POST"</code>
+                        Examples: <code>COUNT BEFORE</code> · <code>COUNT AFTER WITH STATUS = 1</code> · <code>DAYS BEFORE LAST</code> · <code>COUNT STREAK AFTER WITH VALUE = 0</code> · <code>HOURS AFTER FIRST WITH METHOD = "POST"</code>
                         <br>Fields: <code>VALUE</code> (body as number) · <code>STATUS</code> (1=valid) · <code>TS</code> (unix timestamp) · <code>METHOD</code>
                     </p>
                 </div>
@@ -518,3 +518,4 @@ function saveViewToSidebar() {
 <?php
 $content = ob_get_clean();
 require __DIR__ . '/../layout.php';
+exit;

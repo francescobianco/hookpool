@@ -23,8 +23,8 @@ The `WITH` clause is optional. When present, only rows that satisfy its conditio
 |---|---|
 | `COUNT BEFORE` | Number of events that occurred before the current one |
 | `COUNT AFTER` | Number of events that occurred after the current one |
-| `COUNT RUN BEFORE` | Consecutive count backwards (stops at first non-matching row) |
-| `COUNT RUN AFTER` | Consecutive count forwards (stops at first non-matching row) |
+| `COUNT STREAK BEFORE` | Consecutive count backwards (stops at first non-matching row) |
+| `COUNT STREAK AFTER` | Consecutive count forwards (stops at first non-matching row) |
 
 ### Time-distance metrics
 
@@ -116,7 +116,7 @@ For each row at index `i`:
    - `LAST` → nearest candidate (`end` of BEFORE set, `start` of AFTER set)
    - `FIRST` → furthest candidate (`start` of BEFORE set, `end` of AFTER set)
    - `COUNT` → all candidates (no selection)
-   - `RUN` → stop scanning at the first non-matching candidate
+   - `STREAK` → stop scanning at the first non-matching candidate
 4. Compute the metric (count or time difference).
 
 ---
@@ -146,7 +146,7 @@ COUNT AFTER WITH STATUS = 1
 How many valid events follow this one.
 
 ```
-COUNT RUN AFTER WITH VALUE = 0
+COUNT STREAK AFTER WITH VALUE = 0
 ```
 How many consecutive events after this one have a zero body value.
 
@@ -174,8 +174,8 @@ EXPR        := METRIC ( "WITH" BOOL_EXPR )? ;
 
 METRIC      := "COUNT BEFORE"
              | "COUNT AFTER"
-             | "COUNT RUN BEFORE"
-             | "COUNT RUN AFTER"
+             | "COUNT STREAK BEFORE"
+             | "COUNT STREAK AFTER"
              | TIME_UNIT DIRECTION ANCHOR ;
 
 TIME_UNIT   := "SECONDS" | "MINUTES" | "HOURS" | "DAYS" ;

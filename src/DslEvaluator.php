@@ -6,8 +6,8 @@
  * Supports formulas like:
  *   COUNT BEFORE
  *   COUNT AFTER
- *   COUNT RUN BEFORE
- *   COUNT RUN AFTER
+ *   COUNT STREAK BEFORE
+ *   COUNT STREAK AFTER
  *   DAYS|HOURS|MINUTES|SECONDS BEFORE LAST
  *   DAYS|HOURS|MINUTES|SECONDS AFTER FIRST
  *   Any of the above followed by: WITH <boolean_expression>
@@ -79,7 +79,7 @@ class DslEvaluator
                 if ($withStr !== null) $cands = self::filterWith($cands, $withStr, $placeholders);
                 return count($cands);
 
-            case 'COUNT RUN BEFORE':
+            case 'COUNT STREAK BEFORE':
                 $count = 0;
                 for ($i = $idx - 1; $i >= 0; $i--) {
                     if ($withStr !== null && !self::evalBool($withStr, $rows[$i], $placeholders)) break;
@@ -87,7 +87,7 @@ class DslEvaluator
                 }
                 return $count;
 
-            case 'COUNT RUN AFTER':
+            case 'COUNT STREAK AFTER':
                 $count = 0;
                 $n = count($rows);
                 for ($i = $idx + 1; $i < $n; $i++) {
