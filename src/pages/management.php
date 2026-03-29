@@ -407,17 +407,25 @@ $WIDGET_TYPES = [
 
     function cpDoFetch(url, method, body, btn, extraReset) {
         btn.classList.add('loading');
-        const opts = { method };
-        if (body && method !== 'GET' && method !== 'HEAD') {
-            opts.body = body;
-        }
-        fetch(url, opts)
+        const payload = new URLSearchParams({
+            _csrf: csrfToken,
+            url: url,
+            method: method,
+            body: body || '',
+        });
+
+        fetch(BASE + '/?page=api&action=execute_cp_action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: payload,
+        })
+            .then(r => r.json())
             .then(r => {
                 btn.classList.remove('loading');
                 btn.classList.add(r.ok ? 'success' : 'error');
                 if (extraReset) extraReset.value = '';
                 setTimeout(() => btn.classList.remove('success', 'error'), 1800);
-                cpToast(r.ok ? '✓ OK (' + r.status + ')' : '✗ Errore ' + r.status, r.ok ? 'success' : 'error');
+                cpToast(r.ok ? '✓ OK (' + r.status + ')' : '✗ Errore ' + (r.status || r.error || 0), r.ok ? 'success' : 'error');
             })
             .catch(err => {
                 btn.classList.remove('loading');

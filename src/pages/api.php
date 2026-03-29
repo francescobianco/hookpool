@@ -480,6 +480,76 @@ switch ($action) {
         }
         break;
 
+    // --- EXECUTE CONTROL PANEL ACTION (POST, server-side HTTP) ---
+    case 'execute_cp_action':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) { http_response_code(403); echo json_encode(['error' => 'csrf']); break; }
+
+        $targetUrl    = trim((string)($_POST['url'] ?? ''));
+        $targetMethod = strtoupper(trim((string)($_POST['method'] ?? 'GET')));
+        $requestBody  = (string)($_POST['body'] ?? '');
+        $allowedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
+
+        if ($targetUrl === '' || !filter_var($targetUrl, FILTER_VALIDATE_URL)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'invalid_url']) . "\n";
+            break;
+        }
+        if (!in_array($targetMethod, $allowedMethods, true)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'invalid_method']) . "\n";
+            break;
+        }
+
+        $ch = curl_init($targetUrl);
+        if ($ch === false) {
+            http_response_code(500);
+            echo json_encode(['error' => 'curl_init_failed']) . "\n";
+            break;
+        }
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['User-Agent: Hookpool-Control-Panel/1.0']);
+
+        switch ($targetMethod) {
+            case 'GET':
+                curl_setopt($ch, CURLOPT_HTTPGET, true);
+                break;
+            case 'HEAD':
+                curl_setopt($ch, CURLOPT_NOBODY, true);
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'HEAD');
+                break;
+            case 'POST':
+                curl_setopt($ch, CURLOPT_POST, true);
+                if ($requestBody !== '') curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
+                break;
+            default:
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $targetMethod);
+                if ($requestBody !== '') curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
+                break;
+        }
+
+        $responseBody   = curl_exec($ch);
+        $responseStatus = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError      = curl_error($ch);
+        curl_close($ch);
+
+        if ($responseBody === false) {
+            http_response_code(502);
+            echo json_encode(['error' => $curlError ?: 'curl_error', 'status' => 0]) . "\n";
+            break;
+        }
+
+        echo json_encode([
+            'ok' => $responseStatus >= 200 && $responseStatus < 300,
+            'status' => $responseStatus,
+            'body' => mb_substr((string)$responseBody, 0, 2000),
+        ]) . "\n";
+        break;
+
     // --- DELETE CONTROL PANEL WIDGET (POST) ---
     case 'delete_cp_widget':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }

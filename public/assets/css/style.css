@@ -604,6 +604,18 @@ details > summary { cursor: pointer; user-select: none; }
 .card-title { margin: 0; font-size: 1.2rem !important; font-weight: 700; }
 .card-subtitle { margin: 0.3rem 0 0; font-size: 0.9rem; }
 .card-meta { color: var(--text-muted); font-size: 0.9rem; margin: 0.65rem 0; }
+.card-meta-split {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+.card-meta-tag {
+    margin-left: auto;
+    text-align: right;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
 .card-actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 .card-label { font-size: 0.79rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.65rem; }
 .card-stats { display: flex; gap: 1.5rem; color: var(--text-muted); font-size: 0.93rem; margin: 0.7rem 0 0.3rem; }
