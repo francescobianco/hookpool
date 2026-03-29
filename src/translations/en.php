@@ -262,7 +262,7 @@ return [
     'event.download'  => 'Download',
 
     // Webhook extra
-    'webhook.settings'      => 'Webhook Settings',
+    'webhook.settings'      => 'Settings',
     'webhook.status'        => 'Status',
     'webhook.disable'       => 'Disable',
     'webhook.enable'        => 'Enable',
