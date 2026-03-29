@@ -5,10 +5,23 @@ $userId       = (int)$current_user['id'];
 
 // Filters from GET
 $filterCategoryId = isset($_GET['category_id']) && $_GET['category_id'] !== '' ? (int)$_GET['category_id'] : null;
-$filterProjectId  = isset($_GET['project_id'])  && $_GET['project_id']  !== '' ? (int)$_GET['project_id']  : null;
-$filterMethod     = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM','PIXEL','CRON'], true) ? $_GET['method'] : '';
-$filterStatus     = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
-$filterTime       = isset($_GET['time'])   && in_array($_GET['time'],   ['1h','24h','7d','30d'], true)  ? $_GET['time']   : '';
+$filterProjectId  = null;
+$filterWebhookId  = null;
+
+// scope param: "p_{id}" = project, "w_{id}" = webhook
+// also accept legacy project_id= for saved presets
+$scopeParam = trim($_GET['scope'] ?? '');
+if ($scopeParam !== '') {
+    if (str_starts_with($scopeParam, 'p_')) $filterProjectId = (int)substr($scopeParam, 2);
+    elseif (str_starts_with($scopeParam, 'w_')) $filterWebhookId = (int)substr($scopeParam, 2);
+} elseif (isset($_GET['project_id']) && $_GET['project_id'] !== '') {
+    $filterProjectId = (int)$_GET['project_id'];
+    $scopeParam = 'p_' . $filterProjectId;
+}
+
+$filterMethod = isset($_GET['method']) && in_array($_GET['method'], ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS','ALARM','PIXEL','CRON'], true) ? $_GET['method'] : '';
+$filterStatus = isset($_GET['status']) && in_array($_GET['status'], ['validated','rejected'], true) ? $_GET['status'] : '';
+$filterTime   = isset($_GET['time'])   && in_array($_GET['time'],   ['1h','24h','7d','30d'], true)  ? $_GET['time']   : '';
 
 // Build query
 $whereClauses = ['p.user_id = ?', 'p.deleted_at IS NULL', 'w.deleted_at IS NULL'];
@@ -21,6 +34,10 @@ if ($filterCategoryId !== null) {
 if ($filterProjectId !== null) {
     $whereClauses[] = 'p.id = ?';
     $params[] = $filterProjectId;
+}
+if ($filterWebhookId !== null) {
+    $whereClauses[] = 'w.id = ?';
+    $params[] = $filterWebhookId;
 }
 if ($filterMethod !== '') {
     $whereClauses[] = 'e.method = ?';
@@ -78,10 +95,23 @@ $catStmt = $db->prepare('SELECT id, name FROM categories WHERE user_id = ? AND d
 $catStmt->execute([$userId]);
 $allCategories = $catStmt->fetchAll();
 
-// Get projects for filter dropdown (scoped to user)
+// Get projects + webhooks for filter dropdown (scoped to user)
 $projStmt = $db->prepare('SELECT id, name FROM projects WHERE user_id = ? AND deleted_at IS NULL ORDER BY name');
 $projStmt->execute([$userId]);
 $allProjects = $projStmt->fetchAll();
+
+$whStmt = $db->prepare('
+    SELECT w.id, w.name, w.project_id
+    FROM webhooks w
+    JOIN projects p ON p.id = w.project_id
+    WHERE p.user_id = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
+    ORDER BY p.name, w.name
+');
+$whStmt->execute([$userId]);
+$webhooksByProject = [];
+foreach ($whStmt->fetchAll() as $wh) {
+    $webhooksByProject[(int)$wh['project_id']][] = $wh;
+}
 
 // Build query params for AJAX polling
 $ajaxParams = array_filter([
@@ -89,6 +119,7 @@ $ajaxParams = array_filter([
     'action'      => 'events',
     'category_id' => $filterCategoryId !== null ? $filterCategoryId : '',
     'project_id'  => $filterProjectId  !== null ? $filterProjectId  : '',
+    'webhook_id'  => $filterWebhookId  !== null ? $filterWebhookId  : '',
     'method'      => $filterMethod,
     'status'      => $filterStatus,
     'time'        => $filterTime,
@@ -98,7 +129,7 @@ $ajaxBase = '?' . http_build_query($ajaxParams);
 // Current active filter params (for save)
 $activeFilterParams = array_filter([
     'category_id' => $filterCategoryId !== null ? $filterCategoryId : '',
-    'project_id'  => $filterProjectId  !== null ? $filterProjectId  : '',
+    'scope'       => $scopeParam,
     'method'      => $filterMethod,
     'status'      => $filterStatus,
     'time'        => $filterTime,
