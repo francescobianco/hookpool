@@ -2327,6 +2327,10 @@ tr:last-child td { border-bottom: none; }
 .cp-url-row { display: flex; gap: 6px; align-items: stretch; }
 .cp-url-row .form-control { flex: 1; min-width: 0; }
 .cp-url-row .cp-webhook-pick-btn { white-space: nowrap; flex-shrink: 0; }
+.cp-method-field {
+    flex: 0 0 118px;
+    min-width: 118px;
+}
 
 .cp-picker-dropdown {
     position: fixed;
