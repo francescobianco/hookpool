@@ -448,6 +448,10 @@ function webhookUrl(string $projectSlug, string $webhookToken): string {
     return BASE_URL . '/' . rawurlencode($projectSlug) . '/' . rawurlencode($webhookToken);
 }
 
+function relayWebhookUrl(string $projectSlug, string $webhookToken): string {
+    return webhookUrl($projectSlug, $webhookToken) . '.relay';
+}
+
 function generateUniqueWebhookToken(PDO $db, int $projectId): string {
     do {
         $token = generateWebhookToken();

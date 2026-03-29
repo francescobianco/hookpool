@@ -8,13 +8,13 @@ Usage:
     python3 relay_demo.py <webhook_url> [local_port]
 
 Arguments:
-    webhook_url   Full URL of the Hookpool webhook endpoint
-                  e.g. https://hookpool.example.com/hook?token=abc&project=myproj
+    webhook_url   Full URL of the Hookpool relay endpoint
+                  e.g. https://hookpool.example.com/myproj/abc.relay
     local_port    Port for the local demo server (default: 9876)
 
 What it does:
     1. Starts a local demo HTTP server on the given port.
-    2. Runs a relay client that long-polls the webhook via PATCH.
+    2. Runs a relay client that long-polls the .relay endpoint via PATCH.
     3. When a request arrives on the webhook public side (any method except
        PATCH), it is forwarded to the local demo server and the response is
        returned to the original caller — transparently.
@@ -22,7 +22,7 @@ What it does:
 Once running, call the webhook with any non-PATCH method to see the relay
 in action:
 
-    curl -X POST '<webhook_url>' -H 'Content-Type: application/json' \\
+    curl -X POST '<public_webhook_url>' -H 'Content-Type: application/json' \\
          -d '{"hello":"world"}'
 
 The response will be served by the local demo server running in this process.
@@ -198,7 +198,7 @@ def relay_client(webhook_url: str, local_base: str, stop_event: threading.Event)
     pending_seq:      int | None  = None
     pending_response: dict | None = None
 
-    _log('relay', f'Starting — webhook: {webhook_url}')
+    _log('relay', f'Starting — relay endpoint: {webhook_url}')
     _log('relay', f'Forwarding to:     {local_base}')
 
     while not stop_event.is_set():

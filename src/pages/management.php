@@ -233,7 +233,7 @@ $WIDGET_TYPES = [
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="cpFUpBodyGroup">
                         <label class="form-label">Body</label>
                         <input type="text" class="form-control" id="cpFUpBody" placeholder="Opzionale">
                     </div>
@@ -258,7 +258,7 @@ $WIDGET_TYPES = [
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="cpFDownBodyGroup">
                         <label class="form-label">Body</label>
                         <input type="text" class="form-control" id="cpFDownBody" placeholder="Opzionale">
                     </div>
@@ -440,6 +440,9 @@ $WIDGET_TYPES = [
         if (card) card.classList.add('selected');
         document.getElementById('cpEditType').value = type;
         cpShowTypeFields(type);
+        cpSyncMethodBodyVisibility('cpFBtnMethod', 'cpFBtnBodyGroup');
+        cpSyncMethodBodyVisibility('cpFUpMethod', 'cpFUpBodyGroup');
+        cpSyncMethodBodyVisibility('cpFDownMethod', 'cpFDownBodyGroup');
         cpShowStep('config');
     };
 
@@ -457,6 +460,17 @@ $WIDGET_TYPES = [
         document.querySelectorAll('.cp-type-fields').forEach(el => el.style.display = 'none');
         const fieldsEl = document.getElementById('cpFields' + type.charAt(0).toUpperCase() + type.slice(1));
         if (fieldsEl) fieldsEl.style.display = '';
+    }
+
+    function cpMethodSupportsBody(method) {
+        return ['POST', 'PUT', 'PATCH'].includes(String(method || '').toUpperCase());
+    }
+
+    function cpSyncMethodBodyVisibility(methodId, groupId) {
+        const methodEl = document.getElementById(methodId);
+        const groupEl = document.getElementById(groupId);
+        if (!methodEl || !groupEl) return;
+        groupEl.style.display = cpMethodSupportsBody(methodEl.value) ? '' : 'none';
     }
 
     // --- Edit ---
@@ -480,6 +494,7 @@ $WIDGET_TYPES = [
             document.getElementById('cpFBtnUrl').value    = cfg.url    || '';
             document.getElementById('cpFBtnMethod').value = cfg.method || 'GET';
             document.getElementById('cpFBtnBody').value   = cfg.body   || '';
+            cpSyncMethodBodyVisibility('cpFBtnMethod', 'cpFBtnBodyGroup');
         } else if (type === 'updown') {
             document.getElementById('cpFUpLabel').value    = cfg.up_label    || '';
             document.getElementById('cpFUpUrl').value      = cfg.up_url      || '';
@@ -489,6 +504,8 @@ $WIDGET_TYPES = [
             document.getElementById('cpFDownUrl').value    = cfg.down_url    || '';
             document.getElementById('cpFDownMethod').value = cfg.down_method || 'GET';
             document.getElementById('cpFDownBody').value   = cfg.down_body   || '';
+            cpSyncMethodBodyVisibility('cpFUpMethod', 'cpFUpBodyGroup');
+            cpSyncMethodBodyVisibility('cpFDownMethod', 'cpFDownBodyGroup');
         } else if (type === 'dpad') {
             ['Up','Down','Left','Right'].forEach(d => {
                 const key = d.toLowerCase();
@@ -648,5 +665,16 @@ $WIDGET_TYPES = [
         })
         .catch(() => cpToast('Errore di rete', 'error'));
     };
+
+    [
+        ['cpFBtnMethod', 'cpFBtnBodyGroup'],
+        ['cpFUpMethod', 'cpFUpBodyGroup'],
+        ['cpFDownMethod', 'cpFDownBodyGroup'],
+    ].forEach(([methodId, groupId]) => {
+        const methodEl = document.getElementById(methodId);
+        if (!methodEl) return;
+        methodEl.addEventListener('change', () => cpSyncMethodBodyVisibility(methodId, groupId));
+        cpSyncMethodBodyVisibility(methodId, groupId);
+    });
 })();
 </script>

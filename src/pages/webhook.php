@@ -821,7 +821,8 @@ function sfnChange(radio) {
             <?php endif; ?>
 
             <?php if ($currentFn === 'http_relay'):
-                $relayUrl = BASE_URL . '/' . rawurlencode($wh['project_slug']) . '/' . rawurlencode($wh['token']);
+                $relayUrl = relayWebhookUrl($wh['project_slug'], $wh['token']);
+                $publicRelayUrl = webhookUrl($wh['project_slug'], $wh['token']);
             ?>
             <div class="special-fn-detail special-fn-note" style="margin-top:1.5rem">
                 <div class="special-fn-note-icon">⚠️</div>
@@ -832,7 +833,7 @@ function sfnChange(radio) {
             </div>
             <div class="special-fn-detail" style="margin-top:1rem">
                 <p class="text-muted" style="font-size:0.88rem;margin-bottom:0.5rem"><?= __('webhook.sfn_relay_public_label') ?></p>
-                <code class="pixel-url-code"><?= e($relayUrl) ?></code>
+                <code class="pixel-url-code"><?= e($publicRelayUrl) ?></code>
                 <p class="text-muted" style="font-size:0.88rem;margin:1rem 0 0.5rem"><?= __('webhook.sfn_relay_demo_label') ?></p>
                 <code class="example-curl">python3 tests/relay_demo.py '<?= e($relayUrl) ?>'</code>
             </div>
@@ -935,6 +936,7 @@ $recentEvents = $evtStmt->fetchAll();
 
 $isPaused      = !empty($wh['paused_until']) && strtotime($wh['paused_until']) > time();
 $webhookUrl    = webhookUrl($wh['slug'] ?? $wh['project_slug'] ?? '', $wh['token']);
+$relayWebhookUrl = relayWebhookUrl($wh['slug'] ?? $wh['project_slug'] ?? '', $wh['token']);
 $isPixelMode   = ($wh['special_function'] ?? '') === 'pixel';
 $isRelayMode   = ($wh['special_function'] ?? '') === 'http_relay';
 $pixelUrlDetail = $webhookUrl . '.png';
@@ -1022,7 +1024,7 @@ ob_start();
         <div class="endpoint-hint">
             <?= __('webhook.sfn_http_relay_desc') ?>
             <br>
-            <code class="example-curl">python3 tests/relay_demo.py '<?= e($webhookUrl) ?>'</code>
+            <code class="example-curl">python3 tests/relay_demo.py '<?= e($relayWebhookUrl) ?>'</code>
         </div>
         <?php else: ?>
         <div class="card-label">Webhook Endpoint</div>

@@ -251,7 +251,7 @@ return [
     'webhook.sfn_file_note_title'    => 'Buffer mode — not for hosting',
     'webhook.sfn_file_note_body'     => 'Files are stored alongside the event log as a temporary buffer for your workflows. No backup is provided. Do not use this for permanent file hosting.',
     'webhook.sfn_http_relay'         => 'HTTP Relay',
-    'webhook.sfn_http_relay_desc'    => 'Turns this webhook into a transparent gateway for private services. A relay client inside your network long-polls via PATCH; all other requests are proxied through it.',
+    'webhook.sfn_http_relay_desc'    => 'Turns this webhook into a transparent gateway for private services. A relay client inside your network long-polls via PATCH on the .relay endpoint; all requests to the base webhook URL are proxied through it.',
     'webhook.sfn_relay_public_label' => 'Public endpoint (callers use this URL)',
     'webhook.sfn_relay_demo_label'   => 'Start the demo relay client',
     'webhook.sfn_relay_note_title'   => 'Relay client required',

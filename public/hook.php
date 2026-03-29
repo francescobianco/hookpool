@@ -6,6 +6,11 @@ require __DIR__ . '/../src/utils.php';
 require __DIR__ . '/../src/mail.php';
 
 $token = $_GET['token'] ?? '';
+$isRelayPollRoute = false;
+if (is_string($token) && str_ends_with($token, '.relay')) {
+    $token = substr($token, 0, -6);
+    $isRelayPollRoute = true;
+}
 $projectSlug = trim((string)($_GET['project'] ?? ''));
 if (!$token) {
     http_response_code(404);
@@ -130,8 +135,8 @@ if (strpos($ip, ',') !== false) {
     $ip = trim(explode(',', $ip)[0]);
 }
 
-// ── HTTP Relay: private polling side (PATCH only) ────────────────────────────
-if (($webhook['special_function'] ?? '') === 'http_relay' && $method === 'PATCH') {
+// ── HTTP Relay: private polling side (.relay + PATCH only) ───────────────────
+if (($webhook['special_function'] ?? '') === 'http_relay' && $isRelayPollRoute && $method === 'PATCH') {
     relayHandlePoll($db, $webhook, $body);
     exit;
 }
