@@ -637,36 +637,39 @@ details > summary { cursor: pointer; user-select: none; }
 }
 .endpoint-hint { font-size: 0.9rem; color: var(--text-muted); }
 .example-curl-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    position: relative;
+    display: block;
     margin-top: 0.5rem;
 }
+.example-curl-wrap:hover .example-curl-copy { opacity: 1; }
 .example-curl {
     display: block;
-    flex: 1;
-    min-width: 0;
     font-size: 0.84rem;
     color: var(--text-dim);
     word-break: break-all;
+    padding-right: 52px;
     margin-top: 0;
 }
 .example-curl-copy {
-    flex-shrink: 0;
-    background: none;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 2px 8px;
-    font-size: 0.72rem;
+    padding: 1px 7px;
+    font-size: 0.7rem;
     font-family: var(--font-sans);
     color: var(--text-muted);
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
-    line-height: 1.6;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.12s, color 0.12s, border-color 0.12s;
+    line-height: 1.7;
 }
 .example-curl-copy:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--text-dim); }
-.example-curl-copy.copied { background: var(--success-bg); border-color: var(--success); color: var(--success); }
+.example-curl-copy.copied { background: var(--success-bg); border-color: var(--success); color: var(--success); opacity: 1; }
 
 /* --- Buttons --------------------------------------------------------------- */
 .btn {

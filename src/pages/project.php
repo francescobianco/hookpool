@@ -305,6 +305,26 @@ if ($action === 'create_category') {
     exit;
 }
 
+// --- INLINE RENAME PROJECT (AJAX POST) ---
+if ($action === 'rename' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $projectId = (int)($_GET['id'] ?? 0);
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        http_response_code(403); echo json_encode(['error' => 'csrf']); exit;
+    }
+    $name = trim($_POST['name'] ?? '');
+    if ($name === '') { http_response_code(400); echo json_encode(['error' => 'name_required']); exit; }
+
+    $projStmt = $db->prepare('SELECT id FROM projects WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+    $projStmt->execute([$projectId, $userId]);
+    if (!$projStmt->fetch()) { http_response_code(404); echo json_encode(['error' => 'not_found']); exit; }
+
+    $db->prepare('UPDATE projects SET name = ? WHERE id = ? AND user_id = ?')->execute([$name, $projectId, $userId]);
+    while (ob_get_level()) ob_end_clean();
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => true]);
+    exit;
+}
+
 // --- PROJECT DETAIL ---
 if ($action === 'detail') {
     $projectId = (int)($_GET['id'] ?? 0);
@@ -349,7 +369,15 @@ if ($action === 'detail') {
     <div class="page-container">
         <div class="page-header">
             <div class="header-title-group">
-                <h1><?= projectEmoji(($project['emoji'] ?? '') ?: 'robot') ?> <?= e($project['name']) ?></h1>
+                <div class="title-inline" id="projectTitleBlock">
+                    <h1 id="projectTitleText"><?= projectEmoji(($project['emoji'] ?? '') ?: 'robot') ?> <?= e($project['name']) ?></h1>
+                    <button type="button" class="title-edit-link" id="projectRenameBtn" aria-label="<?= __('project.edit') ?>" title="<?= __('project.edit') ?>" onclick="startProjectRename()">✎</button>
+                    <form id="projectRenameForm" style="display:none;align-items:center;gap:6px" onsubmit="submitProjectRename(event)">
+                        <input type="text" id="projectRenameInput" value="<?= e($project['name']) ?>" maxlength="100" class="inline-rename-input">
+                        <button type="submit" class="btn btn-xs btn-primary">✓</button>
+                        <button type="button" class="btn btn-xs btn-outline" onclick="cancelProjectRename()">✕</button>
+                    </form>
+                </div>
                 <?php if ($project['description']): ?>
                 <p class="text-muted"><?= e($project['description']) ?></p>
                 <?php endif; ?>
@@ -465,7 +493,56 @@ if ($action === 'detail') {
         document.getElementById('addGuardProjectId').value = '<?= $projectId ?>';
         document.getElementById('addGuardWebhookId').value = '';
         document.getElementById('addGuardRedirect').value = 'project&action=detail&id=<?= $projectId ?>';
-    });</script>
+    });
+
+    function startProjectRename() {
+        document.getElementById('projectTitleText').style.display = 'none';
+        document.getElementById('projectRenameBtn').style.display = 'none';
+        const form = document.getElementById('projectRenameForm');
+        form.style.display = 'flex';
+        const input = document.getElementById('projectRenameInput');
+        input.focus();
+        input.select();
+    }
+
+    function cancelProjectRename() {
+        document.getElementById('projectRenameForm').style.display = 'none';
+        document.getElementById('projectTitleText').style.display = '';
+        document.getElementById('projectRenameBtn').style.display = '';
+    }
+
+    function submitProjectRename(e) {
+        e.preventDefault();
+        const name = document.getElementById('projectRenameInput').value.trim();
+        if (!name) return;
+
+        fetch('<?= BASE_URL ?>/?page=project&action=rename&id=<?= $projectId ?>', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({
+                _csrf: '<?= e(generateCsrfToken()) ?>',
+                name: name,
+            }),
+        }).then(r => {
+            if (r.ok) {
+                const titleEl = document.getElementById('projectTitleText');
+                // h1 text is "EMOJI name" — keep everything up to first space
+                const orig = titleEl.textContent;
+                const firstSpace = orig.indexOf(' ');
+                const prefix = firstSpace >= 0 ? orig.substring(0, firstSpace + 1) : '';
+                titleEl.textContent = prefix + name;
+                // Update sidebar project name if present
+                document.querySelectorAll('.sidebar-project-link').forEach(el => {
+                    if (el.href && el.href.includes('id=<?= $projectId ?>')) {
+                        const nameEl = el.querySelector('.project-name');
+                        if (nameEl) nameEl.textContent = name;
+                    }
+                });
+                cancelProjectRename();
+            }
+        }).catch(() => cancelProjectRename());
+    }
+    </script>
 
     <?php
     $content = ob_get_clean();
