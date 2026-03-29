@@ -498,19 +498,4 @@ function escSidebar(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function deleteFilter(id, btn) {
-    fetch('<?= BASE_URL ?>/?page=api&action=delete_filter', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: new URLSearchParams({ _csrf: csrfToken, id: id }),
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.ok) {
-            const li = btn.closest('li');
-            if (li) li.remove();
-        }
-    })
-    .catch(() => {});
-}
 </script>

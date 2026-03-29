@@ -1,362 +1,197 @@
-Perfetto, ti riassumo tutto in una **specifica coerente, pulita e copiabile** della tua DSL nella versione finale che hai definito.
+# Custom Fields — DSL Reference
+
+Custom fields let you define computed columns for the analytics table.
+Each field has a **name** and a **formula** written in a small, safe DSL designed for sequential log analysis.
 
 ---
 
-# 🧠 DSL LOG SEQUENZIALI – SPECIFICA V1
+## Formula syntax
 
-## 🎯 Obiettivo
-
-Definire un linguaggio **semplice, sicuro e dichiarativo** per analizzare sequenze temporali (log ON/OFF, eventi, ecc.), basato su:
-
-* **metriche implicite** (COUNT, DAYS, ecc.)
-* **navigazione temporale** (BEFORE, AFTER, FIRST, LAST)
-* **filtri dinamici** (`WITH`)
-* **nessuna sintassi complessa (no parentesi, no THIS)**
-
----
-
-# 🧩 STRUTTURA GENERALE
-
-```text
-<METRIC PHRASE> [WITH <BOOLEAN_EXPR>]
+```
+METRIC_PHRASE [WITH BOOLEAN_EXPR]
 ```
 
-### Esempio
+The `WITH` clause is optional. When present, only rows that satisfy its condition are considered by the metric.
 
-```text
-DAYS BEFORE LAST WITH {{pluto}} > 10
+---
+
+## Metric phrases
+
+### Count metrics
+
+| Formula | Description |
+|---|---|
+| `COUNT BEFORE` | Number of events that occurred before the current one |
+| `COUNT AFTER` | Number of events that occurred after the current one |
+| `COUNT RUN BEFORE` | Consecutive count backwards (stops at first non-matching row) |
+| `COUNT RUN AFTER` | Consecutive count forwards (stops at first non-matching row) |
+
+### Time-distance metrics
+
+```
+SECONDS | MINUTES | HOURS | DAYS   BEFORE LAST
+SECONDS | MINUTES | HOURS | DAYS   AFTER  FIRST
+```
+
+These compute the time elapsed between the current event and a reference event:
+
+| Position | Meaning |
+|---|---|
+| `BEFORE LAST` | The most recent matching event in the past |
+| `BEFORE FIRST` | The oldest matching event in the past |
+| `AFTER FIRST` | The nearest matching event in the future |
+| `AFTER LAST` | The furthest matching event in the future |
+
+Returns `null` when no matching event is found.
+
+---
+
+## WITH clause
+
+```
+WITH <boolean_expression>
+```
+
+Filters the candidate rows before the metric is applied. The expression is evaluated on each candidate row.
+
+Examples:
+
+```
+COUNT BEFORE WITH STATUS = 1
+DAYS BEFORE LAST WITH METHOD = "POST"
+COUNT RUN AFTER WITH VALUE > 100
 ```
 
 ---
 
-# 🧱 COMPONENTI DEL LINGUAGGIO
+## Boolean expressions
 
-## 1. 📊 METRIC PHRASE (obbligatoria)
+Expressions support:
 
-### Conteggi
+**Comparison operators:** `=` `!=` `>` `>=` `<` `<=`
 
-```text
+**Logical operators:** `AND` `OR` `NOT`
+
+**Arithmetic operators:** `+` `-` `*` `/`
+
+**Grouping:** `( ... )`
+
+---
+
+## Built-in fields
+
+These fields refer to the **candidate row** being evaluated inside `WITH`:
+
+| Field | Type | Description |
+|---|---|---|
+| `VALUE` | number | Event body parsed as a float (0 if non-numeric) |
+| `STATUS` | number | `1` if the event passed all guards, `0` otherwise |
+| `TS` | number | Event timestamp as a Unix integer |
+| `METHOD` | string | HTTP method (e.g. `"POST"`, `"GET"`) |
+
+---
+
+## Placeholders
+
+You can reference other custom fields defined on the same view:
+
+```
+{{field_name}}
+```
+
+The placeholder is resolved to the value computed for that named field on the **same row**.
+Fields are evaluated in the order they were added, so a placeholder can only reference a field defined **before** the current one.
+
+---
+
+## Execution model
+
+For each row at index `i`:
+
+1. Determine the candidate set:
+   - `BEFORE` → rows `0 … i-1` (ordered chronologically)
+   - `AFTER` → rows `i+1 … end`
+2. If a `WITH` clause is present, keep only candidates where the expression is true.
+3. Select the reference point:
+   - `LAST` → nearest candidate (`end` of BEFORE set, `start` of AFTER set)
+   - `FIRST` → furthest candidate (`start` of BEFORE set, `end` of AFTER set)
+   - `COUNT` → all candidates (no selection)
+   - `RUN` → stop scanning at the first non-matching candidate
+4. Compute the metric (count or time difference).
+
+---
+
+## Safety
+
+The DSL is sandboxed:
+
+- No arbitrary code execution
+- No access to PHP functions
+- No unbounded loops
+- Only whitelisted operations
+- The expression tree is fully validated before evaluation
+
+---
+
+## Examples
+
+```
 COUNT BEFORE
-COUNT AFTER
-COUNT RUN BEFORE
-COUNT RUN AFTER
 ```
+How many events came before this one.
 
-### Metriche temporali
-
-```text
-SECONDS BEFORE LAST
-SECONDS AFTER FIRST
-
-MINUTES BEFORE LAST
-MINUTES AFTER FIRST
-
-HOURS BEFORE LAST
-HOURS AFTER FIRST
-
-DAYS BEFORE LAST
-DAYS AFTER FIRST
 ```
-
----
-
-## 2. 🔍 WITH CLAUSE (opzionale)
-
-```text
-WITH <BOOLEAN_EXPR>
+COUNT AFTER WITH STATUS = 1
 ```
+How many valid events follow this one.
 
-Serve a **filtrare i record candidati**.
-
-👉 Se presente, la metrica opera solo sui record che soddisfano la condizione.
-
----
-
-## 3. ⚖️ BOOLEAN_EXPR (dentro WITH)
-
-Espressione booleana valutata su ogni record candidato.
-
-### Supporta:
-
-#### Confronti
-
-```text
-=  !=  >  >=  <  <=
 ```
-
-#### Operatori logici
-
-```text
-AND  OR  NOT
-```
-
-#### Operatori aritmetici
-
-```text
-+  -  *  /
-```
-
-#### Operandi
-
-* Campi del record
-
-```text
-VALUE
-STATUS
-TS
-```
-
-* Placeholder (espressioni riusabili)
-
-```text
-{{pluto}}
-{{delta}}
-```
-
-* Costanti
-
-```text
-10
-"ON"
-NULL
-```
-
----
-
-# 🧠 SEMANTICA
-
-## 📍 Record corrente
-
-* Sempre implicito
-* Non esiste `THIS`
-
----
-
-## ⏪ BEFORE / AFTER
-
-* `BEFORE` → record precedenti
-* `AFTER` → record successivi
-
----
-
-## 🎯 FIRST / LAST
-
-* `LAST` → record più vicino nel passato
-* `FIRST` → record più vicino nel futuro
-
----
-
-## 🔁 RUN
-
-* `COUNT RUN BEFORE` → conteggio consecutivo all’indietro
-* `COUNT RUN AFTER` → conteggio consecutivo in avanti
-
----
-
-## 🧮 Valutazione WITH
-
-⚠️ **IMPORTANTE**
-
-La clausola `WITH` è una **espressione interna**, non un confronto esterno.
-
-```text
-DAYS BEFORE LAST WITH {{pluto}} > 10
-```
-
-viene interpretato come:
-
-```text
-DAYS BEFORE LAST WITH ({{pluto}} > 10)
-```
-
-👉 NON come:
-
-```text
-(DAYS BEFORE LAST WITH {{pluto}}) > 10
-```
-
----
-
-## 🧭 Semantica operativa
-
-### Esempio:
-
-```text
-DAYS BEFORE LAST WITH VALUE > 10
-```
-
-1. guarda i record precedenti
-2. filtra quelli con `VALUE > 10`
-3. prende l’ultimo tra questi
-4. calcola la differenza in giorni col record corrente
-
----
-
-### Esempio:
-
-```text
-COUNT AFTER WITH {{pluto}} >= 5
-```
-
-1. guarda i record successivi
-2. valuta `{{pluto}}` su ciascuno
-3. conta quelli con valore ≥ 5
-
----
-
-### Esempio:
-
-```text
 COUNT RUN AFTER WITH VALUE = 0
 ```
+How many consecutive events after this one have a zero body value.
 
-1. guarda i record successivi in ordine
-2. conta finché `VALUE = 0` resta vero consecutivamente
-
----
-
-# 🧪 ESEMPI
-
-```text
-DAYS BEFORE LAST WITH {{pluto}} > 10
-
-COUNT AFTER WITH VALUE = 0
-
-COUNT RUN AFTER WITH VALUE = 0
-
-SECONDS AFTER FIRST WITH STATUS = "ON"
-
-HOURS BEFORE LAST WITH {{delta}} >= 5
-
-COUNT BEFORE WITH {{pluto}} != 0
-
-DAYS AFTER FIRST WITH VALUE >= 100
 ```
-
----
-
-# 🧬 PLACEHOLDER `{{...}}`
-
-## Definizione
-
-```text
-{{nome}}
+SECONDS AFTER FIRST WITH METHOD = "POST"
 ```
+Seconds until the next POST event.
 
-Rappresenta:
-
-* un’espressione salvata
-* oppure una metrica calcolata
-
-## Tipi
-
-### Predicate (BOOL)
-
-```text
-{{is_null}}
-{{pump_on}}
 ```
-
-### Metric (NUMBER)
-
-```text
-{{delta}}
-{{pluto}}
+DAYS BEFORE LAST WITH STATUS = 1
 ```
+Days since the most recent valid event.
+
+```
+HOURS BEFORE LAST WITH {{my_flag}} >= 5
+```
+Hours since the last event where the custom field `my_flag` was ≥ 5.
 
 ---
 
-# 🏗️ MODELLO DI ESECUZIONE
-
-Per ogni record:
-
-1. si identifica il dominio (`BEFORE` / `AFTER`)
-2. si scorrono i record candidati
-3. si valuta `WITH` su ciascun record candidato
-4. si seleziona:
-
-    * `LAST` → primo match all’indietro
-    * `FIRST` → primo match in avanti
-    * `COUNT` → tutti
-    * `RUN` → fino a rottura
-5. si calcola la metrica
-
----
-
-# 🔒 SICUREZZA
-
-Il DSL è sicuro perché:
-
-* nessun codice eseguibile
-* niente accesso a funzioni PHP
-* niente loop arbitrari
-* solo funzioni whitelist
-* espressioni limitate e controllate
-* AST validabile
-
----
-
-# 🧩 GRAMMATICA (SEMPLIFICATA)
+## Grammar (simplified EBNF)
 
 ```ebnf
-EXPR            := METRIC_EXPR ( WITH_CLAUSE )? ;
+EXPR        := METRIC ( "WITH" BOOL_EXPR )? ;
 
-METRIC_EXPR     :=
-      "COUNT BEFORE"
-    | "COUNT AFTER"
-    | "COUNT RUN BEFORE"
-    | "COUNT RUN AFTER"
-    | TIME_UNIT RELATION POSITION
-    ;
+METRIC      := "COUNT BEFORE"
+             | "COUNT AFTER"
+             | "COUNT RUN BEFORE"
+             | "COUNT RUN AFTER"
+             | TIME_UNIT DIRECTION ANCHOR ;
 
-TIME_UNIT       := "SECONDS" | "MINUTES" | "HOURS" | "DAYS" ;
-RELATION        := "BEFORE" | "AFTER" ;
-POSITION        := "LAST" | "FIRST" ;
+TIME_UNIT   := "SECONDS" | "MINUTES" | "HOURS" | "DAYS" ;
+DIRECTION   := "BEFORE" | "AFTER" ;
+ANCHOR      := "LAST" | "FIRST" ;
 
-WITH_CLAUSE     := "WITH" BOOL_EXPR ;
+BOOL_EXPR   := OR_EXPR ;
+OR_EXPR     := AND_EXPR ( "OR" AND_EXPR )* ;
+AND_EXPR    := CMP_EXPR ( "AND" CMP_EXPR )* ;
+CMP_EXPR    := ADD_EXPR ( COMP_OP ADD_EXPR )? ;
+ADD_EXPR    := MUL_EXPR ( ("+" | "-") MUL_EXPR )* ;
+MUL_EXPR    := UNARY ( ("*" | "/") UNARY )* ;
+UNARY       := ("NOT" | "-") UNARY | PRIMARY ;
+PRIMARY     := NUMBER | STRING | FIELD | PLACEHOLDER | "(" BOOL_EXPR ")" ;
 
-BOOL_EXPR       := OR_EXPR ;
-OR_EXPR         := AND_EXPR ( "OR" AND_EXPR )* ;
-AND_EXPR        := CMP_EXPR ( "AND" CMP_EXPR )* ;
-CMP_EXPR        := ADD_EXPR ( COMP_OP ADD_EXPR )? ;
-ADD_EXPR        := MUL_EXPR ( ("+"|"-") MUL_EXPR )* ;
-MUL_EXPR        := UNARY_EXPR ( ("*"|"/") UNARY_EXPR )* ;
-UNARY_EXPR      := ("NOT"|"-") UNARY_EXPR | PRIMARY ;
-PRIMARY         := NUMBER | STRING | FIELD | PLACEHOLDER | "(" BOOL_EXPR ")" ;
-
-COMP_OP         := "=" | "!=" | ">" | ">=" | "<" | "<=" ;
-PLACEHOLDER     := "{{" IDENT "}}" ;
-FIELD           := IDENT ;
+COMP_OP     := "=" | "!=" | ">" | ">=" | "<" | "<=" ;
+FIELD       := "VALUE" | "STATUS" | "TS" | "METHOD" ;
+PLACEHOLDER := "{{" name "}}" ;
 ```
-
----
-
-# ✅ PRINCIPI CHIAVE
-
-* ❌ niente `THIS`
-* ❌ niente parentesi nella metrica
-* ✅ linguaggio naturale controllato
-* ✅ metriche implicite
-* ✅ filtri espressivi con `WITH`
-* ✅ sintassi leggibile per utenti non tecnici
-* ✅ ottimizzabile lato DB
-
----
-
-# 🚀 RISULTATO
-
-Hai un DSL:
-
-* leggibile → “quasi linguaggio naturale”
-* potente → esprime pattern temporali complessi
-* sicuro → niente esecuzione arbitraria
-* estendibile → puoi aggiungere metriche senza rompere la sintassi
-
----
-
-Se vuoi, passo successivo posso darti direttamente:
-👉 tokenizer PHP
-👉 AST classes
-👉 evaluator base su array / DB
-
-così lo porti in produzione.

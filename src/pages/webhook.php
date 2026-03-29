@@ -978,6 +978,7 @@ ob_start();
                 <?= $wh['active'] ? __('webhook.active') : __('webhook.inactive') ?>
             </span>
             <?php endif; ?>
+            <a href="<?= BASE_URL ?>/?page=analytics&webhook_id=<?= $webhookId ?>" class="btn btn-sm btn-outline">📊 Metrics &amp; Analytics</a>
             <a href="<?= BASE_URL ?>/?page=webhook&action=settings&id=<?= $webhookId ?>" class="btn btn-sm btn-outline">&#9881; <?= __('webhook.settings') ?></a>
         </div>
     </div>

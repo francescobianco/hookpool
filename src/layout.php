@@ -120,10 +120,19 @@
                     <?php
                         $fpParams = json_decode($fp['params'], true) ?: [];
                         $fpParams = array_filter($fpParams, fn($v) => $v !== '' && $v !== null);
-                        $fpParams['page'] = 'dashboard';
+                        // Analytics views have page=analytics; dashboard filters default to page=dashboard
+                        if (!isset($fpParams['page']) || $fpParams['page'] === 'dashboard') {
+                            $fpParams['page'] = 'dashboard';
+                        }
                         $fpUrl = BASE_URL . '/?' . http_build_query($fpParams);
                         // Is this preset active?
-                        $fpActive = (($_GET['page'] ?? '') === 'dashboard') && !empty(array_filter(array_intersect_key($_GET, array_flip(['category_id','project_id','method','status','time']))));
+                        $fpPage = $fpParams['page'];
+                        $fpActive = false;
+                        if ($fpPage === 'analytics' && ($_GET['page'] ?? '') === 'analytics') {
+                            $fpActive = isset($fpParams['view_id']) && (int)$fpParams['view_id'] === (int)($_GET['view_id'] ?? 0);
+                        } elseif ($fpPage === 'dashboard') {
+                            $fpActive = (($_GET['page'] ?? '') === 'dashboard') && !empty(array_filter(array_intersect_key($_GET, array_flip(['category_id','project_id','method','status','time']))));
+                        }
                     ?>
                     <li class="sidebar-webhook sidebar-filter-item<?= $fpActive ? ' active' : '' ?>" data-filter-id="<?= (int)$fp['id'] ?>">
                         <a href="<?= e($fpUrl) ?>"><?= e($fp['name']) ?></a>
@@ -394,6 +403,22 @@ function showCopyFeedback(btn) {
         btn.textContent = original;
         btn.classList.remove('copied');
     }, 2000);
+}
+
+// Delete a sidebar filter/analytics preset
+function deleteFilter(id, btn) {
+    fetch('<?= BASE_URL ?>/?page=api&action=delete_filter', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({ _csrf: csrfToken, id: id }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            const li = btn.closest('li');
+            if (li) li.remove();
+        }
+    });
 }
 
 // Auto-dismiss alerts after 5s

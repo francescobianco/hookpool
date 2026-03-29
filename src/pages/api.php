@@ -356,6 +356,44 @@ switch ($action) {
         ]) . "\n";
         break;
 
+    // --- SAVE ANALYTICS VIEW TO SIDEBAR ---
+    case 'save_analytics_view':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) { http_response_code(403); echo json_encode(['error' => 'csrf']); break; }
+
+        $viewId  = (int)($_POST['view_id'] ?? 0);
+        $name    = trim($_POST['name'] ?? '');
+        if ($name === '') { http_response_code(400); echo json_encode(['error' => 'name_required']); break; }
+
+        // Verify ownership of the analytics view
+        $avStmt = $db->prepare('SELECT * FROM analytics_views WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+        $avStmt->execute([$viewId, $userId]);
+        $av = $avStmt->fetch();
+        if (!$av) { http_response_code(404); echo json_encode(['error' => 'view_not_found']); break; }
+
+        // If the view already has a name, create a new named copy
+        if ($av['name'] !== null) {
+            $db->prepare('
+                INSERT INTO analytics_views (user_id, webhook_id, name, fields, groupby, sort_by, sort_dir)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ')->execute([$userId, $av['webhook_id'], $name, $av['fields'], $av['groupby'], $av['sort_by'], $av['sort_dir']]);
+            $savedViewId = (int)$db->lastInsertId();
+        } else {
+            // Name the working view
+            $db->prepare('UPDATE analytics_views SET name = ? WHERE id = ?')->execute([$name, $viewId]);
+            $savedViewId = $viewId;
+        }
+
+        $url = BASE_URL . '/?page=analytics&view_id=' . $savedViewId;
+
+        // Save to filter_presets so it appears in sidebar Links
+        $ins = $db->prepare('INSERT INTO filter_presets (user_id, name, params, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)');
+        $ins->execute([$userId, $name, json_encode(['page' => 'analytics', 'view_id' => $savedViewId])]);
+        $presetId = (int)$db->lastInsertId();
+
+        echo json_encode(['ok' => true, 'id' => $savedViewId, 'preset_id' => $presetId, 'name' => $name, 'url' => $url]) . "\n";
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['error' => 'not_found']) . "\n";

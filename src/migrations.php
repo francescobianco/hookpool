@@ -14,4 +14,5 @@ $migrations = [
     __DIR__ . '/migrations/20260327000003_add_log_retention.php',
     __DIR__ . '/migrations/20260327000004_add_known_ips.php',
     __DIR__ . '/migrations/20260328000001_add_relay_queue.php',
+    __DIR__ . '/migrations/20260329000002_create_analytics_views.php',
 ];
