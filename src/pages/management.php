@@ -15,6 +15,21 @@ $wStmt = $cpDb->prepare(
 $wStmt->execute([$userId]);
 $widgets = $wStmt->fetchAll();
 
+// Load all webhooks for the URL picker
+$whPickerStmt = $cpDb->prepare('
+    SELECT w.id, w.name, w.token, p.slug AS project_slug
+    FROM webhooks w
+    JOIN projects p ON p.id = w.project_id
+    WHERE p.user_id = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
+    ORDER BY p.name, w.name
+');
+$whPickerStmt->execute([$userId]);
+$webhooksForPicker = $whPickerStmt->fetchAll();
+$webhookPickerJson = json_encode(array_map(fn($wh) => [
+    'name' => $wh['name'],
+    'url'  => webhookUrl($wh['project_slug'], $wh['token']),
+], $webhooksForPicker));
+
 $WIDGET_TYPES = [
     'button' => ['icon' => '▶', 'label' => __('cp.type_button'),  'desc' => __('cp.type_button_desc')],
     'updown' => ['icon' => '⇅', 'label' => __('cp.type_updown'),  'desc' => __('cp.type_updown_desc')],
@@ -124,6 +139,11 @@ $WIDGET_TYPES = [
     </div>
 </div>
 
+<!-- Webhook URL Picker Dropdown (floats near the trigger button) -->
+<div id="cpWebhookPickerDropdown" class="cp-picker-dropdown" style="display:none">
+    <ul id="cpWebhookPickerList" class="cp-picker-list"></ul>
+</div>
+
 <!-- Add / Edit Widget Modal -->
 <div class="modal" id="cpWidgetModal" aria-hidden="true" style="display:none">
     <div class="modal-dialog" style="max-width:520px">
@@ -172,7 +192,10 @@ $WIDGET_TYPES = [
                     </div>
                     <div class="form-group">
                         <label class="form-label">URL</label>
-                        <input type="text" class="form-control" id="cpFBtnUrl" placeholder="https://...">
+                        <div class="cp-url-row">
+                            <input type="text" class="form-control" id="cpFBtnUrl" placeholder="https://...">
+                            <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFBtnUrl', this)">🔗 Webhooks</button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label"><?= __('cp.field_method') ?></label>
@@ -197,7 +220,10 @@ $WIDGET_TYPES = [
                     <div class="form-row">
                         <div class="form-group" style="flex:2">
                             <label class="form-label">URL</label>
-                            <input type="text" class="form-control" id="cpFUpUrl" placeholder="https://...">
+                            <div class="cp-url-row">
+                                <input type="text" class="form-control" id="cpFUpUrl" placeholder="https://...">
+                                <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFUpUrl', this)">🔗 Webhooks</button>
+                            </div>
                         </div>
                         <div class="form-group" style="flex:1">
                             <label class="form-label"><?= __('cp.field_method') ?></label>
@@ -219,7 +245,10 @@ $WIDGET_TYPES = [
                     <div class="form-row">
                         <div class="form-group" style="flex:2">
                             <label class="form-label">URL</label>
-                            <input type="text" class="form-control" id="cpFDownUrl" placeholder="https://...">
+                            <div class="cp-url-row">
+                                <input type="text" class="form-control" id="cpFDownUrl" placeholder="https://...">
+                                <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDownUrl', this)">🔗 Webhooks</button>
+                            </div>
                         </div>
                         <div class="form-group" style="flex:1">
                             <label class="form-label"><?= __('cp.field_method') ?></label>
@@ -242,7 +271,10 @@ $WIDGET_TYPES = [
                     <div class="form-row">
                         <div class="form-group" style="flex:2">
                             <label class="form-label">URL</label>
-                            <input type="text" class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Url" placeholder="https://...">
+                            <div class="cp-url-row">
+                                <input type="text" class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Url" placeholder="https://...">
+                                <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDpad<?= ucfirst($dir) ?>Url', this)">🔗 Webhooks</button>
+                            </div>
                         </div>
                         <div class="form-group" style="flex:1">
                             <label class="form-label"><?= __('cp.field_method') ?></label>
@@ -259,7 +291,10 @@ $WIDGET_TYPES = [
                 <div id="cpFieldsSend" class="cp-type-fields" style="display:none">
                     <div class="form-group">
                         <label class="form-label">URL</label>
-                        <input type="text" class="form-control" id="cpFSendUrl" placeholder="https://...">
+                        <div class="cp-url-row">
+                            <input type="text" class="form-control" id="cpFSendUrl" placeholder="https://...">
+                            <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFSendUrl', this)">🔗 Webhooks</button>
+                        </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group" style="flex:1">
@@ -543,6 +578,57 @@ $WIDGET_TYPES = [
         })
         .catch(() => cpToast('Errore di rete', 'error'));
     };
+
+    // --- Webhook URL picker (floating dropdown) ---
+    const CP_WEBHOOKS = <?= $webhookPickerJson ?>;
+    let _cpPickerTargetId = null;
+    const _cpDropdown = document.getElementById('cpWebhookPickerDropdown');
+
+    window.cpOpenWebhookPicker = function(inputId, btn) {
+        // If already open for this same field, close it
+        if (_cpDropdown.style.display !== 'none' && _cpPickerTargetId === inputId) {
+            _cpDropdown.style.display = 'none';
+            return;
+        }
+        _cpPickerTargetId = inputId;
+
+        // Build list
+        const list = document.getElementById('cpWebhookPickerList');
+        list.innerHTML = '';
+        if (CP_WEBHOOKS.length === 0) {
+            list.innerHTML = '<li class="cp-picker-empty">Nessun webhook trovato</li>';
+        } else {
+            CP_WEBHOOKS.forEach(wh => {
+                const li = document.createElement('li');
+                li.className = 'cp-picker-item';
+                li.innerHTML = '<span class="cp-picker-name">' + wh.name.replace(/</g,'&lt;') + '</span>'
+                             + '<span class="cp-picker-url">' + wh.url.replace(/</g,'&lt;') + '</span>';
+                li.onclick = () => {
+                    document.getElementById(_cpPickerTargetId).value = wh.url;
+                    _cpDropdown.style.display = 'none';
+                };
+                list.appendChild(li);
+            });
+        }
+
+        // Position below the trigger button
+        const rect = btn.getBoundingClientRect();
+        _cpDropdown.style.display = 'block';
+        _cpDropdown.style.position = 'fixed';
+        _cpDropdown.style.top  = (rect.bottom + 4) + 'px';
+        _cpDropdown.style.left = Math.max(4, rect.right - _cpDropdown.offsetWidth) + 'px';
+        // Recompute after display so offsetWidth is accurate
+        requestAnimationFrame(() => {
+            _cpDropdown.style.left = Math.max(4, rect.right - _cpDropdown.offsetWidth) + 'px';
+        });
+    };
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!_cpDropdown.contains(e.target) && !e.target.closest('.cp-webhook-pick-btn')) {
+            _cpDropdown.style.display = 'none';
+        }
+    }, true);
 
     // --- Delete ---
     window.cpDeleteWidget = function(btn) {

@@ -2252,3 +2252,31 @@ tr:last-child td { border-bottom: none; }
 @media (max-width: 500px) {
     .cp-widget--wide { grid-column: span 1; }
 }
+
+/* CP — webhook URL picker */
+.cp-url-row { display: flex; gap: 6px; align-items: stretch; }
+.cp-url-row .form-control { flex: 1; min-width: 0; }
+.cp-url-row .cp-webhook-pick-btn { white-space: nowrap; flex-shrink: 0; }
+
+.cp-picker-dropdown {
+    position: fixed;
+    z-index: 10000;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    min-width: 280px;
+    max-width: 400px;
+}
+.cp-picker-list { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
+.cp-picker-item {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 10px 16px; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+}
+.cp-picker-item:last-child { border-bottom: none; }
+.cp-picker-item:hover { background: var(--bg-hover); }
+.cp-picker-name { font-weight: 600; font-size: 0.88rem; color: var(--text-primary); }
+.cp-picker-url  { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-picker-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.88rem; }
