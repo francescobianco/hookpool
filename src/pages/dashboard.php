@@ -444,9 +444,7 @@ function renderEventRow(array $event): string {
     // Infinite scroll
     const sentinel = document.getElementById('scrollSentinel');
     let observer;
-    if (infiniteScrollDone) {
-        showNoMore();
-    } else if (sentinel) {
+    if (!infiniteScrollDone && sentinel) {
         observer = new IntersectionObserver(entries => {
             if (entries[0].isIntersecting) loadMore();
         }, {rootMargin: '200px'});

@@ -452,15 +452,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const btn = document.createElement('button');
         btn.className = 'example-curl-copy';
-        btn.textContent = 'Copia';
+        btn.setAttribute('aria-label', 'Copia');
+        btn.title = 'Copia';
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
         btn.onclick = () => {
-            copyToClipboard(code.textContent, btn);
-            btn.textContent = '✓';
-            btn.classList.add('copied');
+            const text = code.textContent;
+            (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+                .catch(() => { const t=document.createElement('textarea'); t.value=text; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); });
+
+            const tip = document.createElement('div');
+            tip.className = 'example-curl-copy-tooltip';
+            tip.textContent = 'Copiato!';
+            document.body.appendChild(tip);
+            const r = btn.getBoundingClientRect();
+            tip.style.left = Math.max(0, r.right - tip.offsetWidth) + 'px';
+            tip.style.top  = (r.top - tip.offsetHeight - 6) + 'px';
             setTimeout(() => {
-                btn.textContent = 'Copia';
-                btn.classList.remove('copied');
-            }, 1800);
+                tip.style.transition = 'opacity 0.25s';
+                tip.style.opacity = '0';
+                setTimeout(() => tip.remove(), 260);
+            }, 1200);
         };
         wrap.appendChild(btn);
     });

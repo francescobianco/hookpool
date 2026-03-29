@@ -136,6 +136,7 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
             <?php if (empty($headers)): ?>
             <p class="text-muted">No headers recorded.</p>
             <?php else: ?>
+            <div class="table-scroll-wrapper">
             <table class="kv-table">
                 <thead><tr><th>Header</th><th>Value</th></tr></thead>
                 <tbody>
@@ -147,6 +148,7 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
             <?php endif; ?>
         </div>
 
@@ -155,6 +157,7 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
             <?php if (empty($queryParams)): ?>
             <p class="text-muted">No query parameters.</p>
             <?php else: ?>
+            <div class="table-scroll-wrapper">
             <table class="kv-table">
                 <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
                 <tbody>
@@ -166,6 +169,7 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
             <?php endif; ?>
         </div>
 
