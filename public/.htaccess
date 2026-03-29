@@ -6,6 +6,12 @@ RewriteRule ^hook/([a-zA-Z0-9]+)\.png$ hook.php?token=$1&_pixel=1 [QSA,L]
 # Route /project-slug/hookcode.png to hook.php (pixel tracking)
 RewriteRule ^([a-z0-9-]+)/([a-z0-9]+)\.png$ hook.php?project=$1&token=$2&_pixel=1 [QSA,L]
 
+# Route /hook/TOKEN.relay to hook.php (HTTP relay polling)
+RewriteRule ^hook/([a-zA-Z0-9]+)\.relay$ hook.php?token=$1.relay [QSA,L]
+
+# Route /project-slug/hookcode.relay to hook.php (HTTP relay polling)
+RewriteRule ^([a-z0-9-]+)/([a-z0-9]+)\.relay$ hook.php?project=$1&token=$2.relay [QSA,L]
+
 # Route /hook/TOKEN[/sub-path] to hook.php (skip real files/dirs)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

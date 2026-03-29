@@ -4,7 +4,7 @@
 
 **HTTP Relay** turns a webhook into a transparent reverse-proxy gateway for services that live inside a private network and are not reachable from the internet.
 
-The technique is based on **long-polling**: a lightweight relay client runs inside the private network, keeps a persistent outbound PATCH connection to the webhook, and uses that channel to shuttle incoming HTTP requests back and forth. No inbound port needs to be opened on the firewall.
+The technique is based on **long-polling**: a lightweight relay client runs inside the private network, keeps a persistent outbound PATCH connection to the webhook's `.relay` endpoint, and uses that channel to shuttle incoming HTTP requests back and forth. No inbound port needs to be opened on the firewall.
 
 ```
   Internet caller           Hookpool server           Private network
@@ -38,11 +38,11 @@ The query string is forwarded unchanged in the `query_string` field.
 
 1. The relay client inside the private network opens a long-poll connection:
    ```
-   PATCH /hook/{token}   (no body, no X-Relay-Seq)
+   PATCH /hook/{token}.relay   (no body, no X-Relay-Seq)
    ```
    The server holds this connection open waiting for an inbound public request.
 
-2. An external caller sends any non-PATCH request to the same webhook endpoint:
+2. An external caller sends requests to the normal public webhook endpoint:
    ```
    POST /hook/{token}
    Content-Type: application/json
@@ -57,9 +57,9 @@ The query string is forwarded unchanged in the `query_string` field.
    {"method":"POST","path":"/","query_string":"","headers":{...},"body":"{\"order_id\":42}","body_base64":false}
    ```
 
-3. The relay client receives the request payload (seq = 1), reconstructs and forwards the HTTP call to the configured local server (e.g. `http://localhost:8080`), waits for the local response, then immediately sends a new PATCH carrying the response:
+3. The relay client receives the request payload (seq = 1), reconstructs and forwards the HTTP call to the configured local server (e.g. `http://localhost:8080`), waits for the local response, then immediately sends a new PATCH to `.relay` carrying the response:
    ```
-   PATCH /hook/{token}
+   PATCH /hook/{token}.relay
    X-Relay-Seq: 1
    Content-Type: application/json
 
@@ -75,10 +75,10 @@ The query string is forwarded unchanged in the `query_string` field.
 
 | Side    | Methods                     | Description                                     |
 |---------|-----------------------------|-------------------------------------------------|
-| Public  | GET, POST, PUT, DELETE, …   | Any external caller reaching a private service  |
-| Private | PATCH only                  | The relay client living inside the private net  |
+| Public  | GET, POST, PUT, DELETE, PATCH, … | Any external caller reaching a private service |
+| Private | PATCH on `.relay` only           | The relay client living inside the private net |
 
-The PATCH method is **reserved** for the relay protocol when HTTP Relay is enabled. Any PATCH sent on the public side is treated as a relay client connection attempt, not as a regular event.
+The `.relay` endpoint is **reserved** for the relay protocol when HTTP Relay is enabled. Public callers should keep using the normal webhook URL.
 
 ---
 
@@ -87,7 +87,7 @@ The PATCH method is **reserved** for the relay protocol when HTTP Relay is enabl
 ### Private side — polling request (client → server)
 
 ```
-PATCH /hook/{token}[?project={slug}]
+PATCH /hook/{token}.relay[?project={slug}]
 Content-Type: application/json
 [X-Relay-Seq: {N}]          ← present only when delivering a response
 [Content-Length: ...]
@@ -320,7 +320,7 @@ See [`tests/relay_demo.py`](../tests/relay_demo.py) for a self-contained Python 
 ```bash
 # Install no dependencies — uses only Python standard library
 
-python3 tests/relay_demo.py 'https://<your-hookpool-host>/hook?token=<token>&project=<slug>'
+python3 tests/relay_demo.py 'https://<your-hookpool-host>/<slug>/<token>'
 
 # In another terminal, call the webhook:
 curl -X POST 'https://<your-hookpool-host>/hook?token=<token>&project=<slug>' \
