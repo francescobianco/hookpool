@@ -347,7 +347,7 @@ ob_start();
     <div class="analytics-fields-bar">
         <span class="analytics-fields-label">Custom fields:</span>
         <?php foreach ($fields as $fIdx => $field): ?>
-        <div class="analytics-field-chip" onclick="openEditFieldModal(<?= $fIdx ?>, <?= htmlspecialchars(json_encode($field['name'])) ?>, <?= htmlspecialchars(json_encode($field['formula'])) ?>)" title="Click to edit">
+        <div class="analytics-field-chip" onclick="openEditFieldModal(<?= $fIdx ?>, <?= htmlspecialchars(json_encode($field['name'])) ?>, <?= htmlspecialchars(json_encode($field['formula'])) ?>)" title="<?= e($field['formula']) ?>">
             <div class="chip-inner">
                 <span class="chip-name"><?= e($field['name']) ?></span>
                 <form method="post" action="<?= BASE_URL ?>/?page=analytics&view_id=<?= $viewId ?>" class="inline" onclick="event.stopPropagation()">
