@@ -71,6 +71,23 @@ function orderNullsLast(string $col, string $dir = 'ASC'): string {
 }
 
 /**
+ * Cross-DB SQL expression for the current timestamp.
+ */
+function sqlNowExpr(): string {
+    return DB_TYPE === 'mysql' ? 'CURRENT_TIMESTAMP' : "datetime('now')";
+}
+
+/**
+ * Cross-DB SQL expression for the current timestamp minus N seconds.
+ */
+function sqlNowMinusSecondsExpr(int $seconds): string {
+    if (DB_TYPE === 'mysql') {
+        return "DATE_SUB(CURRENT_TIMESTAMP, INTERVAL $seconds SECOND)";
+    }
+    return "datetime('now','-$seconds seconds')";
+}
+
+/**
  * Generate a cryptographically secure token (64 hex chars = 256-bit entropy).
  */
 function generateToken(): string {

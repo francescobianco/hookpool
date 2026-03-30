@@ -487,11 +487,13 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
     @ini_set('zlib.output_compression', '0');
 
     $webhookId = (int)$webhook['id'];
+    $nowExpr = sqlNowExpr();
+    $staleCutoffExpr = sqlNowMinusSecondsExpr(120);
 
     // Purge stale entries (done/expired older than 2 minutes)
     $db->prepare("DELETE FROM relay_queue
                   WHERE webhook_id = ? AND state IN ('done','expired')
-                  AND created_at < datetime('now','-120 seconds')")
+                  AND created_at < $staleCutoffExpr")
        ->execute([$webhookId]);
 
     // If PATCH carries a response, persist it
@@ -505,7 +507,7 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
                               resp_headers = ?,
                               resp_body    = ?,
                               resp_b64     = ?,
-                              responded_at = datetime('now')
+                              responded_at = $nowExpr
                           WHERE webhook_id = ? AND id = ? AND state = 'dispatched'")
                ->execute([
                    (int)($payload['status'] ?? 200),
@@ -534,7 +536,7 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
         if ($entry) {
             // Atomically claim the row (another process may race us)
             $upd = $db->prepare("UPDATE relay_queue
-                                 SET state = 'dispatched', dispatched_at = datetime('now')
+                                 SET state = 'dispatched', dispatched_at = $nowExpr
                                  WHERE id = ? AND state = 'pending'");
             $upd->execute([(int)$entry['id']]);
             if ($upd->rowCount() === 0) {
