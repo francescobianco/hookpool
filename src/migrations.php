@@ -16,4 +16,5 @@ $migrations = [
     __DIR__ . '/migrations/20260328000001_add_relay_queue.php',
     __DIR__ . '/migrations/20260329000001_create_management.php',
     __DIR__ . '/migrations/20260329000002_create_analytics_views.php',
+    __DIR__ . '/migrations/20260330000001_add_relay_timing_ms.php',
 ];

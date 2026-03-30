@@ -474,6 +474,37 @@ function ipInCidr(string $ip, string $cidr): bool {
 // ── HTTP Relay helpers ─────────────────────────────────────────────────────────
 
 /**
+ * Millisecond wall-clock timestamp suitable for cross-process relay timing.
+ */
+function relayNowMs(): int
+{
+    return (int) floor(microtime(true) * 1000);
+}
+
+/**
+ * Build a compact timing header for relay diagnostics.
+ */
+function relayFormatTimingHeader(?int $createdAtMs, ?int $dispatchedAtMs, ?int $respondedAtMs, ?int $completedAtMs = null): string
+{
+    $parts = [];
+
+    if ($createdAtMs !== null && $dispatchedAtMs !== null && $dispatchedAtMs >= $createdAtMs) {
+        $parts[] = 'queue_ms=' . ($dispatchedAtMs - $createdAtMs);
+    }
+    if ($dispatchedAtMs !== null && $respondedAtMs !== null && $respondedAtMs >= $dispatchedAtMs) {
+        $parts[] = 'upstream_ms=' . ($respondedAtMs - $dispatchedAtMs);
+    }
+    if ($respondedAtMs !== null && $completedAtMs !== null && $completedAtMs >= $respondedAtMs) {
+        $parts[] = 'return_ms=' . ($completedAtMs - $respondedAtMs);
+    }
+    if ($createdAtMs !== null && $completedAtMs !== null && $completedAtMs >= $createdAtMs) {
+        $parts[] = 'total_ms=' . ($completedAtMs - $createdAtMs);
+    }
+
+    return implode(', ', $parts);
+}
+
+/**
  * PATCH side: relay client long-poll.
  *
  * If the PATCH carries X-Relay-Seq + body, deliver the response for that
@@ -489,6 +520,8 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
     $webhookId = (int)$webhook['id'];
     $nowExpr = sqlNowExpr();
     $staleCutoffExpr = sqlNowMinusSecondsExpr(120);
+    $pollIntervalUs = 100000;
+    $pollDeadlineMs = relayNowMs() + 28000;
 
     // Purge stale entries (done/expired older than 2 minutes)
     $db->prepare("DELETE FROM relay_queue
@@ -499,6 +532,7 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
     // If PATCH carries a response, persist it
     $responseSeq = isset($_SERVER['HTTP_X_RELAY_SEQ']) ? (int)$_SERVER['HTTP_X_RELAY_SEQ'] : 0;
     if ($responseSeq > 0 && $body !== '') {
+        $respondedAtMs = relayNowMs();
         $payload = json_decode($body, true);
         if (is_array($payload) && array_key_exists('status', $payload)) {
             $db->prepare("UPDATE relay_queue
@@ -507,13 +541,15 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
                               resp_headers = ?,
                               resp_body    = ?,
                               resp_b64     = ?,
-                              responded_at = $nowExpr
+                              responded_at = $nowExpr,
+                              responded_at_ms = ?
                           WHERE webhook_id = ? AND id = ? AND state = 'dispatched'")
                ->execute([
                    (int)($payload['status'] ?? 200),
                    json_encode($payload['headers'] ?? []),
                    (string)($payload['body'] ?? ''),
                    ($payload['body_base64'] ?? false) ? 1 : 0,
+                   $respondedAtMs,
                    $webhookId,
                    $responseSeq,
                ]);
@@ -524,8 +560,7 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
     // Uses a fresh DB connection so each SELECT starts a new WAL snapshot,
     // guaranteeing visibility of writes from concurrent processes.
     $pollDb   = relayOpenDb();
-    $deadline = time() + 28;
-    while (time() < $deadline) {
+    while (relayNowMs() < $pollDeadlineMs) {
         $stmt = $pollDb->prepare("SELECT * FROM relay_queue
                                   WHERE webhook_id = ? AND state = 'pending'
                                   ORDER BY id ASC LIMIT 1");
@@ -535,12 +570,13 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
 
         if ($entry) {
             // Atomically claim the row (another process may race us)
+            $dispatchedAtMs = relayNowMs();
             $upd = $db->prepare("UPDATE relay_queue
-                                 SET state = 'dispatched', dispatched_at = $nowExpr
+                                 SET state = 'dispatched', dispatched_at = $nowExpr, dispatched_at_ms = ?
                                  WHERE id = ? AND state = 'pending'");
-            $upd->execute([(int)$entry['id']]);
+            $upd->execute([$dispatchedAtMs, (int)$entry['id']]);
             if ($upd->rowCount() === 0) {
-                usleep(100000); // lost the race, retry
+                usleep($pollIntervalUs); // lost the race, retry
                 continue;
             }
 
@@ -556,13 +592,18 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
             http_response_code(200);
             header('Content-Type: application/json');
             header('X-Relay-Seq: ' . $entry['id']);
+            $createdAtMs = isset($entry['created_at_ms']) ? (int)$entry['created_at_ms'] : null;
+            $timingHeader = relayFormatTimingHeader($createdAtMs, $dispatchedAtMs, null, null);
+            if ($timingHeader !== '') {
+                header('X-Relay-Timing: ' . $timingHeader);
+            }
             header('Cache-Control: no-cache, no-store');
             header('Content-Length: ' . strlen($respBody));
             echo $respBody;
             return;
         }
 
-        usleep(500000); // 0.5 s — keep latency low
+        usleep($pollIntervalUs); // 0.1 s — reduce pickup latency without busy looping
     }
 
     // Poll timeout — client must reconnect immediately
@@ -590,6 +631,8 @@ function relayHandlePublic(
     set_time_limit(50);
 
     $webhookId = (int)$webhook['id'];
+    $requestStartedAtMs = relayNowMs();
+    $pollIntervalUs = 100000;
 
     // Strip the webhook URL prefix from the path so the relay client sees only
     // the sub-path (e.g. /hook/token/api/v1 → /api/v1, or /slug/token → /).
@@ -626,9 +669,9 @@ function relayHandlePublic(
     }
 
     $db->prepare("INSERT INTO relay_queue
-                  (webhook_id, state, req_method, req_path, req_qs, req_headers, req_body, req_b64)
-                  VALUES (?, 'pending', ?, ?, ?, ?, ?, ?)")
-       ->execute([$webhookId, $method, $relayPath, $qs, json_encode($headers), $bodyStr, $bodyB64]);
+                  (webhook_id, state, req_method, req_path, req_qs, req_headers, req_body, req_b64, created_at_ms)
+                  VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?)")
+       ->execute([$webhookId, $method, $relayPath, $qs, json_encode($headers), $bodyStr, $bodyB64, $requestStartedAtMs]);
 
     $queueId = (int)$db->lastInsertId();
 
@@ -637,10 +680,10 @@ function relayHandlePublic(
 
     // Phase 1 (≤ 5 s): wait for any relay client to claim the request (pending → dispatched).
     // If nobody picks it up in time the service is considered unreachable.
-    $claimDeadline = time() + 5;
+    $claimDeadlineMs = $requestStartedAtMs + 5000;
     $claimed = false;
-    while (time() < $claimDeadline) {
-        $stmt = $pollDb->prepare("SELECT state FROM relay_queue WHERE id = ?");
+    while (relayNowMs() < $claimDeadlineMs) {
+        $stmt = $pollDb->prepare("SELECT state, dispatched_at_ms FROM relay_queue WHERE id = ?");
         $stmt->execute([$queueId]);
         $row = $stmt->fetch();
         $stmt->closeCursor();
@@ -649,7 +692,7 @@ function relayHandlePublic(
             $claimed = true;
             break;
         }
-        usleep(500000); // 0.5 s
+        usleep($pollIntervalUs);
     }
 
     if (!$claimed) {
@@ -663,8 +706,8 @@ function relayHandlePublic(
     }
 
     // Phase 2 (≤ 25 s more): wait for the relay client to deliver the response (dispatched → done).
-    $responseDeadline = time() + 25;
-    while (time() < $responseDeadline) {
+    $responseDeadlineMs = relayNowMs() + 25000;
+    while (relayNowMs() < $responseDeadlineMs) {
         $stmt = $pollDb->prepare("SELECT * FROM relay_queue WHERE id = ? AND state = 'done'");
         $stmt->execute([$queueId]);
         $entry = $stmt->fetch();
@@ -678,6 +721,7 @@ function relayHandlePublic(
                 $respBody = (string)base64_decode($respBody);
             }
 
+            $completedAtMs = relayNowMs();
             http_response_code($status);
             foreach ($respHeaders as $hk => $hv) {
                 $hk = preg_replace('/[^a-zA-Z0-9\-]/', '', (string)$hk);
@@ -687,6 +731,15 @@ function relayHandlePublic(
             }
             header('Content-Length: ' . strlen($respBody));
             header('X-Hookpool-Relay: 1');
+            $timingHeader = relayFormatTimingHeader(
+                isset($entry['created_at_ms']) ? (int)$entry['created_at_ms'] : null,
+                isset($entry['dispatched_at_ms']) ? (int)$entry['dispatched_at_ms'] : null,
+                isset($entry['responded_at_ms']) ? (int)$entry['responded_at_ms'] : null,
+                $completedAtMs
+            );
+            if ($timingHeader !== '') {
+                header('X-Relay-Timing: ' . $timingHeader);
+            }
             echo $respBody;
 
             // Best-effort cleanup — periodic purge in relayHandlePoll handles failures
@@ -694,7 +747,7 @@ function relayHandlePublic(
             return;
         }
 
-        usleep(500000); // 0.5 s
+        usleep($pollIntervalUs);
     }
 
     // Phase 2 timeout: client claimed the request but never delivered a response
