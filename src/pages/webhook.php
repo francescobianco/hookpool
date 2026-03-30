@@ -1684,6 +1684,7 @@ function submitRename(e) {
                         <div class="dsl-hint-section">
                             <div class="dsl-hint-title">Filter (optional)</div>
                             <div class="dsl-hint-row"><code>WITH&nbsp;&lt;expr&gt;</code> — e.g. <code>COUNT BEFORE WITH {{status}} = 1 &gt;= 3</code></div>
+                            <div class="dsl-hint-row"><code>SECONDS BEFORE LAST WITH {{params.a}} = "1"</code></div>
                             <div class="dsl-hint-row">Operators: <code>=</code> <code>!=</code> <code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code> <code>AND</code> <code>OR</code> <code>NOT</code></div>
                         </div>
                         <div class="dsl-hint-section">
@@ -1696,7 +1697,7 @@ function submitRename(e) {
                                 <code>{{ip}}</code><span>sender IP</span>
                                 <code>{{known_ip}}</code><span>IP label or raw IP</span>
                                 <code>{{path}}</code><span>request path</span>
-                                <span></span><span></span>
+                                <code>{{params.x}}</code><span>query-string parameter x</span>
                             </div>
                         </div>
                     </div>

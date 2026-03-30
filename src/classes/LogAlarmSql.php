@@ -41,6 +41,7 @@ final class LogAlarmSql
             WITH base AS (
                 SELECT
                     e.id,
+                    e.method,
                     e.received_at,
                     e.path,
                     e.query_string,
@@ -84,6 +85,7 @@ final class LogAlarmSql
             WITH base AS (
                 SELECT
                     e.id,
+                    e.method,
                     e.received_at,
                     e.path,
                     e.query_string,
@@ -714,6 +716,10 @@ final class LogAlarmSql
     private function placeholderToSql(string $name, string $rowAlias): string
     {
         $lower = strtolower(trim($name));
+        if (str_starts_with($lower, 'params.')) {
+            $paramName = substr($name, 7);
+            return $this->queryParamExpr("{$rowAlias}.query_string", $paramName);
+        }
         return match ($lower) {
             'body'     => "{$rowAlias}.body",
             'status'   => "{$rowAlias}.validated",
@@ -724,6 +730,40 @@ final class LogAlarmSql
             'path'     => "{$rowAlias}.path",
             default    => 'NULL',
         };
+    }
+
+    private function queryParamExpr(string $queryStringExpr, string $paramName): string
+    {
+        $paramName = trim($paramName);
+        if ($paramName === '') {
+            return 'NULL';
+        }
+
+        $needle = $this->quoteSqlString('&' . rawurlencode($paramName) . '=');
+
+        if (DB_TYPE === 'mysql') {
+            $wrapped = "CONCAT('&', COALESCE({$queryStringExpr}, ''), '&')";
+            $start = "LOCATE({$needle}, {$wrapped})";
+            $valueStart = "({$start} + CHAR_LENGTH({$needle}))";
+            $tail = "SUBSTRING({$wrapped}, {$valueStart})";
+            $end = "LOCATE('&', {$tail})";
+            return "CASE
+                WHEN {$start} = 0 THEN NULL
+                WHEN {$end} = 0 THEN {$tail}
+                ELSE SUBSTRING({$tail}, 1, {$end} - 1)
+            END";
+        }
+
+        $wrapped = "('&' || COALESCE({$queryStringExpr}, '') || '&')";
+        $start = "instr({$wrapped}, {$needle})";
+        $valueStart = "({$start} + length({$needle}))";
+        $tail = "substr({$wrapped}, {$valueStart})";
+        $end = "instr({$tail}, '&')";
+        return "CASE
+            WHEN {$start} = 0 THEN NULL
+            WHEN {$end} = 0 THEN {$tail}
+            ELSE substr({$tail}, 1, {$end} - 1)
+        END";
     }
 
     private function swapAlias(string $sql, string $fromAlias, string $toAlias): string

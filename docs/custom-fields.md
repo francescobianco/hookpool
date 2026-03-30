@@ -102,6 +102,7 @@ These fields refer to the **candidate row** being evaluated inside `WITH`:
 | `STATUS` | number | `1` if the event passed all guards, `0` otherwise |
 | `TS` | number | Event timestamp as a Unix integer |
 | `METHOD` | string | HTTP method (e.g. `"POST"`, `"GET"`) |
+| `{{params.x}}` | string | Query-string parameter `x` from the candidate row |
 
 ---
 

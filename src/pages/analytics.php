@@ -184,7 +184,8 @@ $evStmt = $db->prepare('
     FROM events
     WHERE webhook_id = ?
       AND validated = 1
-    ORDER BY received_at ASC
+      AND method != \'ALARM\'
+    ORDER BY received_at ASC, id ASC
     LIMIT 2000
 ');
 $evStmt->execute([$webhookId]);
@@ -220,7 +221,9 @@ if ($groupby === 'none') {
     $sortDirMul = $sortDir === 'asc' ? 1 : -1;
     if (in_array($sortBy, ['received_at', 'method', 'path', 'ip', 'validated'], true)) {
         usort($computedRows, function ($a, $b) use ($sortBy, $sortDirMul) {
-            return $sortDirMul * strcmp((string)($a[$sortBy] ?? ''), (string)($b[$sortBy] ?? ''));
+            $cmp = strcmp((string)($a[$sortBy] ?? ''), (string)($b[$sortBy] ?? ''));
+            if ($cmp !== 0) return $sortDirMul * $cmp;
+            return $sortDirMul * (((int)($a['id'] ?? 0)) <=> ((int)($b['id'] ?? 0)));
         });
     } elseif (preg_match('/^field_(\d+)$/', $sortBy, $fm)) {
         $fIdx = (int)$fm[1];
@@ -538,6 +541,7 @@ ob_start();
                     <div class="dsl-hint-section">
                         <div class="dsl-hint-title">Filter (optional)</div>
                         <div class="dsl-hint-row"><code>WITH&nbsp;&lt;expr&gt;</code> — e.g. <code>COUNT BEFORE WITH {{status}} = 1</code></div>
+                        <div class="dsl-hint-row"><code>SECONDS BEFORE LAST WITH {{params.a}} = "1"</code></div>
                         <div class="dsl-hint-row">Operators: <code>=</code> <code>!=</code> <code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code> <code>AND</code> <code>OR</code> <code>NOT</code></div>
                     </div>
                     <div class="dsl-hint-section">
@@ -550,7 +554,7 @@ ob_start();
                             <code>{{ip}}</code><span>sender IP</span>
                             <code>{{known_ip}}</code><span>IP label or raw IP</span>
                             <code>{{path}}</code><span>request path</span>
-                            <span></span><span></span>
+                            <code>{{params.x}}</code><span>query-string parameter x</span>
                         </div>
                     </div>
                 </div>
@@ -597,6 +601,7 @@ ob_start();
                     <div class="dsl-hint-section">
                         <div class="dsl-hint-title">Filter (optional)</div>
                         <div class="dsl-hint-row"><code>WITH&nbsp;&lt;expr&gt;</code> — e.g. <code>COUNT BEFORE WITH {{status}} = 1</code></div>
+                        <div class="dsl-hint-row"><code>SECONDS BEFORE LAST WITH {{params.a}} = "1"</code></div>
                         <div class="dsl-hint-row">Operators: <code>=</code> <code>!=</code> <code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code> <code>AND</code> <code>OR</code> <code>NOT</code></div>
                     </div>
                     <div class="dsl-hint-section">
@@ -609,7 +614,7 @@ ob_start();
                             <code>{{ip}}</code><span>sender IP</span>
                             <code>{{known_ip}}</code><span>IP label or raw IP</span>
                             <code>{{path}}</code><span>request path</span>
-                            <span></span><span></span>
+                            <code>{{params.x}}</code><span>query-string parameter x</span>
                         </div>
                     </div>
                 </div>

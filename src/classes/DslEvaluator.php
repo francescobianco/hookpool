@@ -28,6 +28,7 @@
  *   {{ip}}       — sender IP address
  *   {{known_ip}} — known-IP label, or raw IP if no label defined
  *   {{path}}     — request path
+ *   {{params.x}} — query-string param value (e.g. ?x=1)
  *
  * Custom field placeholders reference previously-computed fields: {{field_name}}
  */
@@ -810,6 +811,9 @@ class DslEvaluator
             $p++;
             $name  = $tok['value'];
             $lower = strtolower($name);
+            if (str_starts_with($lower, 'params.')) {
+                return self::queryParamValue((string)($row['query_string'] ?? ''), substr($name, 7));
+            }
             return match($lower) {
                 'body'     => $row['body'] ?? '',
                 'status'   => (int)($row['validated'] ?? 0),
@@ -834,5 +838,12 @@ class DslEvaluator
 
         $p++;
         return null;
+    }
+
+    private static function queryParamValue(string $queryString, string $paramName): mixed
+    {
+        if ($paramName === '') return null;
+        parse_str($queryString, $params);
+        return $params[$paramName] ?? null;
     }
 }
