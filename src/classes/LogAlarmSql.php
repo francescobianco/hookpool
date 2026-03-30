@@ -55,6 +55,7 @@ final class LogAlarmSql
                 LEFT JOIN known_ips k ON k.user_id = p.user_id AND k.ip = e.ip
                 WHERE e.webhook_id = :webhook_id
                   AND e.method != 'ALARM'
+                  AND e.validated = 1
             )
             SELECT b.id, b.path, b.received_at
             FROM base b
@@ -97,6 +98,7 @@ final class LogAlarmSql
                 LEFT JOIN known_ips k ON k.user_id = p.user_id AND k.ip = e.ip
                 WHERE e.webhook_id = :webhook_id
                   AND e.method != 'ALARM'
+                  AND e.validated = 1
             ),
             metric_rows AS (
                 SELECT

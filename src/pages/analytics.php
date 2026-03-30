@@ -183,6 +183,7 @@ $evStmt = $db->prepare('
     SELECT id, method, received_at, path, query_string, body, validated, ip
     FROM events
     WHERE webhook_id = ?
+      AND validated = 1
     ORDER BY received_at ASC
     LIMIT 2000
 ');

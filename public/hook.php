@@ -296,7 +296,7 @@ if ($validated) {
     }
 }
 
-{
+if ($validated) {
     $alarmStmt = $db->prepare("
         SELECT a.*, u.email AS user_email
         FROM alarms a

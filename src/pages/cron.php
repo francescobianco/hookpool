@@ -88,7 +88,7 @@ foreach ($alarms as $alarm) {
         if ($lastAt && ($now - strtotime($lastAt)) < $thresholdSecs) continue;
 
         // Check last non-ALARM event
-        $evtStmt = $db->prepare("SELECT received_at FROM events WHERE webhook_id = ? AND method != 'ALARM' ORDER BY received_at DESC LIMIT 1");
+        $evtStmt = $db->prepare("SELECT received_at FROM events WHERE webhook_id = ? AND method != 'ALARM' AND validated = 1 ORDER BY received_at DESC, id DESC LIMIT 1");
         $evtStmt->execute([$webhookId]);
         $lastReceived = $evtStmt->fetchColumn();
 
@@ -144,7 +144,7 @@ foreach ($alarms as $alarm) {
         // Check if any non-ALARM event arrived during this window today
         $todayStart = $today . ' ' . $start . ':00';
         $todayEnd   = $today . ' ' . $end   . ':59';
-        $evtCheck   = $db->prepare("SELECT COUNT(*) FROM events WHERE webhook_id = ? AND method != 'ALARM' AND received_at >= ? AND received_at <= ?");
+        $evtCheck   = $db->prepare("SELECT COUNT(*) FROM events WHERE webhook_id = ? AND method != 'ALARM' AND validated = 1 AND received_at >= ? AND received_at <= ?");
         $evtCheck->execute([$webhookId, $todayStart, $todayEnd]);
         $count = (int)$evtCheck->fetchColumn();
 
