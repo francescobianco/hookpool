@@ -79,7 +79,7 @@ $eventsStmt = $db->prepare("
     JOIN webhooks w ON w.id = e.webhook_id
     JOIN projects p ON p.id = w.project_id
     WHERE $where
-    ORDER BY e.id DESC
+    ORDER BY e.received_at DESC, e.id DESC
     LIMIT 100
 ");
 $eventsStmt->execute($params);
@@ -511,7 +511,7 @@ function renderEventRow(array $event): string {
                     if (empty) empty.classList.add('hidden');
                     if (table) table.classList.remove('hidden');
 
-                    newEvents.forEach(ev => {
+                    [...newEvents].reverse().forEach(ev => {
                         const tr = buildEventRow(ev, true);
                         tbody.insertBefore(tr, tbody.firstChild);
                         setTimeout(() => tr.classList.remove('event-new'), 500);

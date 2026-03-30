@@ -1026,7 +1026,7 @@ $alarmStmt->execute([$webhookId]);
 $alarms = $alarmStmt->fetchAll();
 
 // Load recent events (last 20)
-$evtStmt = $db->prepare('SELECT * FROM events WHERE webhook_id = ? ORDER BY received_at DESC LIMIT 20');
+$evtStmt = $db->prepare('SELECT * FROM events WHERE webhook_id = ? ORDER BY received_at DESC, id DESC LIMIT 20');
 $evtStmt->execute([$webhookId]);
 $recentEvents = $evtStmt->fetchAll();
 
@@ -1452,7 +1452,7 @@ function escapeHtml(value) {
 
                 table.classList.remove('hidden');
 
-                newEvents.forEach(ev => {
+                [...newEvents].reverse().forEach(ev => {
                     const tr = document.createElement('tr');
                     tr.className = 'event-row event-new';
                     tr.setAttribute('data-id', ev.id);

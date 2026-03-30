@@ -93,7 +93,7 @@ switch ($action) {
             JOIN webhooks w ON w.id = e.webhook_id
             JOIN projects p ON p.id = w.project_id
             WHERE $where
-            ORDER BY e.id DESC
+            ORDER BY e.received_at DESC, e.id DESC
             LIMIT $limit
         ");
         $stmt->execute($params);
