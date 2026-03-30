@@ -76,6 +76,44 @@ if ($action === 'save_log_retention' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// --- DROP ALL LOGS ---
+if ($action === 'drop_all_logs' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=settings#danger-zone');
+        exit;
+    }
+
+    $webhookIdsStmt = $db->prepare('
+        SELECT w.id
+        FROM webhooks w
+        JOIN projects p ON p.id = w.project_id
+        WHERE p.user_id = ? AND w.deleted_at IS NULL AND p.deleted_at IS NULL
+    ');
+    $webhookIdsStmt->execute([$userId]);
+    $webhookIds = array_map('intval', $webhookIdsStmt->fetchAll(PDO::FETCH_COLUMN));
+
+    if (!empty($webhookIds)) {
+        $idList = implode(',', $webhookIds);
+        $db->beginTransaction();
+        try {
+            $db->exec("DELETE FROM event_files WHERE event_id IN (SELECT id FROM events WHERE webhook_id IN ({$idList}))");
+            $db->exec("DELETE FROM forward_attempts WHERE event_id IN (SELECT id FROM events WHERE webhook_id IN ({$idList}))");
+            $db->exec("DELETE FROM events WHERE webhook_id IN ({$idList})");
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            setFlash('error', 'Unable to drop logs.');
+            header('Location: ' . BASE_URL . '/?page=settings#danger-zone');
+            exit;
+        }
+    }
+
+    setFlash('success', 'All logs were dropped.');
+    header('Location: ' . BASE_URL . '/?page=settings#danger-zone');
+    exit;
+}
+
 // --- CREATE CATEGORY ---
 if ($action === 'create_category' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
@@ -323,11 +361,21 @@ $stats = $statsStmt->fetch();
         </div>
     </section>
 
-    <!-- Danger Zone (hidden for local single-user mode) -->
-    <?php if (authEnabled()): ?>
-    <section class="section danger-zone">
+    <!-- Danger Zone -->
+    <section class="section danger-zone" id="danger-zone">
         <h2 class="text-error"><?= __('settings.danger_zone') ?></h2>
         <div class="card card-danger">
+            <div class="danger-item">
+                <div>
+                    <h4>Drops all logs</h4>
+                    <p class="text-muted">Delete every event log, uploaded file log and forward attempt for all your webhooks.</p>
+                </div>
+                <form method="post" action="<?= BASE_URL ?>/?page=settings&action=drop_all_logs" class="inline" onsubmit="return confirm('Drop all logs for all your webhooks?')">
+                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                    <button type="submit" class="btn btn-danger">Drops all logs</button>
+                </form>
+            </div>
+            <?php if (authEnabled()): ?>
             <div class="danger-item">
                 <div>
                     <h4><?= __('settings.delete_account') ?></h4>
@@ -337,9 +385,9 @@ $stats = $statsStmt->fetch();
                     <?= __('settings.delete_account') ?>
                 </button>
             </div>
+            <?php endif; ?>
         </div>
     </section>
-    <?php endif; ?>
 
     <!-- Footer links -->
     <div style="text-align:center;margin-top:1.5rem;display:flex;justify-content:center;gap:1.5rem">

@@ -380,6 +380,27 @@ switch ($action) {
         echo json_encode(['ok' => $error === null, 'error' => $error, 'normalized' => $normalized]) . "\n";
         break;
 
+    case 'validate_log_alarm_expression':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }
+        if (!verifyCsrfToken($_POST['_csrf'] ?? '')) { http_response_code(403); echo json_encode(['error' => 'csrf']); break; }
+
+        require_once __DIR__ . '/../classes/DslEvaluator.php';
+        require_once __DIR__ . '/../classes/LogAlarmSql.php';
+        $expression = trim($_POST['expression'] ?? '');
+        $mode       = trim($_POST['mode'] ?? 'condition');
+        if ($mode === 'metric') {
+            $error = DslEvaluator::validate($expression);
+            $normalized = $error === null ? DslEvaluator::normalize($expression) : null;
+        } elseif ($mode === 'aggregate') {
+            $error = LogAlarmSql::validateAggregateCondition($expression);
+            $normalized = $error === null ? LogAlarmSql::normalizeAggregateCondition($expression) : null;
+        } else {
+            $error = DslEvaluator::validateCondition($expression);
+            $normalized = $error === null ? DslEvaluator::normalizeCondition($expression) : null;
+        }
+        echo json_encode(['ok' => $error === null, 'error' => $error, 'normalized' => $normalized]) . "\n";
+        break;
+
     // --- SAVE ANALYTICS VIEW TO SIDEBAR ---
     case 'save_analytics_view':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['error' => 'method_not_allowed']); break; }

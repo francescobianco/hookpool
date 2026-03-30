@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/../classes/DslEvaluator.php';
+require_once __DIR__ . '/../classes/LogAlarmSql.php';
+
 $current_user = requireAuth($db);
 $userId       = (int)$current_user['id'];
 $action       = $_GET['action'] ?? 'detail';
@@ -15,6 +18,80 @@ function loadWebhookForUser(PDO $db, int $webhookId, int $userId): ?array {
     ');
     $stmt->execute([$webhookId, $userId]);
     return $stmt->fetch() ?: null;
+}
+
+/**
+ * Validate and normalize alarm input from POST data.
+ *
+ * @return array{type:string,config:array}
+ */
+function buildAlarmPayload(array $input): array {
+    $type = $input['type'] ?? '';
+    $validTypes = ['not_called_since', 'not_called_in_interval', 'called_in_interval', 'log_expression'];
+    if (!in_array($type, $validTypes, true)) {
+        throw new RuntimeException(__('msg.invalid'));
+    }
+
+    $config = [];
+    if ($type === 'not_called_since') {
+        $config = [
+            'hours'   => max(0, (int)($input['hours'] ?? 0)),
+            'minutes' => max(0, min(59, (int)($input['minutes'] ?? 0))),
+        ];
+        if ($config['hours'] === 0 && $config['minutes'] === 0) {
+            throw new RuntimeException(__('alarm.error_zero_threshold'));
+        }
+    } elseif ($type === 'log_expression') {
+        $groupBy = trim((string)($input['group_by'] ?? ''));
+        if (!in_array($groupBy, ['none', 'day', 'week', 'month'], true)) {
+            throw new RuntimeException(__('msg.invalid'));
+        }
+        if ($groupBy === 'none') {
+            $expression = trim((string)($input['expression'] ?? ''));
+            if ($expression === '') {
+                throw new RuntimeException(__('alarm.error_expression_required'));
+            }
+            $error = DslEvaluator::validateCondition($expression);
+            if ($error !== null) {
+                throw new RuntimeException(__('alarm.error_expression_invalid') . ' ' . $error);
+            }
+            $config = [
+                'group_by'  => 'none',
+                'condition' => DslEvaluator::normalizeCondition($expression),
+            ];
+        } else {
+            $metricFormula = trim((string)($input['metric_formula'] ?? ''));
+            $aggregateExpression = trim((string)($input['aggregate_expression'] ?? ''));
+            if ($metricFormula === '') {
+                throw new RuntimeException(__('alarm.error_metric_formula_required'));
+            }
+            if ($aggregateExpression === '') {
+                throw new RuntimeException(__('alarm.error_aggregate_expression_required'));
+            }
+            $metricError = DslEvaluator::validate($metricFormula);
+            if ($metricError !== null) {
+                throw new RuntimeException(__('alarm.error_metric_formula_invalid') . ' ' . $metricError);
+            }
+            $aggregateError = LogAlarmSql::validateAggregateCondition($aggregateExpression);
+            if ($aggregateError !== null) {
+                throw new RuntimeException(__('alarm.error_aggregate_expression_invalid') . ' ' . $aggregateError);
+            }
+            $config = [
+                'group_by'             => $groupBy,
+                'metric_formula'       => DslEvaluator::normalize($metricFormula),
+                'aggregate_expression' => LogAlarmSql::normalizeAggregateCondition($aggregateExpression),
+            ];
+        }
+    } else {
+        $start = trim((string)($input['interval_start'] ?? ''));
+        $end   = trim((string)($input['interval_end'] ?? ''));
+        if (!preg_match('/^\d{2}:\d{2}$/', $start) || !preg_match('/^\d{2}:\d{2}$/', $end) || $start >= $end) {
+            throw new RuntimeException(__('alarm.error_interval'));
+        }
+        $config = ['start' => $start, 'end' => $end];
+    }
+
+    return ['type' => $type, 'config' => $config];
 }
 
 // --- ADD GUARD ---
@@ -426,39 +503,58 @@ if ($action === 'add_alarm' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$wh) { setFlash('error', __('msg.unauthorized')); header('Location: ' . BASE_URL . '/?page=project'); exit; }
 
     $name = trim($_POST['name'] ?? '');
-    $type = $_POST['type'] ?? '';
-    $validTypes = ['not_called_since', 'not_called_in_interval', 'called_in_interval'];
-    if (!in_array($type, $validTypes)) {
-        setFlash('error', __('msg.invalid'));
+    try {
+        $payload = buildAlarmPayload($_POST);
+    } catch (Throwable $e) {
+        setFlash('error', $e->getMessage());
         header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
         exit;
     }
 
-    $config = [];
-    if ($type === 'not_called_since') {
-        $config = [
-            'hours'   => max(0, (int)($_POST['hours']   ?? 0)),
-            'minutes' => max(0, min(59, (int)($_POST['minutes'] ?? 0))),
-        ];
-        if ($config['hours'] === 0 && $config['minutes'] === 0) {
-            setFlash('error', __('alarm.error_zero_threshold'));
-            header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
-            exit;
-        }
-    } else {
-        $start = trim($_POST['interval_start'] ?? '');
-        $end   = trim($_POST['interval_end']   ?? '');
-        if (!preg_match('/^\d{2}:\d{2}$/', $start) || !preg_match('/^\d{2}:\d{2}$/', $end) || $start >= $end) {
-            setFlash('error', __('alarm.error_interval'));
-            header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
-            exit;
-        }
-        $config = ['start' => $start, 'end' => $end];
+    $db->prepare('INSERT INTO alarms (webhook_id, name, type, config) VALUES (?, ?, ?, ?)')
+       ->execute([$webhookId, $name, $payload['type'], json_encode($payload['config'])]);
+    setFlash('success', __('alarm.created'));
+    header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
+    exit;
+}
+
+// --- EDIT ALARM ---
+if ($action === 'edit_alarm' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . (int)($_POST['webhook_id'] ?? 0));
+        exit;
+    }
+    $webhookId = (int)($_POST['webhook_id'] ?? 0);
+    $alarmId   = (int)($_POST['alarm_id'] ?? 0);
+    $wh = loadWebhookForUser($db, $webhookId, $userId);
+    if (!$wh) { setFlash('error', __('msg.unauthorized')); header('Location: ' . BASE_URL . '/?page=project'); exit; }
+
+    $alStmt = $db->prepare('
+        SELECT a.id FROM alarms a
+        JOIN webhooks w ON w.id = a.webhook_id
+        JOIN projects p ON p.id = w.project_id
+        WHERE a.id = ? AND a.webhook_id = ? AND p.user_id = ? AND a.deleted_at IS NULL
+    ');
+    $alStmt->execute([$alarmId, $webhookId, $userId]);
+    if (!$alStmt->fetch()) {
+        setFlash('error', __('msg.unauthorized'));
+        header('Location: ' . BASE_URL . '/?page=project');
+        exit;
     }
 
-    $db->prepare('INSERT INTO alarms (webhook_id, name, type, config) VALUES (?, ?, ?, ?)')
-       ->execute([$webhookId, $name, $type, json_encode($config)]);
-    setFlash('success', __('alarm.created'));
+    $name = trim($_POST['name'] ?? '');
+    try {
+        $payload = buildAlarmPayload($_POST);
+    } catch (Throwable $e) {
+        setFlash('error', $e->getMessage());
+        header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
+        exit;
+    }
+
+    $db->prepare('UPDATE alarms SET name = ?, type = ?, config = ? WHERE id = ?')
+       ->execute([$name, $payload['type'], json_encode($payload['config']), $alarmId]);
+    setFlash('success', __('msg.saved'));
     header('Location: ' . BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId);
     exit;
 }
@@ -1182,7 +1278,7 @@ ob_start();
     <section class="section">
         <div class="section-header">
             <h2><?= __('alarm.title') ?></h2>
-            <button onclick="openModal('addAlarmModal')" class="btn btn-sm btn-outline">+ <?= __('alarm.create') ?></button>
+            <button onclick="openCreateAlarmModal()" class="btn btn-sm btn-outline">+ <?= __('alarm.create') ?></button>
         </div>
         <?php if (empty($alarms)): ?>
         <p class="text-muted"><?= __('alarm.none') ?></p>
@@ -1199,15 +1295,31 @@ ob_start();
                             'not_called_since'      => __('alarm.type.not_called_since') . ': ' . ($alCfg['hours'] ?? 0) . 'h ' . ($alCfg['minutes'] ?? 0) . 'm',
                             'not_called_in_interval'=> __('alarm.type.not_called_in_interval') . ': ' . ($alCfg['start'] ?? '') . '–' . ($alCfg['end'] ?? ''),
                             'called_in_interval'    => __('alarm.type.called_in_interval') . ': ' . ($alCfg['start'] ?? '') . '–' . ($alCfg['end'] ?? ''),
+                            'log_expression'        => ($alCfg['group_by'] ?? 'none') === 'none'
+                                ? __('alarm.type.log_expression') . ' (' . __('alarm.group_by.none') . '): ' . ($alCfg['condition'] ?? '')
+                                : __('alarm.type.log_expression') . ' (' . __('alarm.group_by.' . ($alCfg['group_by'] ?? 'none')) . '): '
+                                    . ($alCfg['metric_formula'] ?? '') . ' | ' . ($alCfg['aggregate_expression'] ?? ''),
                             default => $al['type'],
                         });
                         ?>
                     </span>
                 </div>
-                <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=delete_alarm&alarm_id=<?= $al['id'] ?>" class="inline">
-                    <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
-                    <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('<?= __('alarm.confirm_delete') ?>')">Remove</button>
-                </form>
+                <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                    <button
+                        type="button"
+                        class="btn btn-xs btn-outline"
+                        onclick="openEditAlarmModal(
+                            <?= (int)$al['id'] ?>,
+                            <?= htmlspecialchars(json_encode($al['name'] ?? '')) ?>,
+                            <?= htmlspecialchars(json_encode($al['type'])) ?>,
+                            <?= htmlspecialchars(json_encode($alCfg)) ?>
+                        )"
+                    >Edit</button>
+                    <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=delete_alarm&alarm_id=<?= $al['id'] ?>" class="inline">
+                        <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                        <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('<?= __('alarm.confirm_delete') ?>')">Remove</button>
+                    </form>
+                </div>
             </div>
             <?php endforeach; ?>
         </div>
@@ -1448,27 +1560,31 @@ function submitRename(e) {
 
 <!-- Add Alarm Modal -->
 <div id="addAlarmModal" class="modal" style="display:none" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-alarm">
         <div class="modal-header">
-            <h3><?= __('alarm.create') ?></h3>
+            <h3 id="alarmModalTitle"><?= __('alarm.create') ?></h3>
             <button onclick="closeModal('addAlarmModal')" class="modal-close">&times;</button>
         </div>
-        <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=add_alarm">
+        <form method="post" action="<?= BASE_URL ?>/?page=webhook&action=add_alarm" id="addAlarmForm" onsubmit="return validateAlarmBeforeSubmit(event)">
             <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
             <input type="hidden" name="webhook_id" value="<?= $webhookId ?>">
+            <input type="hidden" name="alarm_id" id="alarmIdInput" value="">
             <div class="modal-body">
-                <div class="form-group">
-                    <label><?= __('alarm.name') ?></label>
-                    <input type="text" name="name" placeholder="<?= __('alarm.name_placeholder') ?>" maxlength="100">
-                </div>
-                <div class="form-group">
-                    <label><?= __('alarm.type_label') ?> <span class="required">*</span></label>
-                    <select name="type" id="alarmTypeSelect" onchange="updateAlarmFields(this.value)" required>
-                        <option value="">— <?= __('alarm.type_select') ?> —</option>
-                        <option value="not_called_since"><?= __('alarm.type.not_called_since') ?></option>
-                        <option value="not_called_in_interval"><?= __('alarm.type.not_called_in_interval') ?></option>
-                        <option value="called_in_interval"><?= __('alarm.type.called_in_interval') ?></option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label><?= __('alarm.name') ?></label>
+                        <input type="text" name="name" id="alarmNameInput" placeholder="<?= __('alarm.name_placeholder') ?>" maxlength="100">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label><?= __('alarm.type_label') ?> <span class="required">*</span></label>
+                        <select name="type" id="alarmTypeSelect" onchange="updateAlarmFields(this.value)" required>
+                            <option value="">— <?= __('alarm.type_select') ?> —</option>
+                            <option value="not_called_since"><?= __('alarm.type.not_called_since') ?></option>
+                            <option value="not_called_in_interval"><?= __('alarm.type.not_called_in_interval') ?></option>
+                            <option value="called_in_interval"><?= __('alarm.type.called_in_interval') ?></option>
+                            <option value="log_expression"><?= __('alarm.type.log_expression') ?></option>
+                        </select>
+                    </div>
                 </div>
                 <!-- Fields for not_called_since -->
                 <div id="alarm_fields_since" style="display:none">
@@ -1498,9 +1614,96 @@ function submitRename(e) {
                         </div>
                     </div>
                 </div>
+                <div id="alarm_fields_expression" style="display:none">
+                    <p class="form-hint"><?= __('alarm.hint.log_expression') ?></p>
+                    <div id="alarmExpressionSingleBlock">
+                        <div class="form-row">
+                            <div class="form-group form-group-sm">
+                                <label><?= __('alarm.group_by') ?></label>
+                                <select name="group_by" id="alarmGroupBySelect" onchange="updateAlarmExpressionMode()">
+                                    <option value="none"><?= __('alarm.group_by.none') ?></option>
+                                    <option value="day"><?= __('alarm.group_by.day') ?></option>
+                                    <option value="week"><?= __('alarm.group_by.week') ?></option>
+                                    <option value="month"><?= __('alarm.group_by.month') ?></option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label><?= __('alarm.expression') ?></label>
+                                <input type="text" name="expression" id="alarmExpressionInput" placeholder="<?= __('alarm.expression_placeholder') ?>" class="mono" autocomplete="off" oninput="clearAlarmExpressionFeedback()">
+                                <p id="alarm_expression_error" class="form-hint formula-error" style="display:none"></p>
+                                <p id="alarm_expression_ok" class="form-hint formula-ok" style="display:none">✓ Valid expression</p>
+                            </div>
+                        </div>
+                        <p class="form-hint"><?= __('alarm.hint.log_expression_scope') ?></p>
+                    </div>
+                    <div id="alarmExpressionGroupedBlock" style="display:none">
+                        <div class="form-row">
+                            <div class="form-group form-group-sm">
+                                <label><?= __('alarm.group_by') ?></label>
+                                <select name="group_by_grouped" id="alarmGroupByGroupedSelect" onchange="syncAlarmGroupedGroupBy()">
+                                    <option value="none"><?= __('alarm.group_by.none') ?></option>
+                                    <option value="day"><?= __('alarm.group_by.day') ?></option>
+                                    <option value="week"><?= __('alarm.group_by.week') ?></option>
+                                    <option value="month"><?= __('alarm.group_by.month') ?></option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label><?= __('alarm.metric_formula') ?></label>
+                                <input type="text" name="metric_formula" id="alarmMetricFormulaInput" placeholder="<?= __('alarm.metric_formula_placeholder') ?>" class="mono" autocomplete="off" oninput="clearAlarmMetricFeedback()">
+                                <p id="alarm_metric_error" class="form-hint formula-error" style="display:none"></p>
+                                <p id="alarm_metric_ok" class="form-hint formula-ok" style="display:none">✓ Valid formula</p>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label><?= __('alarm.aggregate_expression') ?></label>
+                                <input type="text" name="aggregate_expression" id="alarmAggregateExpressionInput" placeholder="<?= __('alarm.aggregate_expression_placeholder') ?>" class="mono" autocomplete="off" oninput="clearAlarmAggregateFeedback()">
+                                <p id="alarm_aggregate_error" class="form-hint formula-error" style="display:none"></p>
+                                <p id="alarm_aggregate_ok" class="form-hint formula-ok" style="display:none">✓ Valid expression</p>
+                            </div>
+                        </div>
+                        <p class="form-hint"><?= __('alarm.hint.log_expression_grouped') ?></p>
+                    </div>
+                    <div class="dsl-hint">
+                        <div class="dsl-hint-section">
+                            <div class="dsl-hint-title">Metrics</div>
+                            <div class="dsl-hint-row"><code>COUNT BEFORE</code> <code>COUNT AFTER</code></div>
+                            <div class="dsl-hint-row"><code>COUNT STREAK BEFORE</code> <code>COUNT STREAK AFTER</code></div>
+                            <div class="dsl-hint-row"><code>SECONDS|MINUTES|HOURS|DAYS&nbsp;BEFORE&nbsp;LAST</code></div>
+                            <div class="dsl-hint-row"><code>SECONDS|MINUTES|HOURS|DAYS&nbsp;AFTER&nbsp;FIRST</code></div>
+                        </div>
+                        <div class="dsl-hint-section">
+                            <div class="dsl-hint-title">Comparisons</div>
+                            <div class="dsl-hint-row"><code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code> <code>=</code> <code>!=</code></div>
+                            <div class="dsl-hint-row"><code>AND</code> <code>OR</code> between conditions</div>
+                            <div class="dsl-hint-row"><code>COUNT BEFORE &gt; 10</code> <code>COUNT AFTER &lt; 2</code></div>
+                        </div>
+                        <div class="dsl-hint-section">
+                            <div class="dsl-hint-title">Grouped Aggregates</div>
+                            <div class="dsl-hint-row"><code>SUM</code> <code>MAX</code> <code>MIN</code> <code>AVG</code></div>
+                            <div class="dsl-hint-row"><code>MAX &gt; 10</code> <code>(MAX + MIN) / 2 &lt; 8</code></div>
+                        </div>
+                        <div class="dsl-hint-section">
+                            <div class="dsl-hint-title">Filter (optional)</div>
+                            <div class="dsl-hint-row"><code>WITH&nbsp;&lt;expr&gt;</code> — e.g. <code>COUNT BEFORE WITH {{status}} = 1 &gt;= 3</code></div>
+                            <div class="dsl-hint-row">Operators: <code>=</code> <code>!=</code> <code>&gt;</code> <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code> <code>AND</code> <code>OR</code> <code>NOT</code></div>
+                        </div>
+                        <div class="dsl-hint-section">
+                            <div class="dsl-hint-title">Built-in variables</div>
+                            <div class="dsl-hint-grid">
+                                <code>{{body}}</code><span>raw request body</span>
+                                <code>{{status}}</code><span>1 = valid, 0 = guard</span>
+                                <code>{{method}}</code><span>HTTP method</span>
+                                <code>{{ts}}</code><span>Unix timestamp</span>
+                                <code>{{ip}}</code><span>sender IP</span>
+                                <code>{{known_ip}}</code><span>IP label or raw IP</span>
+                                <code>{{path}}</code><span>request path</span>
+                                <span></span><span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="submit" class="btn btn-primary"><?= __('alarm.create') ?></button>
+                <button type="submit" class="btn btn-primary" id="alarmSubmitBtn"><?= __('alarm.create') ?></button>
                 <button type="button" onclick="closeModal('addAlarmModal')" class="btn btn-outline"><?= __('form.cancel') ?></button>
             </div>
         </form>
@@ -1510,12 +1713,266 @@ function submitRename(e) {
 function updateAlarmFields(type) {
     document.getElementById('alarm_fields_since').style.display    = type === 'not_called_since' ? '' : 'none';
     document.getElementById('alarm_fields_interval').style.display = (type === 'not_called_in_interval' || type === 'called_in_interval') ? '' : 'none';
+    document.getElementById('alarm_fields_expression').style.display = type === 'log_expression' ? '' : 'none';
     const hints = {
         'not_called_in_interval': '<?= __('alarm.hint.not_called_in_interval') ?>',
         'called_in_interval':     '<?= __('alarm.hint.called_in_interval') ?>',
     };
     document.getElementById('alarm_interval_hint').textContent = hints[type] || '';
+    updateAlarmExpressionMode();
 }
+
+function resetAlarmModal() {
+    const form = document.getElementById('addAlarmForm');
+    form.action = '<?= BASE_URL ?>/?page=webhook&action=add_alarm';
+    document.getElementById('alarmModalTitle').textContent = '<?= __('alarm.create') ?>';
+    document.getElementById('alarmSubmitBtn').textContent = '<?= __('alarm.create') ?>';
+    document.getElementById('alarmIdInput').value = '';
+    document.getElementById('alarmNameInput').value = '';
+    document.getElementById('alarmTypeSelect').value = '';
+    document.getElementById('alarmGroupBySelect').value = 'none';
+    document.getElementById('alarmGroupByGroupedSelect').value = 'day';
+    document.getElementById('alarmExpressionInput').value = '';
+    document.getElementById('alarmMetricFormulaInput').value = '';
+    document.getElementById('alarmAggregateExpressionInput').value = '';
+    document.querySelector('input[name="hours"]').value = '1';
+    document.querySelector('input[name="minutes"]').value = '0';
+    document.querySelector('input[name="interval_start"]').value = '09:00';
+    document.querySelector('input[name="interval_end"]').value = '17:00';
+    clearAlarmExpressionFeedback();
+    clearAlarmMetricFeedback();
+    clearAlarmAggregateFeedback();
+    updateAlarmFields('');
+}
+
+function openCreateAlarmModal() {
+    resetAlarmModal();
+    openModal('addAlarmModal');
+}
+
+function openEditAlarmModal(alarmId, name, type, config) {
+    resetAlarmModal();
+    const form = document.getElementById('addAlarmForm');
+    form.action = '<?= BASE_URL ?>/?page=webhook&action=edit_alarm';
+    document.getElementById('alarmModalTitle').textContent = 'Edit Alarm';
+    document.getElementById('alarmSubmitBtn').textContent = 'Save';
+    document.getElementById('alarmIdInput').value = String(alarmId || '');
+    document.getElementById('alarmNameInput').value = name || '';
+    document.getElementById('alarmTypeSelect').value = type || '';
+
+    const cfg = config || {};
+    if (type === 'not_called_since') {
+        document.querySelector('input[name="hours"]').value = String(cfg.hours ?? 1);
+        document.querySelector('input[name="minutes"]').value = String(cfg.minutes ?? 0);
+    } else if (type === 'not_called_in_interval' || type === 'called_in_interval') {
+        document.querySelector('input[name="interval_start"]').value = cfg.start || '09:00';
+        document.querySelector('input[name="interval_end"]').value = cfg.end || '17:00';
+    } else if (type === 'log_expression') {
+        const groupBy = cfg.group_by || 'none';
+        document.getElementById('alarmGroupBySelect').value = groupBy;
+        document.getElementById('alarmGroupByGroupedSelect').value = groupBy === 'none' ? 'day' : groupBy;
+        document.getElementById('alarmExpressionInput').value = cfg.condition || '';
+        document.getElementById('alarmMetricFormulaInput').value = cfg.metric_formula || '';
+        document.getElementById('alarmAggregateExpressionInput').value = cfg.aggregate_expression || '';
+    }
+
+    updateAlarmFields(type || '');
+    openModal('addAlarmModal');
+}
+
+let _alarmExpressionValidating = false;
+let _alarmMetricValidating = false;
+let _alarmAggregateValidating = false;
+
+function clearAlarmExpressionFeedback() {
+    document.getElementById('alarm_expression_error').style.display = 'none';
+    document.getElementById('alarm_expression_ok').style.display = 'none';
+}
+
+function clearAlarmMetricFeedback() {
+    document.getElementById('alarm_metric_error').style.display = 'none';
+    document.getElementById('alarm_metric_ok').style.display = 'none';
+}
+
+function clearAlarmAggregateFeedback() {
+    document.getElementById('alarm_aggregate_error').style.display = 'none';
+    document.getElementById('alarm_aggregate_ok').style.display = 'none';
+}
+
+function updateAlarmExpressionMode() {
+    const isExpression = document.getElementById('alarmTypeSelect').value === 'log_expression';
+    const groupBy = document.getElementById('alarmGroupBySelect').value;
+    const groupedSelect = document.getElementById('alarmGroupByGroupedSelect');
+    if (groupedSelect && groupBy !== 'none') groupedSelect.value = groupBy;
+    const isGrouped = isExpression && groupBy !== 'none';
+    document.getElementById('alarmExpressionSingleBlock').style.display = isGrouped ? 'none' : '';
+    document.getElementById('alarmExpressionGroupedBlock').style.display = isGrouped ? '' : 'none';
+}
+
+function syncAlarmGroupedGroupBy() {
+    const groupedSelect = document.getElementById('alarmGroupByGroupedSelect');
+    const mainSelect = document.getElementById('alarmGroupBySelect');
+    if (!groupedSelect || !mainSelect) return;
+    mainSelect.value = groupedSelect.value;
+    updateAlarmExpressionMode();
+}
+
+async function validateAlarmExpression() {
+    if (document.getElementById('alarmTypeSelect').value !== 'log_expression') return true;
+    if (document.getElementById('alarmGroupBySelect').value !== 'none') return true;
+    const input = document.getElementById('alarmExpressionInput');
+    const expression = input.value.trim();
+    if (!expression || _alarmExpressionValidating) return false;
+
+    _alarmExpressionValidating = true;
+    try {
+        const response = await fetch('<?= BASE_URL ?>/?page=api&action=validate_log_alarm_expression', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({
+                _csrf: '<?= e(generateCsrfToken()) ?>',
+                mode: 'condition',
+                expression
+            }),
+        });
+        const data = await response.json();
+        if (!data.ok) {
+            const errorEl = document.getElementById('alarm_expression_error');
+            errorEl.textContent = data.error || '<?= __('alarm.error_expression_invalid') ?>';
+            errorEl.style.display = '';
+            document.getElementById('alarm_expression_ok').style.display = 'none';
+            return false;
+        }
+        if (data.normalized) input.value = data.normalized;
+        document.getElementById('alarm_expression_error').style.display = 'none';
+        document.getElementById('alarm_expression_ok').style.display = '';
+        return true;
+    } catch (_) {
+        return false;
+    } finally {
+        _alarmExpressionValidating = false;
+    }
+}
+
+async function validateAlarmMetricFormula() {
+    if (document.getElementById('alarmTypeSelect').value !== 'log_expression') return true;
+    if (document.getElementById('alarmGroupBySelect').value === 'none') return true;
+    const input = document.getElementById('alarmMetricFormulaInput');
+    const expression = input.value.trim();
+    if (!expression || _alarmMetricValidating) return false;
+
+    _alarmMetricValidating = true;
+    try {
+        const response = await fetch('<?= BASE_URL ?>/?page=api&action=validate_log_alarm_expression', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({
+                _csrf: '<?= e(generateCsrfToken()) ?>',
+                mode: 'metric',
+                expression
+            }),
+        });
+        const data = await response.json();
+        if (!data.ok) {
+            const errorEl = document.getElementById('alarm_metric_error');
+            errorEl.textContent = data.error || '<?= __('alarm.error_metric_formula_invalid') ?>';
+            errorEl.style.display = '';
+            document.getElementById('alarm_metric_ok').style.display = 'none';
+            return false;
+        }
+        if (data.normalized) input.value = data.normalized;
+        document.getElementById('alarm_metric_error').style.display = 'none';
+        document.getElementById('alarm_metric_ok').style.display = '';
+        return true;
+    } catch (_) {
+        return false;
+    } finally {
+        _alarmMetricValidating = false;
+    }
+}
+
+async function validateAlarmAggregateExpression() {
+    if (document.getElementById('alarmTypeSelect').value !== 'log_expression') return true;
+    if (document.getElementById('alarmGroupBySelect').value === 'none') return true;
+    const input = document.getElementById('alarmAggregateExpressionInput');
+    const expression = input.value.trim();
+    if (!expression || _alarmAggregateValidating) return false;
+
+    _alarmAggregateValidating = true;
+    try {
+        const response = await fetch('<?= BASE_URL ?>/?page=api&action=validate_log_alarm_expression', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({
+                _csrf: '<?= e(generateCsrfToken()) ?>',
+                mode: 'aggregate',
+                expression
+            }),
+        });
+        const data = await response.json();
+        if (!data.ok) {
+            const errorEl = document.getElementById('alarm_aggregate_error');
+            errorEl.textContent = data.error || '<?= __('alarm.error_aggregate_expression_invalid') ?>';
+            errorEl.style.display = '';
+            document.getElementById('alarm_aggregate_ok').style.display = 'none';
+            return false;
+        }
+        if (data.normalized) input.value = data.normalized;
+        document.getElementById('alarm_aggregate_error').style.display = 'none';
+        document.getElementById('alarm_aggregate_ok').style.display = '';
+        return true;
+    } catch (_) {
+        return false;
+    } finally {
+        _alarmAggregateValidating = false;
+    }
+}
+
+async function validateAlarmBeforeSubmit(event) {
+    if (document.getElementById('alarmTypeSelect').value !== 'log_expression') return true;
+    const groupBy = document.getElementById('alarmGroupBySelect').value;
+
+    if (groupBy === 'none') {
+        const expression = document.getElementById('alarmExpressionInput').value.trim();
+        if (!expression) {
+            const errorEl = document.getElementById('alarm_expression_error');
+            errorEl.textContent = '<?= __('alarm.error_expression_required') ?>';
+            errorEl.style.display = '';
+            document.getElementById('alarm_expression_ok').style.display = 'none';
+            event.preventDefault();
+            return false;
+        }
+        const ok = await validateAlarmExpression();
+        if (!ok) event.preventDefault();
+        return ok;
+    }
+
+    const metricExpression = document.getElementById('alarmMetricFormulaInput').value.trim();
+    const aggregateExpression = document.getElementById('alarmAggregateExpressionInput').value.trim();
+    if (!metricExpression) {
+        const errorEl = document.getElementById('alarm_metric_error');
+        errorEl.textContent = '<?= __('alarm.error_metric_formula_required') ?>';
+        errorEl.style.display = '';
+        document.getElementById('alarm_metric_ok').style.display = 'none';
+        event.preventDefault();
+        return false;
+    }
+    if (!aggregateExpression) {
+        const errorEl = document.getElementById('alarm_aggregate_error');
+        errorEl.textContent = '<?= __('alarm.error_aggregate_expression_required') ?>';
+        errorEl.style.display = '';
+        document.getElementById('alarm_aggregate_ok').style.display = 'none';
+        event.preventDefault();
+        return false;
+    }
+
+    const metricOk = await validateAlarmMetricFormula();
+    const aggregateOk = metricOk ? await validateAlarmAggregateExpression() : false;
+    if (!metricOk || !aggregateOk) event.preventDefault();
+    return metricOk && aggregateOk;
+}
+
+updateAlarmExpressionMode();
 </script>
 
 <!-- Add Forward Action Modal -->

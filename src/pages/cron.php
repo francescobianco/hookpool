@@ -27,6 +27,7 @@ $triggered = [];
 $now       = time();
 $today     = date('Y-m-d');
 $nowTime   = date('H:i');
+$pendingAlarmEmails = [];
 
 /**
  * Insert an alarm event into the events table (method = 'ALARM').
@@ -111,15 +112,14 @@ foreach ($alarms as $alarm) {
             $triggered[] = ['alarm_id' => $alarmId, 'type' => $alarm['type'], 'webhook' => $webhookName, 'message' => $message];
 
             if ($userEmail) {
-                sendAlarmEmail(
-                    $userEmail,
-                    $webhookName,
-                    $alarmName,
-                    $alarm['type'],
-                    $message,
-                    BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId,
-                    BASE_URL . '/?page=event&id=' . $eventId
-                );
+                $pendingAlarmEmails[$userEmail][] = [
+                    'webhook_name' => $webhookName,
+                    'alarm_name'   => $alarmName,
+                    'alarm_type'   => $alarm['type'],
+                    'message'      => $message,
+                    'webhook_url'  => BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId,
+                    'event_url'    => BASE_URL . '/?page=event&id=' . $eventId,
+                ];
             }
         }
 
@@ -154,18 +154,21 @@ foreach ($alarms as $alarm) {
             $triggered[] = ['alarm_id' => $alarmId, 'type' => $alarm['type'], 'webhook' => $webhookName, 'message' => $message];
 
             if ($userEmail) {
-                sendAlarmEmail(
-                    $userEmail,
-                    $webhookName,
-                    $alarmName,
-                    $alarm['type'],
-                    $message,
-                    BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId,
-                    BASE_URL . '/?page=event&id=' . $eventId
-                );
+                $pendingAlarmEmails[$userEmail][] = [
+                    'webhook_name' => $webhookName,
+                    'alarm_name'   => $alarmName,
+                    'alarm_type'   => $alarm['type'],
+                    'message'      => $message,
+                    'webhook_url'  => BASE_URL . '/?page=webhook&action=detail&id=' . $webhookId,
+                    'event_url'    => BASE_URL . '/?page=event&id=' . $eventId,
+                ];
             }
         }
     }
+}
+
+foreach ($pendingAlarmEmails as $userEmail => $items) {
+    sendAlarmDigestEmail((string)$userEmail, $items);
 }
 
 // ── Autocall: claim and execute a batch of due jobs ──────────────────────────

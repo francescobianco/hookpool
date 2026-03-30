@@ -4,6 +4,8 @@ require __DIR__ . '/../src/config.php';
 require __DIR__ . '/../src/db.php';
 require __DIR__ . '/../src/utils.php';
 require __DIR__ . '/../src/mail.php';
+require __DIR__ . '/../src/classes/DslEvaluator.php';
+require __DIR__ . '/../src/classes/LogAlarmSql.php';
 
 $token = $_GET['token'] ?? '';
 $isRelayPollRoute = false;
@@ -242,6 +244,8 @@ if ($validated) {
     executeForwarding($db, $eventId, $webhook['id']);
 }
 
+$pendingAlarmEmails = [];
+
 // Check called_in_interval alarms — log as ALARM event when a call arrives within the window
 if ($validated) {
     $nowTime   = date('H:i');
@@ -278,19 +282,136 @@ if ($validated) {
         ]);
         $alarmEventId = (int)$db->lastInsertId();
 
-        $userEmail = $alarm['user_email'] ?? '';
-        if ($userEmail) {
-            sendAlarmEmail(
-                $userEmail,
-                $webhook['name'],
-                $alarmName,
-                'called_in_interval',
-                $msg,
-                BASE_URL . '/?page=webhook&action=detail&id=' . $webhook['id'],
-                BASE_URL . '/?page=event&id=' . $alarmEventId
-            );
+        $userEmail = trim((string)($alarm['user_email'] ?? ''));
+        if ($userEmail !== '') {
+            $pendingAlarmEmails[$userEmail][] = [
+                'webhook_name' => $webhook['name'],
+                'alarm_name'   => $alarmName,
+                'alarm_type'   => 'called_in_interval',
+                'message'      => $msg,
+                'webhook_url'  => BASE_URL . '/?page=webhook&action=detail&id=' . $webhook['id'],
+                'event_url'    => BASE_URL . '/?page=event&id=' . $alarmEventId,
+            ];
         }
     }
+}
+
+{
+    $alarmStmt = $db->prepare("
+        SELECT a.*, u.email AS user_email
+        FROM alarms a
+        JOIN webhooks w ON w.id = a.webhook_id
+        JOIN projects p ON p.id = w.project_id
+        JOIN users    u ON u.id = p.user_id
+        WHERE a.webhook_id = ? AND a.type = 'log_expression'
+          AND a.active = 1 AND a.deleted_at IS NULL
+    ");
+    $alarmStmt->execute([$webhook['id']]);
+    $expressionAlarms = $alarmStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!empty($expressionAlarms)) {
+        foreach ($expressionAlarms as $alarm) {
+            $cfg = json_decode($alarm['config'], true) ?: [];
+            $groupBy    = trim((string)($cfg['group_by'] ?? 'none'));
+            if (!in_array($groupBy, ['none', 'day', 'week', 'month'], true)) continue;
+
+            $existingStmt = $db->prepare("
+                SELECT JSON_EXTRACT(headers, '$.\"X-Alarm-Source-Key\"') AS source_key
+                FROM events
+                WHERE webhook_id = ? AND method = 'ALARM'
+                  AND JSON_EXTRACT(headers, '$.\"X-Alarm-Id\"') = ?
+            ");
+            $existingStmt->execute([$webhook['id'], (string)$alarm['id']]);
+            $alreadyTriggered = [];
+            foreach ($existingStmt->fetchAll(PDO::FETCH_ASSOC) as $existing) {
+                $sourceKey = (string)($existing['source_key'] ?? '');
+                if ($sourceKey !== '') $alreadyTriggered[$sourceKey] = true;
+            }
+
+            try {
+                $matches = $groupBy === 'none'
+                    ? LogAlarmSql::findUngroupedMatches($db, (int)$webhook['id'], (string)($cfg['condition'] ?? ''))
+                    : LogAlarmSql::findGroupedMatches(
+                        $db,
+                        (int)$webhook['id'],
+                        $groupBy,
+                        (string)($cfg['metric_formula'] ?? ''),
+                        (string)($cfg['aggregate_expression'] ?? '')
+                    );
+            } catch (Throwable $e) {
+                $matches = [];
+            }
+
+            foreach ($matches as $match) {
+                if ($groupBy === 'none') {
+                    $eventSourceId = (int)($match['id'] ?? 0);
+                    $sourceKey = 'event:' . $eventSourceId;
+                    if ($eventSourceId <= 0 || isset($alreadyTriggered[$sourceKey])) continue;
+                    $message = sprintf(
+                        'Espressione vera sul log #%d (%s): %s',
+                        $eventSourceId,
+                        $match['received_at'] ?? '',
+                        (string)($cfg['condition'] ?? '')
+                    );
+                    $alarmPath = $match['path'] ?? $path;
+                    $extraHeaders = [
+                        'X-Alarm-Source-Event-Id' => (string)$eventSourceId,
+                    ];
+                } else {
+                    $groupKey = (string)($match['group_key'] ?? '');
+                    $sourceKey = 'group:' . $groupBy . ':' . $groupKey;
+                    if ($groupKey === '' || isset($alreadyTriggered[$sourceKey])) continue;
+                    $message = sprintf(
+                        'Espressione aggregata vera sul gruppo %s (%s): %s | %s',
+                        $groupBy,
+                        $groupKey,
+                        (string)($cfg['metric_formula'] ?? ''),
+                        (string)($cfg['aggregate_expression'] ?? '')
+                    );
+                    $alarmPath = $path;
+                    $extraHeaders = [
+                        'X-Alarm-Group-By' => $groupBy,
+                        'X-Alarm-Group' => $groupKey,
+                    ];
+                }
+
+                $alarmName = $alarm['name'] !== '' ? $alarm['name'] : $webhook['name'];
+                $alarmInsert = $db->prepare("
+                    INSERT INTO events (webhook_id, method, path, query_string, headers, body, content_type, ip, validated)
+                    VALUES (?, 'ALARM', ?, '', ?, ?, 'application/alarm', '', 1)
+                ");
+                $alarmInsert->execute([
+                    $webhook['id'],
+                    $alarmPath,
+                    json_encode(array_merge([
+                        'X-Alarm-Id' => (string)$alarm['id'],
+                        'X-Alarm-Name' => $alarmName,
+                        'X-Alarm-Type' => 'log_expression',
+                        'X-Alarm-Source-Key' => $sourceKey,
+                    ], $extraHeaders)),
+                    $message,
+                ]);
+                $alarmEventId = (int)$db->lastInsertId();
+                $alreadyTriggered[$sourceKey] = true;
+
+                $userEmail = trim((string)($alarm['user_email'] ?? ''));
+                if ($userEmail !== '') {
+                    $pendingAlarmEmails[$userEmail][] = [
+                        'webhook_name' => $webhook['name'],
+                        'alarm_name'   => $alarmName,
+                        'alarm_type'   => 'log_expression',
+                        'message'      => $message,
+                        'webhook_url'  => BASE_URL . '/?page=webhook&action=detail&id=' . $webhook['id'],
+                        'event_url'    => BASE_URL . '/?page=event&id=' . $alarmEventId,
+                    ];
+                }
+            }
+        }
+    }
+}
+
+foreach ($pendingAlarmEmails as $userEmail => $items) {
+    sendAlarmDigestEmail((string)$userEmail, $items);
 }
 
 // Respond quickly

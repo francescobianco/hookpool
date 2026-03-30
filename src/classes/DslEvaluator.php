@@ -91,6 +91,46 @@ class DslEvaluator
         return self::normalizeFormulaArith($tokens, $pos);
     }
 
+    public static function evaluateCondition(string $condition, array $rows, int $idx, array $placeholders = []): ?bool
+    {
+        $condition = trim($condition);
+        if ($condition === '') return null;
+
+        $tokens = self::tokenize($condition);
+        $pos    = 0;
+        $value  = self::parseConditionOr($tokens, $pos, $rows, $idx, $placeholders);
+        if ($pos < count($tokens)) return null;
+        return (bool)$value;
+    }
+
+    public static function validateCondition(string $condition): ?string
+    {
+        $condition = trim($condition);
+        if ($condition === '') return 'Expression cannot be empty.';
+
+        try {
+            $tokens = self::tokenize($condition);
+            $pos    = 0;
+            self::validateConditionOr($tokens, $pos);
+            if ($pos < count($tokens)) {
+                return 'Unexpected token: "' . self::tokenDisplay($tokens[$pos]) . '"';
+            }
+        } catch (\Throwable $e) {
+            return $e->getMessage();
+        }
+        return null;
+    }
+
+    public static function normalizeCondition(string $condition): string
+    {
+        $condition = trim($condition);
+        if ($condition === '') return '';
+
+        $tokens = self::tokenize($condition);
+        $pos    = 0;
+        return self::normalizeConditionOr($tokens, $pos);
+    }
+
     // ---- Formula-level evaluation parser ----
 
     private static function parseFormulaArith(array $t, int &$p, array $rows, int $idx, array $ph): mixed
@@ -301,7 +341,77 @@ class DslEvaluator
         return (bool)self::parseOr($tokens, $pos, $row, $ph);
     }
 
+    private static function parseConditionOr(array $t, int &$p, array $rows, int $idx, array $ph): mixed
+    {
+        $v = self::parseConditionAnd($t, $p, $rows, $idx, $ph);
+        while ($p < count($t) && $t[$p]['type'] === 'or') {
+            $p++;
+            $r = self::parseConditionAnd($t, $p, $rows, $idx, $ph);
+            $v = (bool)$v || (bool)$r;
+        }
+        return $v;
+    }
+
+    private static function parseConditionAnd(array $t, int &$p, array $rows, int $idx, array $ph): mixed
+    {
+        $v = self::parseConditionCmp($t, $p, $rows, $idx, $ph);
+        while ($p < count($t) && $t[$p]['type'] === 'and') {
+            $p++;
+            $r = self::parseConditionCmp($t, $p, $rows, $idx, $ph);
+            $v = (bool)$v && (bool)$r;
+        }
+        return $v;
+    }
+
+    private static function parseConditionCmp(array $t, int &$p, array $rows, int $idx, array $ph): mixed
+    {
+        $left   = self::parseFormulaArith($t, $p, $rows, $idx, $ph);
+        $cmpOps = ['=', '!=', '>', '>=', '<', '<='];
+        if ($p < count($t) && $t[$p]['type'] === 'op' && in_array($t[$p]['value'], $cmpOps, true)) {
+            $op = $t[$p]['value'];
+            $p++;
+            $right = self::parseFormulaArith($t, $p, $rows, $idx, $ph);
+            return match($op) {
+                '='  => $left == $right,
+                '!=' => $left != $right,
+                '>'  => $left > $right,
+                '>=' => $left >= $right,
+                '<'  => $left < $right,
+                '<=' => $left <= $right,
+            };
+        }
+        return (bool)$left;
+    }
+
     // ---- Formula-level validation parser ----
+
+    private static function validateConditionOr(array $t, int &$p): void
+    {
+        self::validateConditionAnd($t, $p);
+        while ($p < count($t) && $t[$p]['type'] === 'or') {
+            $p++;
+            self::validateConditionAnd($t, $p);
+        }
+    }
+
+    private static function validateConditionAnd(array $t, int &$p): void
+    {
+        self::validateConditionCmp($t, $p);
+        while ($p < count($t) && $t[$p]['type'] === 'and') {
+            $p++;
+            self::validateConditionCmp($t, $p);
+        }
+    }
+
+    private static function validateConditionCmp(array $t, int &$p): void
+    {
+        self::validateFormulaArith($t, $p);
+        $cmpOps = ['=', '!=', '>', '>=', '<', '<='];
+        if ($p < count($t) && $t[$p]['type'] === 'op' && in_array($t[$p]['value'], $cmpOps, true)) {
+            $p++;
+            self::validateFormulaArith($t, $p);
+        }
+    }
 
     private static function validateFormulaArith(array $t, int &$p): void
     {
@@ -369,6 +479,41 @@ class DslEvaluator
     }
 
     // ---- Formula-level normalization ----
+
+    private static function normalizeConditionOr(array $t, int &$p): string
+    {
+        $parts = [self::normalizeConditionAnd($t, $p)];
+        while ($p < count($t) && $t[$p]['type'] === 'or') {
+            $parts[] = 'OR';
+            $p++;
+            $parts[] = self::normalizeConditionAnd($t, $p);
+        }
+        return implode(' ', array_filter($parts, static fn($part) => $part !== ''));
+    }
+
+    private static function normalizeConditionAnd(array $t, int &$p): string
+    {
+        $parts = [self::normalizeConditionCmp($t, $p)];
+        while ($p < count($t) && $t[$p]['type'] === 'and') {
+            $parts[] = 'AND';
+            $p++;
+            $parts[] = self::normalizeConditionCmp($t, $p);
+        }
+        return implode(' ', array_filter($parts, static fn($part) => $part !== ''));
+    }
+
+    private static function normalizeConditionCmp(array $t, int &$p): string
+    {
+        $left = self::normalizeFormulaArith($t, $p);
+        $cmpOps = ['=', '!=', '>', '>=', '<', '<='];
+        if ($p < count($t) && $t[$p]['type'] === 'op' && in_array($t[$p]['value'], $cmpOps, true)) {
+            $op = $t[$p]['value'];
+            $p++;
+            $right = self::normalizeFormulaArith($t, $p);
+            return trim($left . ' ' . $op . ' ' . $right);
+        }
+        return $left;
+    }
 
     private static function normalizeFormulaArith(array $t, int &$p): string
     {

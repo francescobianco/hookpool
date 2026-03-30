@@ -208,7 +208,7 @@ function cpDirIcon(string $dir): string {
                         <label class="form-label">URL</label>
                         <div class="cp-url-row">
                             <input type="text" class="form-control" id="cpFBtnUrl" placeholder="https://...">
-                            <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFBtnUrl', this)">🔗 Webhooks</button>
+                            <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFBtnUrl', this)">🔗</button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -247,7 +247,7 @@ function cpDirIcon(string $dir): string {
                                 <label class="form-label">URL</label>
                                 <div class="cp-url-row">
                                     <input type="text" class="form-control" id="cpFUpUrl" placeholder="https://...">
-                                    <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFUpUrl', this)">🔗 Webhooks</button>
+                                    <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFUpUrl', this)">🔗</button>
                                 </div>
                             </div>
                         </div>
@@ -273,7 +273,7 @@ function cpDirIcon(string $dir): string {
                                 <label class="form-label">URL</label>
                                 <div class="cp-url-row">
                                     <input type="text" class="form-control" id="cpFDownUrl" placeholder="https://...">
-                                    <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDownUrl', this)">🔗 Webhooks</button>
+                                    <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDownUrl', this)">🔗</button>
                                 </div>
                             </div>
                         </div>
@@ -306,7 +306,7 @@ function cpDirIcon(string $dir): string {
                                 <label class="form-label">URL</label>
                                 <div class="cp-url-row">
                                     <input type="text" class="form-control" id="cpFDpad<?= ucfirst($dir) ?>Url" placeholder="https://...">
-                                    <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDpad<?= ucfirst($dir) ?>Url', this)">🔗 Webhooks</button>
+                                    <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFDpad<?= ucfirst($dir) ?>Url', this)">🔗</button>
                                 </div>
                             </div>
                         </div>
@@ -320,7 +320,7 @@ function cpDirIcon(string $dir): string {
                         <label class="form-label">URL</label>
                         <div class="cp-url-row">
                             <input type="text" class="form-control" id="cpFSendUrl" placeholder="https://...">
-                            <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFSendUrl', this)">🔗 Webhooks</button>
+                            <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFSendUrl', this)">🔗</button>
                         </div>
                     </div>
                     <div class="form-row">

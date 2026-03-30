@@ -85,6 +85,13 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
         </div>
     </div>
 
+    <?php if (strtoupper((string)$event['method']) === 'ALARM' && trim($body) !== ''): ?>
+    <div class="event-alarm-banner" role="alert">
+        <div class="event-alarm-banner-label">Alarm Info</div>
+        <div class="event-alarm-banner-message"><?= nl2br(e($body)) ?></div>
+    </div>
+    <?php endif; ?>
+
     <!-- Meta Info -->
     <div class="card">
         <div class="event-meta-grid">

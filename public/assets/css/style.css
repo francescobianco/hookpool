@@ -1280,6 +1280,30 @@ tr:last-child td { border-bottom: none; }
     letter-spacing: 0.06em;
 }
 
+.event-alarm-banner {
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--error);
+    border-radius: var(--radius-lg);
+    background: var(--error-bg);
+    color: var(--error);
+    box-shadow: 0 10px 24px rgba(185, 28, 28, 0.08);
+}
+
+.event-alarm-banner-label {
+    margin-bottom: 0.4rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.event-alarm-banner-message {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.55;
+}
+
 .event-meta-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -2038,6 +2062,7 @@ tr:last-child td { border-bottom: none; }
 
 /* Add-field modal — wider */
 .modal-dialog-wide { max-width: 640px; width: 95vw; }
+.modal-dialog-alarm { max-width: 760px; width: min(95vw, 760px); }
 
 /* Formula validation feedback */
 .formula-error { color: var(--color-danger, #e74c3c) !important; }
