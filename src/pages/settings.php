@@ -97,8 +97,10 @@ if ($action === 'drop_all_logs' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $idList = implode(',', $webhookIds);
         $db->beginTransaction();
         try {
+            $eventIds = $db->query("SELECT id FROM events WHERE webhook_id IN ({$idList})")->fetchAll(PDO::FETCH_COLUMN);
             $db->exec("DELETE FROM event_files WHERE event_id IN (SELECT id FROM events WHERE webhook_id IN ({$idList}))");
             $db->exec("DELETE FROM forward_attempts WHERE event_id IN (SELECT id FROM events WHERE webhook_id IN ({$idList}))");
+            deleteAlarmEmailArtifacts($db, $eventIds);
             $db->exec("DELETE FROM events WHERE webhook_id IN ({$idList})");
             $db->commit();
         } catch (Throwable $e) {

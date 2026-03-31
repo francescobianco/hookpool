@@ -9,6 +9,15 @@ function getLastEmailError(): ?string {
     return is_string($value) && $value !== '' ? $value : null;
 }
 
+function setLastEmailSpoolPath(?string $path): void {
+    $GLOBALS['hookpool_last_email_spool_path'] = $path;
+}
+
+function getLastEmailSpoolPath(): ?string {
+    $value = $GLOBALS['hookpool_last_email_spool_path'] ?? null;
+    return is_string($value) && $value !== '' ? $value : null;
+}
+
 /**
  * Resolve the email recipient for alarm notifications.
  *
@@ -28,6 +37,7 @@ function resolveAlarmEmailRecipient(?string $userEmail): string {
  */
 function sendEmail(string $to, string $subject, string $htmlBody): bool {
     setLastEmailError(null);
+    setLastEmailSpoolPath(null);
     $prefix = APP_ENV ? '[' . strtoupper(APP_ENV) . '] ' : '';
     $fullSubject = $prefix . APP_NAME . ' - ' . $subject;
 
@@ -53,6 +63,7 @@ function sendEmail(string $to, string $subject, string $htmlBody): bool {
             return false;
         }
 
+        setLastEmailSpoolPath($dir . $filename);
         return true;
     }
 
@@ -162,16 +173,17 @@ function logAlarmEmailAttempts(string $to, string $subject, bool $ok, array $ite
     $transport = SMTP_HOST === 'smtp.example.com' ? 'file-spool' : 'smtp';
     $status = $ok ? 'sent' : 'failed';
     $errorMessage = getLastEmailError();
+    $spoolPath = getLastEmailSpoolPath();
 
     try {
         $db = Database::get();
         $stmt = $db->prepare('
-            INSERT INTO alarm_email_attempts (event_id, recipient_email, subject, transport, status, error_message)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO alarm_email_attempts (event_id, recipient_email, subject, transport, status, error_message, spool_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ');
 
         foreach (array_keys($eventIds) as $eventId) {
-            $stmt->execute([$eventId, $to, $subject, $transport, $status, $errorMessage]);
+            $stmt->execute([$eventId, $to, $subject, $transport, $status, $errorMessage, $spoolPath]);
         }
     } catch (Throwable $e) {
         error_log('Failed to log alarm email attempt: ' . $e->getMessage());

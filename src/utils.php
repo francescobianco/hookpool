@@ -352,6 +352,50 @@ function executeForwarding(PDO $db, int $eventId, int $webhookId): void {
 }
 
 /**
+ * Delete stored alarm-email attempts for the given events and remove orphaned
+ * file-spool emails generated in dev mode.
+ */
+function deleteAlarmEmailArtifacts(PDO $db, array $eventIds): int {
+    $eventIds = array_values(array_unique(array_filter(array_map('intval', $eventIds), static fn($id) => $id > 0)));
+    if (empty($eventIds)) {
+        return 0;
+    }
+
+    $idList = implode(',', $eventIds);
+    $spoolRows = $db->query(
+        "SELECT DISTINCT spool_path
+         FROM alarm_email_attempts
+         WHERE event_id IN ($idList)
+           AND spool_path IS NOT NULL
+           AND spool_path != ''"
+    )->fetchAll(PDO::FETCH_COLUMN);
+
+    $deleted = (int)$db->query(
+        "SELECT COUNT(*)
+         FROM alarm_email_attempts
+         WHERE event_id IN ($idList)"
+    )->fetchColumn();
+
+    $db->exec("DELETE FROM alarm_email_attempts WHERE event_id IN ($idList)");
+
+    if (!empty($spoolRows)) {
+        $stillUsedStmt = $db->prepare('SELECT COUNT(*) FROM alarm_email_attempts WHERE spool_path = ?');
+        foreach ($spoolRows as $spoolPath) {
+            $spoolPath = (string)$spoolPath;
+            if ($spoolPath === '') {
+                continue;
+            }
+            $stillUsedStmt->execute([$spoolPath]);
+            if ((int)$stillUsedStmt->fetchColumn() === 0 && is_file($spoolPath)) {
+                @unlink($spoolPath);
+            }
+        }
+    }
+
+    return $deleted;
+}
+
+/**
  * Generate a URL-friendly slug from a string.
  */
 function slugify(string $text): string {

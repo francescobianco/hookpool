@@ -18,4 +18,5 @@ $migrations = [
     __DIR__ . '/migrations/20260329000002_create_analytics_views.php',
     __DIR__ . '/migrations/20260330000001_add_relay_timing_ms.php',
     __DIR__ . '/migrations/20260331000001_create_alarm_email_attempts.php',
+    __DIR__ . '/migrations/20260331000002_add_spool_path_to_alarm_email_attempts.php',
 ];

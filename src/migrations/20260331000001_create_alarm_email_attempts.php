@@ -9,6 +9,7 @@ return static function (PDO $db): void {
             transport       TEXT NOT NULL DEFAULT '',
             status          TEXT NOT NULL DEFAULT '',
             error_message   TEXT,
+            spool_path      TEXT,
             created_at      DATETIME DEFAULT (datetime('now'))
         )
     ");

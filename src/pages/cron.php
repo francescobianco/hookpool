@@ -336,6 +336,9 @@ foreach ($retentionUsers as $ru) {
     // Delete forward_attempts
     $db->exec("DELETE FROM forward_attempts WHERE event_id IN ($idList)");
 
+    // Delete stored alarm-email attempts and orphaned spool files
+    deleteAlarmEmailArtifacts($db, $oldIds);
+
     // Delete events
     $db->exec("DELETE FROM events WHERE id IN ($idList)");
     $eventsDeleted = count($oldIds);
