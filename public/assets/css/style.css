@@ -1539,7 +1539,7 @@ tr:last-child td { border-bottom: none; }
     background: var(--bg-input);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 0.75rem 3.25rem 0.75rem 0.9rem;
+    padding: 0.75rem 3.75rem 0.75rem 0.9rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1547,25 +1547,23 @@ tr:last-child td { border-bottom: none; }
 .webhook-url-copy {
     position: absolute;
     top: 50%;
-    right: 0.35rem;
+    right: 0.25rem;
     transform: translateY(-50%);
     width: 34px;
     height: 34px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
+    border: none;
+    background: var(--bg-input);
     color: var(--text-muted);
     border-radius: 8px;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(79, 52, 34, 0.06);
-    transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease, opacity 0.14s ease;
+    transition: color 0.14s ease, background 0.14s ease, opacity 0.14s ease;
 }
 .webhook-url-copy:hover {
     color: var(--text-primary);
-    background: #fff4e7;
-    border-color: #efd7bf;
+    background: var(--bg-input);
 }
 .webhook-url-copy.copied {
     color: var(--success);
