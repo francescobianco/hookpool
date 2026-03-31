@@ -285,49 +285,49 @@ function sendAlarmEmail(
     $htmlBody = "<!DOCTYPE html>
 <html>
 <head><meta charset='UTF-8'><title>Allarme Webhook — {$safeAlarm}</title></head>
-<body style='margin:0;padding:0;background:#0d0d14;font-family:Arial,sans-serif;'>
-  <div style='max-width:600px;margin:40px auto;background:#1a1a2e;border-radius:12px;overflow:hidden;'>
+<body style='margin:0;padding:24px;background:#fff8ef;font-family:Arial,sans-serif;color:#2b2116;'>
+  <div style='max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #f0dcc2;border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(179,126,46,0.08);'>
 
-    <div style='background:#e74c3c;padding:24px 32px;'>
-      <h1 style='color:#fff;margin:0;font-size:22px;letter-spacing:.5px;'>&#9888; Allarme Webhook</h1>
-      <p style='color:#ffd5d5;margin:6px 0 0;font-size:14px;'>" . APP_NAME . "</p>
+    <div style='background:linear-gradient(135deg,#ffd18b 0%,#ffb85c 100%);padding:24px 32px;'>
+      <h1 style='color:#6a3512;margin:0;font-size:22px;letter-spacing:.3px;'>&#9888; Allarme Webhook</h1>
+      <p style='color:#8a4d17;margin:6px 0 0;font-size:14px;'>" . APP_NAME . "</p>
     </div>
 
-    <div style='padding:32px;color:#e8e8f0;'>
-      <h2 style='color:#f87171;margin-top:0;font-size:20px;'>{$safeAlarm}</h2>
+    <div style='padding:32px;'>
+      <h2 style='color:#a54b18;margin-top:0;font-size:20px;'>{$safeAlarm}</h2>
 
-      <table style='width:100%;border-collapse:collapse;margin-bottom:24px;'>
+      <table style='width:100%;border-collapse:separate;border-spacing:0;margin-bottom:24px;border:1px solid #f0dcc2;border-radius:12px;overflow:hidden;'>
         <tr>
-          <td style='padding:8px 12px;background:#252540;border-radius:6px 6px 0 0;color:#8888aa;font-size:12px;text-transform:uppercase;letter-spacing:.8px;width:120px;'>Webhook</td>
-          <td style='padding:8px 12px;background:#252540;border-radius:6px 6px 0 0;color:#e8e8f0;font-weight:600;'>{$safeWebhook}</td>
+          <td style='padding:10px 12px;background:#fff3df;color:#9c6a33;font-size:12px;text-transform:uppercase;letter-spacing:.8px;width:120px;'>Webhook</td>
+          <td style='padding:10px 12px;background:#fffdf9;color:#2b2116;font-weight:600;'>{$safeWebhook}</td>
         </tr>
         <tr>
-          <td style='padding:8px 12px;background:#1e1e38;color:#8888aa;font-size:12px;text-transform:uppercase;letter-spacing:.8px;'>Tipo</td>
-          <td style='padding:8px 12px;background:#1e1e38;color:#e8e8f0;'>{$safeType}</td>
+          <td style='padding:10px 12px;background:#fff3df;color:#9c6a33;font-size:12px;text-transform:uppercase;letter-spacing:.8px;border-top:1px solid #f0dcc2;'>Tipo</td>
+          <td style='padding:10px 12px;background:#fffdf9;color:#2b2116;border-top:1px solid #f0dcc2;'>{$safeType}</td>
         </tr>
         <tr>
-          <td style='padding:8px 12px;background:#252540;border-radius:0 0 6px 6px;color:#8888aa;font-size:12px;text-transform:uppercase;letter-spacing:.8px;'>Dettaglio</td>
-          <td style='padding:8px 12px;background:#252540;border-radius:0 0 6px 6px;color:#fbbf24;'>{$safeMsg}</td>
+          <td style='padding:10px 12px;background:#fff3df;color:#9c6a33;font-size:12px;text-transform:uppercase;letter-spacing:.8px;border-top:1px solid #f0dcc2;'>Dettaglio</td>
+          <td style='padding:10px 12px;background:#fffdf9;color:#a54b18;border-top:1px solid #f0dcc2;'>{$safeMsg}</td>
         </tr>
       </table>
 
       <div style='text-align:center;margin:28px 0 16px;'>
         <a href='{$safeWUrl}'
-           style='background:#4361ee;color:#fff;padding:13px 26px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block;'>
+           style='background:#ffb347;color:#4a2a08;padding:13px 26px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;box-shadow:0 8px 20px rgba(255,179,71,0.28);'>
           Vai al Webhook
         </a>
       </div>
 
       <div style='text-align:center;margin-bottom:8px;'>
         <a href='{$safeEUrl}'
-           style='color:#8888aa;font-size:13px;text-decoration:underline;'>
+           style='color:#9c6a33;font-size:13px;text-decoration:underline;'>
           Vuoi sapere di pi&ugrave; su questo allarme? Clicca qui per vedere il log dell\'evento.
         </a>
       </div>
     </div>
 
-    <div style='padding:16px 32px;border-top:1px solid #252540;text-align:center;'>
-      <p style='color:#8888aa;font-size:12px;margin:0;'>&copy; " . date('Y') . " " . APP_NAME . ". All rights reserved.</p>
+    <div style='padding:16px 32px;border-top:1px solid #f0dcc2;text-align:center;background:#fffaf3;'>
+      <p style='color:#9c6a33;font-size:12px;margin:0;'>&copy; " . date('Y') . " " . APP_NAME . ". All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -389,39 +389,39 @@ function sendAlarmDigestEmail(string $to, array $items): bool
         $safeEventUrl= htmlspecialchars((string)($item['event_url'] ?? BASE_URL), ENT_QUOTES, 'UTF-8');
 
         $listHtml .= "
-        <div style='padding:16px 0;border-top:1px solid #252540;'>
+        <div style='padding:16px 0;border-top:1px solid #f0dcc2;'>
           <div style='display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;'>
             <div>
-              <div style='color:#e8e8f0;font-weight:700;font-size:15px;'>{$safeAlarm}</div>
-              <div style='color:#8888aa;font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-top:4px;'>{$safeWebhook} · {$safeType}</div>
+              <div style='color:#2b2116;font-weight:700;font-size:15px;'>{$safeAlarm}</div>
+              <div style='color:#9c6a33;font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-top:4px;'>{$safeWebhook} · {$safeType}</div>
             </div>
-            <a href='{$safeEventUrl}' style='color:#fbbf24;font-size:13px;text-decoration:underline;'>Apri log</a>
+            <a href='{$safeEventUrl}' style='color:#c06a1e;font-size:13px;text-decoration:underline;'>Apri log</a>
           </div>
-          <div style='margin-top:10px;color:#f3d1d1;line-height:1.55;'>{$safeMsg}</div>
+          <div style='margin-top:10px;color:#7a3d17;line-height:1.55;'>{$safeMsg}</div>
         </div>";
     }
 
     $htmlBody = "<!DOCTYPE html>
 <html>
 <head><meta charset='UTF-8'><title>Allarmi Webhook</title></head>
-<body style='margin:0;padding:0;background:#0d0d14;font-family:Arial,sans-serif;'>
-  <div style='max-width:700px;margin:40px auto;background:#1a1a2e;border-radius:12px;overflow:hidden;'>
-    <div style='background:#e74c3c;padding:24px 32px;'>
-      <h1 style='color:#fff;margin:0;font-size:22px;letter-spacing:.5px;'>&#9888; {$count} allarmi webhook</h1>
-      <p style='color:#ffd5d5;margin:6px 0 0;font-size:14px;'>" . APP_NAME . "</p>
+<body style='margin:0;padding:24px;background:#fff8ef;font-family:Arial,sans-serif;color:#2b2116;'>
+  <div style='max-width:700px;margin:0 auto;background:#ffffff;border:1px solid #f0dcc2;border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(179,126,46,0.08);'>
+    <div style='background:linear-gradient(135deg,#ffd18b 0%,#ffb85c 100%);padding:24px 32px;'>
+      <h1 style='color:#6a3512;margin:0;font-size:22px;letter-spacing:.3px;'>&#9888; {$count} allarmi webhook</h1>
+      <p style='color:#8a4d17;margin:6px 0 0;font-size:14px;'>" . APP_NAME . "</p>
     </div>
-    <div style='padding:32px;color:#e8e8f0;'>
-      <p style='margin-top:0;color:#b8b8cc;line-height:1.6;'>Pi&ugrave; allarmi sono scattati nello stesso flusso. I log evento restano separati, ma questa email li raggruppa per evitare invii multipli.</p>
+    <div style='padding:32px;'>
+      <p style='margin-top:0;color:#7a5a35;line-height:1.6;'>Pi&ugrave; allarmi sono scattati nello stesso flusso. I log evento restano separati, ma questa email li raggruppa per evitare invii multipli.</p>
       {$listHtml}
       <div style='text-align:center;margin:28px 0 8px;'>
         <a href='{$firstWebhookUrl}'
-           style='background:#4361ee;color:#fff;padding:13px 26px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block;'>
+           style='background:#ffb347;color:#4a2a08;padding:13px 26px;border-radius:999px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;box-shadow:0 8px 20px rgba(255,179,71,0.28);'>
           Vai al Webhook
         </a>
       </div>
     </div>
-    <div style='padding:16px 32px;border-top:1px solid #252540;text-align:center;'>
-      <p style='color:#8888aa;font-size:12px;margin:0;'>&copy; " . date('Y') . " " . APP_NAME . ". All rights reserved.</p>
+    <div style='padding:16px 32px;border-top:1px solid #f0dcc2;text-align:center;background:#fffaf3;'>
+      <p style='color:#9c6a33;font-size:12px;margin:0;'>&copy; " . date('Y') . " " . APP_NAME . ". All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -456,18 +456,18 @@ function buildEmailTemplate(
     return "<!DOCTYPE html>
 <html>
 <head><meta charset='UTF-8'><title>" . htmlspecialchars($title) . "</title></head>
-<body style='margin:0;padding:0;background:#0d0d14;font-family:Arial,sans-serif;'>
-  <div style='max-width:600px;margin:40px auto;background:#1a1a2e;border-radius:12px;overflow:hidden;'>
-    <div style='background:#4361ee;padding:24px 32px;'>
-      <h1 style='color:#fff;margin:0;font-size:24px;'>" . APP_NAME . "</h1>
+<body style='margin:0;padding:24px;background:#fff8ef;font-family:Arial,sans-serif;color:#2b2116;'>
+  <div style='max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #f0dcc2;border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(179,126,46,0.08);'>
+    <div style='background:linear-gradient(135deg,#ffd18b 0%,#ffb85c 100%);padding:24px 32px;'>
+      <h1 style='color:#6a3512;margin:0;font-size:24px;'>" . APP_NAME . "</h1>
     </div>
-    <div style='padding:32px;color:#e8e8f0;'>
-      <h2 style='color:#e8e8f0;margin-top:0;'>" . htmlspecialchars($title) . "</h2>
-      <p style='line-height:1.6;color:#b8b8cc;'>" . $body . "</p>
+    <div style='padding:32px;'>
+      <h2 style='color:#2b2116;margin-top:0;'>" . htmlspecialchars($title) . "</h2>
+      <div style='line-height:1.7;color:#6b5131;'>" . $body . "</div>
       $button
     </div>
-    <div style='padding:16px 32px;border-top:1px solid #252540;text-align:center;'>
-      <p style='color:#8888aa;font-size:12px;margin:0;'>&copy; " . date('Y') . " " . APP_NAME . ". All rights reserved.</p>
+    <div style='padding:16px 32px;border-top:1px solid #f0dcc2;text-align:center;background:#fffaf3;'>
+      <p style='color:#9c6a33;font-size:12px;margin:0;'>&copy; " . date('Y') . " " . APP_NAME . ". All rights reserved.</p>
     </div>
   </div>
 </body>
