@@ -1152,12 +1152,19 @@ ob_start();
     (function() {
         var raw = <?= json_encode($wh['notes']) ?>;
         var el = document.getElementById('webhookNotesRendered');
-        if (typeof marked !== 'undefined') {
+        function renderNotes() {
             el.innerHTML = marked.parse(raw);
+            el.querySelectorAll('a[href]').forEach(function(link) {
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
+            });
+        }
+        if (typeof marked !== 'undefined') {
+            renderNotes();
         } else {
             var s = document.createElement('script');
             s.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
-            s.onload = function() { el.innerHTML = marked.parse(raw); };
+            s.onload = renderNotes;
             document.head.appendChild(s);
         }
     })();

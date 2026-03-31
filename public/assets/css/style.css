@@ -1944,6 +1944,7 @@ tr:last-child td { border-bottom: none; }
 .webhook-notes-card h1 { font-size: 1.15em; }
 .webhook-notes-card h2 { font-size: 1.05em; }
 .webhook-notes-card p { margin: 0 0 0.6rem; }
+.webhook-notes-card > :last-child { margin-bottom: 0; }
 .webhook-notes-card ul,.webhook-notes-card ol { margin: 0 0 0.6rem; padding-left: 1.4em; }
 .webhook-notes-card code { font-family: var(--font-mono); font-size: 0.82em; background: var(--bg-alt); padding: 1px 5px; border-radius: 4px; }
 .webhook-notes-card pre { background: var(--bg-alt); padding: 0.75rem 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.82em; margin: 0 0 0.6rem; }
