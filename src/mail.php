@@ -1,6 +1,20 @@
 <?php
 
 /**
+ * Resolve the email recipient for alarm notifications.
+ *
+ * In single-user mode (`HOOKPOOL_AUTH=no`), alarms must go to ADMIN_EMAIL.
+ * In GitHub auth mode, alarms go to the owning user's GitHub email.
+ */
+function resolveAlarmEmailRecipient(?string $userEmail): string {
+    if (!HOOKPOOL_AUTH_ENABLED) {
+        return trim((string)ADMIN_EMAIL);
+    }
+
+    return trim((string)$userEmail);
+}
+
+/**
  * Send an email. In dev mode (SMTP_HOST = smtp.example.com), saves to file.
  */
 function sendEmail(string $to, string $subject, string $htmlBody): bool {
@@ -11,11 +25,20 @@ function sendEmail(string $to, string $subject, string $htmlBody): bool {
         // Dev mode: save to file
         $filename = date('YmdHis') . '_' . md5($to . $subject . microtime()) . '.html';
         $dir = __DIR__ . '/../data/emails/';
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
-        file_put_contents(
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            error_log('Failed to create email spool directory: ' . $dir);
+            return false;
+        }
+
+        $written = file_put_contents(
             $dir . $filename,
             "To: $to\nSubject: $fullSubject\n\n$htmlBody"
         );
+        if ($written === false) {
+            error_log('Failed to write email spool file: ' . $dir . $filename);
+            return false;
+        }
+
         return true;
     }
 

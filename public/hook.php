@@ -282,7 +282,7 @@ if ($validated) {
         ]);
         $alarmEventId = (int)$db->lastInsertId();
 
-        $userEmail = trim((string)($alarm['user_email'] ?? ''));
+        $userEmail = resolveAlarmEmailRecipient($alarm['user_email'] ?? '');
         if ($userEmail !== '') {
             $pendingAlarmEmails[$userEmail][] = [
                 'webhook_name' => $webhook['name'],
@@ -394,7 +394,7 @@ if ($validated) {
                 $alarmEventId = (int)$db->lastInsertId();
                 $alreadyTriggered[$sourceKey] = true;
 
-                $userEmail = trim((string)($alarm['user_email'] ?? ''));
+                $userEmail = resolveAlarmEmailRecipient($alarm['user_email'] ?? '');
                 if ($userEmail !== '') {
                     $pendingAlarmEmails[$userEmail][] = [
                         'webhook_name' => $webhook['name'],

@@ -10,6 +10,13 @@ function ensureLocalUser(PDO $db): array {
     $user = $stmt->fetch();
 
     if ($user) {
+        $adminEmail = trim((string)ADMIN_EMAIL);
+        $currentEmail = trim((string)($user['email'] ?? ''));
+        if ($adminEmail !== '' && $currentEmail !== $adminEmail) {
+            $db->prepare('UPDATE users SET email = ? WHERE id = ?')->execute([$adminEmail, (int)$user['id']]);
+            $stmt->execute(['local']);
+            $user = $stmt->fetch();
+        }
         return $user;
     }
 
@@ -17,7 +24,8 @@ function ensureLocalUser(PDO $db): array {
         'INSERT INTO users (github_id, username, display_name, avatar_url, email)
          VALUES (?, ?, ?, ?, ?)'
     );
-    $ins->execute([null, 'local', 'Local', '', null]);
+    $adminEmail = trim((string)ADMIN_EMAIL);
+    $ins->execute([null, 'local', 'Local', '', $adminEmail !== '' ? $adminEmail : null]);
 
     $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
     $stmt->execute([(int)$db->lastInsertId()]);

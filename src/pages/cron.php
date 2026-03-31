@@ -65,7 +65,7 @@ foreach ($alarms as $alarm) {
     $alarmId     = (int)$alarm['id'];
     $webhookId   = (int)$alarm['webhook_id'];
     $config      = json_decode($alarm['config'], true) ?: [];
-    $userEmail   = $alarm['user_email'] ?? '';
+    $userEmail   = resolveAlarmEmailRecipient($alarm['user_email'] ?? '');
     $webhookName = $alarm['webhook_name'] ?? '';
     $alarmName   = $alarm['name'] !== '' ? $alarm['name'] : $webhookName;
     $webhookPath = '/' . rawurlencode($alarm['project_slug']) . '/' . rawurlencode($alarm['webhook_token']);
