@@ -38,6 +38,18 @@ $attStmt = $db->prepare('
 $attStmt->execute([$eventId]);
 $attempts = $attStmt->fetchAll();
 
+$emailAttempts = [];
+if (strtoupper((string)$event['method']) === 'ALARM') {
+    $emailStmt = $db->prepare('
+        SELECT *
+        FROM alarm_email_attempts
+        WHERE event_id = ?
+        ORDER BY created_at DESC, id DESC
+    ');
+    $emailStmt->execute([$eventId]);
+    $emailAttempts = $emailStmt->fetchAll();
+}
+
 // Parse headers (strip any ignored headers even from historical data)
 $headers = json_decode($event['headers'] ?? '{}', true) ?: [];
 if (!empty(IGNORED_HEADERS)) {
@@ -136,6 +148,9 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
             <button class="tab-btn" onclick="showTab('tab-body', this)">
                 Body <?= $body ? '(' . strlen($body) . ' bytes)' : '(empty)' ?>
             </button>
+            <?php if (strtoupper((string)$event['method']) === 'ALARM'): ?>
+            <button class="tab-btn" onclick="showTab('tab-email', this)">Email (<?= count($emailAttempts) ?>)</button>
+            <?php endif; ?>
         </div>
 
         <!-- Headers Tab -->
@@ -206,6 +221,47 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
             <?php endif; ?>
             <?php endif; ?>
         </div>
+
+        <?php if (strtoupper((string)$event['method']) === 'ALARM'): ?>
+        <div id="tab-email" class="tab-content" style="display:none">
+            <?php if (empty($emailAttempts)): ?>
+            <p class="text-muted">No email delivery attempts recorded for this alarm.</p>
+            <?php else: ?>
+            <div class="table-scroll-wrapper">
+            <table class="kv-table">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>To</th>
+                        <th>Status</th>
+                        <th>Transport</th>
+                        <th>Subject</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($emailAttempts as $emailAttempt): ?>
+                    <tr>
+                        <td class="mono"><?= e($emailAttempt['created_at'] ?? '') ?></td>
+                        <td class="mono"><?= e($emailAttempt['recipient_email'] ?: '—') ?></td>
+                        <td>
+                            <?php if (($emailAttempt['status'] ?? '') === 'sent'): ?>
+                            <span class="badge badge-success">Sent</span>
+                            <?php else: ?>
+                            <span class="badge badge-error">Failed</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="mono"><?= e($emailAttempt['transport'] ?: '—') ?></td>
+                        <td><?= e($emailAttempt['subject'] ?: '—') ?></td>
+                        <td><?= e($emailAttempt['error_message'] ?: '—') ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
     </div>
 
     <!-- Attached Files -->

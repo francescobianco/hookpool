@@ -113,6 +113,7 @@ foreach ($alarms as $alarm) {
 
             if ($userEmail) {
                 $pendingAlarmEmails[$userEmail][] = [
+                    'event_id'      => $eventId,
                     'webhook_name' => $webhookName,
                     'alarm_name'   => $alarmName,
                     'alarm_type'   => $alarm['type'],
@@ -155,6 +156,7 @@ foreach ($alarms as $alarm) {
 
             if ($userEmail) {
                 $pendingAlarmEmails[$userEmail][] = [
+                    'event_id'      => $eventId,
                     'webhook_name' => $webhookName,
                     'alarm_name'   => $alarmName,
                     'alarm_type'   => $alarm['type'],

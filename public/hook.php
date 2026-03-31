@@ -285,6 +285,7 @@ if ($validated) {
         $userEmail = resolveAlarmEmailRecipient($alarm['user_email'] ?? '');
         if ($userEmail !== '') {
             $pendingAlarmEmails[$userEmail][] = [
+                'event_id'      => $alarmEventId,
                 'webhook_name' => $webhook['name'],
                 'alarm_name'   => $alarmName,
                 'alarm_type'   => 'called_in_interval',
@@ -397,6 +398,7 @@ if ($validated) {
                 $userEmail = resolveAlarmEmailRecipient($alarm['user_email'] ?? '');
                 if ($userEmail !== '') {
                     $pendingAlarmEmails[$userEmail][] = [
+                        'event_id'      => $alarmEventId,
                         'webhook_name' => $webhook['name'],
                         'alarm_name'   => $alarmName,
                         'alarm_type'   => 'log_expression',

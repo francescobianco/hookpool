@@ -1,5 +1,14 @@
 <?php
 
+function setLastEmailError(?string $message): void {
+    $GLOBALS['hookpool_last_email_error'] = $message;
+}
+
+function getLastEmailError(): ?string {
+    $value = $GLOBALS['hookpool_last_email_error'] ?? null;
+    return is_string($value) && $value !== '' ? $value : null;
+}
+
 /**
  * Resolve the email recipient for alarm notifications.
  *
@@ -18,6 +27,7 @@ function resolveAlarmEmailRecipient(?string $userEmail): string {
  * Send an email. In dev mode (SMTP_HOST = smtp.example.com), saves to file.
  */
 function sendEmail(string $to, string $subject, string $htmlBody): bool {
+    setLastEmailError(null);
     $prefix = APP_ENV ? '[' . strtoupper(APP_ENV) . '] ' : '';
     $fullSubject = $prefix . APP_NAME . ' - ' . $subject;
 
@@ -26,7 +36,9 @@ function sendEmail(string $to, string $subject, string $htmlBody): bool {
         $filename = date('YmdHis') . '_' . md5($to . $subject . microtime()) . '.html';
         $dir = __DIR__ . '/../data/emails/';
         if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-            error_log('Failed to create email spool directory: ' . $dir);
+            $error = 'Failed to create email spool directory: ' . $dir;
+            setLastEmailError($error);
+            error_log($error);
             return false;
         }
 
@@ -35,7 +47,9 @@ function sendEmail(string $to, string $subject, string $htmlBody): bool {
             "To: $to\nSubject: $fullSubject\n\n$htmlBody"
         );
         if ($written === false) {
-            error_log('Failed to write email spool file: ' . $dir . $filename);
+            $error = 'Failed to write email spool file: ' . $dir . $filename;
+            setLastEmailError($error);
+            error_log($error);
             return false;
         }
 
@@ -60,14 +74,20 @@ function sendViaSMTP(string $to, string $subject, string $htmlBody): bool {
     $errstr = '';
     $socket = @fsockopen('ssl://' . $host, $port, $errno, $errstr, 15);
     if (!$socket) {
-        error_log("SMTP connection failed: $errstr ($errno)");
+        $error = "SMTP connection failed: $errstr ($errno)";
+        setLastEmailError($error);
+        error_log($error);
         return false;
     }
 
     $boundary = md5(uniqid('', true));
 
     $read = fgets($socket, 515);
-    if (strpos($read, '220') !== 0) { fclose($socket); return false; }
+    if (strpos($read, '220') !== 0) {
+        setLastEmailError('SMTP greeting failed: ' . trim((string)$read));
+        fclose($socket);
+        return false;
+    }
 
     $commands = [
         "EHLO " . gethostname() . "\r\n",
@@ -84,6 +104,7 @@ function sendViaSMTP(string $to, string $subject, string $htmlBody): bool {
         $resp = fgets($socket, 515);
         $code = (int)substr($resp, 0, 3);
         if ($code >= 500) {
+            setLastEmailError('SMTP command failed: ' . trim((string)$resp));
             fclose($socket);
             return false;
         }
@@ -110,7 +131,51 @@ function sendViaSMTP(string $to, string $subject, string $htmlBody): bool {
     fwrite($socket, "QUIT\r\n");
     fclose($socket);
 
-    return strpos($resp, '250') === 0;
+    if (strpos($resp, '250') === 0) {
+        return true;
+    }
+
+    setLastEmailError('SMTP DATA failed: ' . trim((string)$resp));
+    return false;
+}
+
+/**
+ * Persist alarm-email delivery status for one or more event ids.
+ *
+ * Each item may contain:
+ * - event_id
+ */
+function logAlarmEmailAttempts(string $to, string $subject, bool $ok, array $items): void
+{
+    $eventIds = [];
+    foreach ($items as $item) {
+        $eventId = (int)($item['event_id'] ?? 0);
+        if ($eventId > 0) {
+            $eventIds[$eventId] = true;
+        }
+    }
+
+    if (empty($eventIds)) {
+        return;
+    }
+
+    $transport = SMTP_HOST === 'smtp.example.com' ? 'file-spool' : 'smtp';
+    $status = $ok ? 'sent' : 'failed';
+    $errorMessage = getLastEmailError();
+
+    try {
+        $db = Database::get();
+        $stmt = $db->prepare('
+            INSERT INTO alarm_email_attempts (event_id, recipient_email, subject, transport, status, error_message)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ');
+
+        foreach (array_keys($eventIds) as $eventId) {
+            $stmt->execute([$eventId, $to, $subject, $transport, $status, $errorMessage]);
+        }
+    } catch (Throwable $e) {
+        error_log('Failed to log alarm email attempt: ' . $e->getMessage());
+    }
 }
 
 /**
@@ -123,7 +188,8 @@ function sendAlarmEmail(
     string $alarmType,
     string $message,
     string $webhookUrl,
-    string $eventUrl
+    string $eventUrl,
+    ?int $eventId = null
 ): bool {
     $typeLabel = match($alarmType) {
         'not_called_since'       => 'Nessuna chiamata ricevuta',
@@ -192,7 +258,9 @@ function sendAlarmEmail(
 </html>";
 
     $subject = "Allarme: {$alarmName} — {$typeLabel}";
-    return sendEmail($to, $subject, $htmlBody);
+    $ok = sendEmail($to, $subject, $htmlBody);
+    logAlarmEmailAttempts($to, $subject, $ok, $eventId !== null ? [['event_id' => $eventId]] : []);
+    return $ok;
 }
 
 /**
@@ -219,7 +287,8 @@ function sendAlarmDigestEmail(string $to, array $items): bool
             (string)($item['alarm_type'] ?? ''),
             (string)($item['message'] ?? ''),
             (string)($item['webhook_url'] ?? ''),
-            (string)($item['event_url'] ?? '')
+            (string)($item['event_url'] ?? ''),
+            isset($item['event_id']) ? (int)$item['event_id'] : null
         );
     }
 
@@ -282,7 +351,10 @@ function sendAlarmDigestEmail(string $to, array $items): bool
 </body>
 </html>";
 
-    return sendEmail($to, "Allarmi webhook: {$count} eventi", $htmlBody);
+    $subject = "Allarmi webhook: {$count} eventi";
+    $ok = sendEmail($to, $subject, $htmlBody);
+    logAlarmEmailAttempts($to, $subject, $ok, $items);
+    return $ok;
 }
 
 /**
