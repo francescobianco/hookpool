@@ -1539,7 +1539,7 @@ tr:last-child td { border-bottom: none; }
     background: var(--bg-input);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 0.75rem 3.75rem 0.75rem 0.9rem;
+    padding: 0.75rem 4rem 0.75rem 0.9rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1547,7 +1547,7 @@ tr:last-child td { border-bottom: none; }
 .webhook-url-copy {
     position: absolute;
     top: 50%;
-    right: 0.25rem;
+    right: 1px;
     transform: translateY(-50%);
     width: 34px;
     height: 34px;
