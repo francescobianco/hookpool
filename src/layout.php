@@ -417,6 +417,10 @@ function fallbackCopy(text, btn) {
 
 function showCopyFeedback(btn) {
     if (!btn) return;
+    if (btn.classList.contains('webhook-url-copy')) {
+        showCopyTooltip(btn, '<?= addslashes(__('webhook.copied')) ?>');
+        return;
+    }
     const original = btn.textContent;
     btn.textContent = '✓ Copied!';
     btn.classList.add('copied');
@@ -424,6 +428,20 @@ function showCopyFeedback(btn) {
         btn.textContent = original;
         btn.classList.remove('copied');
     }, 2000);
+}
+
+function showCopyTooltip(btn, text) {
+    const existing = document.querySelector('.example-curl-copy-tooltip');
+    if (existing) existing.remove();
+    const rect = btn.getBoundingClientRect();
+    const tip = document.createElement('div');
+    tip.className = 'example-curl-copy-tooltip';
+    tip.textContent = text;
+    document.body.appendChild(tip);
+    const tipRect = tip.getBoundingClientRect();
+    tip.style.left = (rect.left + rect.width / 2 - tipRect.width / 2) + 'px';
+    tip.style.top = (rect.top - tipRect.height - 8) + 'px';
+    setTimeout(() => tip.remove(), 1200);
 }
 
 // Delete a sidebar filter/analytics preset
