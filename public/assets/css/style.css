@@ -423,12 +423,13 @@ details > summary { cursor: pointer; user-select: none; }
 .sidebar-webhooks {
     list-style: none;
     padding: 0;
-    margin: 0 0 0 14px;
+    margin: 4px 0 0 14px;
 }
 
+.sidebar-webhook + .sidebar-webhook { margin-top: 1px; }
 .sidebar-webhook a {
     display: block;
-    padding: 3px 8px;
+    padding: 0 8px;
     color: var(--text-muted);
     font-size: 0.8rem;
     text-decoration: none;
@@ -436,12 +437,12 @@ details > summary { cursor: pointer; user-select: none; }
 }
 .sidebar-webhook-label {
     display: inline-block;
-    padding: 3px 8px;
+    padding: 2px 8px;
     border-radius: var(--radius-sm);
     transition: background 0.1s, color 0.1s;
 }
 .sidebar-webhook a:hover { color: var(--text-primary); }
-.sidebar-webhook a:hover .sidebar-webhook-label { background: var(--bg-hover); }
+.sidebar-webhook a:hover .sidebar-webhook-label { background: var(--accent-light); }
 .sidebar-webhook.active a { color: var(--text-primary); font-weight: 500; }
 .sidebar-webhook.active .sidebar-webhook-label { background: var(--accent-light); }
 .sidebar-webhook.inactive a { opacity: 0.5; }
