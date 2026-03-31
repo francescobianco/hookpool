@@ -248,7 +248,7 @@
                                 <?php foreach ($sidebarWebhooks as $wh): ?>
                                 <li class="sidebar-webhook<?= ($currentWebhookId === (int)$wh['id']) ? ' active' : '' ?><?= $wh['active'] ? '' : ' inactive' ?>">
                                     <a href="<?= BASE_URL ?>/?page=webhook&action=detail&id=<?= $wh['id'] ?>">
-                                        <?= e($wh['name']) ?>
+                                        <span class="sidebar-webhook-label"><?= e($wh['name']) ?></span>
                                     </a>
                                 </li>
                                 <?php endforeach; ?>
