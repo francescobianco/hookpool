@@ -4,6 +4,39 @@ if (!$current_user) {
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['_action'] ?? '') === 'send_test_email') {
+    if (!verifyCsrfToken($_POST['_csrf'] ?? '')) {
+        setFlash('error', __('msg.csrf_error'));
+        header('Location: ' . BASE_URL . '/?page=diagnose#smtp-email');
+        exit;
+    }
+
+    $adminEmail = trim((string)ADMIN_EMAIL);
+    if ($adminEmail === '') {
+        setFlash('error', 'ADMIN_EMAIL is empty. Configure it before sending a test email.');
+        header('Location: ' . BASE_URL . '/?page=diagnose#smtp-email');
+        exit;
+    }
+
+    $htmlBody = buildEmailTemplate(
+        'Hookpool Diagnose Test',
+        '<p>This is a test email sent from the diagnose page.</p>'
+        . '<p><strong>Environment:</strong> ' . e(APP_ENV ?: 'production') . '<br>'
+        . '<strong>Base URL:</strong> ' . e(BASE_URL) . '<br>'
+        . '<strong>Transport:</strong> ' . e(SMTP_HOST === 'smtp.example.com' ? 'file-spool' : ('smtp/' . SMTP_SECURITY)) . '</p>'
+    );
+
+    $sent = sendEmail($adminEmail, 'Diagnose Test Email', $htmlBody);
+    if ($sent) {
+        setFlash('success', 'Test email sent to ' . $adminEmail . '.');
+    } else {
+        setFlash('error', 'Test email failed: ' . (getLastEmailError() ?: 'unknown error'));
+    }
+
+    header('Location: ' . BASE_URL . '/?page=diagnose#smtp-email');
+    exit;
+}
+
 $page_title = 'System Diagnose';
 
 // ── Checks ────────────────────────────────────────────────────────────────────
@@ -60,6 +93,13 @@ $dataDirWrite  = is_writable($dataDir);
 // 7. Uploads dir
 $uploadsDir    = defined('UPLOADS_DIR') ? UPLOADS_DIR : null;
 $uploadsDirWrite = $uploadsDir ? is_writable($uploadsDir) : null;
+
+$smtpHostConfigured = trim((string)SMTP_HOST) !== '';
+$smtpFromConfigured = trim((string)MAIL_FROM) !== '';
+$smtpAdminConfigured = trim((string)ADMIN_EMAIL) !== '';
+$smtpSecurityValid = in_array(SMTP_SECURITY, ['starttls', 'ssl', 'none'], true);
+$smtpAuthConfigured = trim((string)SMTP_USER) !== '' && trim((string)SMTP_PASS) !== '';
+$smtpTransportLabel = SMTP_HOST === 'smtp.example.com' ? 'file-spool (dev)' : ('smtp/' . SMTP_SECURITY);
 
 // Helper
 function diagBadge(bool $ok, string $okLabel = 'OK', string $failLabel = 'FAIL'): string {
@@ -203,6 +243,61 @@ function diagBadge(bool $ok, string $okLabel = 'OK', string $failLabel = 'FAIL')
                 <?php endif; ?>
             </table>
             <?php endif; ?>
+        </div>
+    </section>
+
+    <!-- SMTP -->
+    <section class="section" id="smtp-email">
+        <h2>SMTP / Email</h2>
+        <div class="card">
+            <table class="diag-table">
+                <tr>
+                    <td>Transport</td>
+                    <td><code><?= e($smtpTransportLabel) ?></code></td>
+                    <td><?= diagBadge($smtpSecurityValid) ?></td>
+                </tr>
+                <tr>
+                    <td>SMTP host</td>
+                    <td><code><?= e(SMTP_HOST) ?></code></td>
+                    <td><?= diagBadge($smtpHostConfigured) ?></td>
+                </tr>
+                <tr>
+                    <td>SMTP port</td>
+                    <td><code><?= (int)SMTP_PORT ?></code></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>SMTP security</td>
+                    <td><code><?= e(SMTP_SECURITY) ?></code></td>
+                    <td><?= diagBadge($smtpSecurityValid, 'supported', 'invalid') ?></td>
+                </tr>
+                <tr>
+                    <td>SMTP auth</td>
+                    <td><code><?= $smtpAuthConfigured ? 'configured' : 'not configured' ?></code></td>
+                    <td><?= diagBadge(SMTP_HOST === 'smtp.example.com' || $smtpAuthConfigured, 'OK', 'missing') ?></td>
+                </tr>
+                <tr>
+                    <td>From</td>
+                    <td><code><?= e(MAIL_FROM) ?></code></td>
+                    <td><?= diagBadge($smtpFromConfigured) ?></td>
+                </tr>
+                <tr>
+                    <td>Admin email</td>
+                    <td><code><?= e(ADMIN_EMAIL ?: '—') ?></code></td>
+                    <td><?= diagBadge($smtpAdminConfigured) ?></td>
+                </tr>
+            </table>
+
+            <form method="post" action="<?= BASE_URL ?>/?page=diagnose#smtp-email" style="margin-top:1rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+                <input type="hidden" name="_csrf" value="<?= e(generateCsrfToken()) ?>">
+                <input type="hidden" name="_action" value="send_test_email">
+                <button type="submit" class="btn btn-primary" <?= !$smtpAdminConfigured ? 'disabled' : '' ?>>
+                    Send Test Email to ADMIN_EMAIL
+                </button>
+                <span class="text-muted" style="font-size:0.9rem">
+                    Sends a test message to <code><?= e(ADMIN_EMAIL ?: 'ADMIN_EMAIL not configured') ?></code>.
+                </span>
+            </form>
         </div>
     </section>
 </div>

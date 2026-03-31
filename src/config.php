@@ -17,6 +17,7 @@ define('SMTP_HOST',          getenv('SMTP_HOST')          ?: 'smtp.example.com')
 define('SMTP_PORT',          (int)(getenv('SMTP_PORT')    ?: 587));
 define('SMTP_USER',          getenv('SMTP_USER')          ?: '');
 define('SMTP_PASS',          getenv('SMTP_PASS')          ?: '');
+define('SMTP_SECURITY',      strtolower(trim((string)(getenv('SMTP_SECURITY') ?: (SMTP_PORT === 465 ? 'ssl' : 'starttls')))));
 define('MAIL_FROM',          getenv('MAIL_FROM')          ?: 'noreply@hookpool.com');
 define('MAIL_FROM_NAME',     getenv('MAIL_FROM_NAME')     ?: 'Hookpool');
 define('ADMIN_EMAIL',        getenv('ADMIN_EMAIL')        ?: '');

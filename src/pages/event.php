@@ -227,37 +227,47 @@ $webhookUrl = webhookUrl($event['project_slug'], $event['webhook_token']);
             <?php if (empty($emailAttempts)): ?>
             <p class="text-muted">No email delivery attempts recorded for this alarm.</p>
             <?php else: ?>
-            <div class="table-scroll-wrapper">
-            <table class="kv-table">
-                <thead>
-                    <tr>
-                        <th>When</th>
-                        <th>To</th>
-                        <th>Status</th>
-                        <th>Transport</th>
-                        <th>Subject</th>
-                        <th>Error</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($emailAttempts as $emailAttempt): ?>
-                    <tr>
-                        <td class="mono"><?= e($emailAttempt['created_at'] ?? '') ?></td>
-                        <td class="mono"><?= e($emailAttempt['recipient_email'] ?: '—') ?></td>
-                        <td>
-                            <?php if (($emailAttempt['status'] ?? '') === 'sent'): ?>
-                            <span class="badge badge-success">Sent</span>
-                            <?php else: ?>
-                            <span class="badge badge-error">Failed</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="mono"><?= e($emailAttempt['transport'] ?: '—') ?></td>
-                        <td><?= e($emailAttempt['subject'] ?: '—') ?></td>
-                        <td><?= e($emailAttempt['error_message'] ?: '—') ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+            <div class="attempts-list">
+                <?php foreach ($emailAttempts as $emailAttempt): ?>
+                <div class="card card-attempt">
+                    <div class="table-scroll-wrapper">
+                    <table class="kv-table">
+                        <tbody>
+                            <tr>
+                                <td class="mono key-col">When</td>
+                                <td class="mono"><?= e($emailAttempt['created_at'] ?? '') ?></td>
+                            </tr>
+                            <tr>
+                                <td class="mono key-col">To</td>
+                                <td class="mono"><?= e($emailAttempt['recipient_email'] ?: '—') ?></td>
+                            </tr>
+                            <tr>
+                                <td class="mono key-col">Status</td>
+                                <td>
+                                    <?php if (($emailAttempt['status'] ?? '') === 'sent'): ?>
+                                    <span class="badge badge-success">Sent</span>
+                                    <?php else: ?>
+                                    <span class="badge badge-error">Failed</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="mono key-col">Transport</td>
+                                <td class="mono"><?= e($emailAttempt['transport'] ?: '—') ?></td>
+                            </tr>
+                            <tr>
+                                <td class="mono key-col">Subject</td>
+                                <td><?= e($emailAttempt['subject'] ?: '—') ?></td>
+                            </tr>
+                            <tr>
+                                <td class="mono key-col">Error</td>
+                                <td><?= e($emailAttempt['error_message'] ?: '—') ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+                <?php endforeach; ?>
             </div>
             <?php endif; ?>
         </div>

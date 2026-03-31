@@ -80,10 +80,12 @@ function sendViaSMTP(string $to, string $subject, string $htmlBody): bool {
     $pass    = SMTP_PASS;
     $from    = MAIL_FROM;
     $fromName = MAIL_FROM_NAME;
+    $security = SMTP_SECURITY;
 
     $errno  = 0;
     $errstr = '';
-    $socket = @fsockopen('ssl://' . $host, $port, $errno, $errstr, 15);
+    $remoteHost = $security === 'ssl' ? 'ssl://' . $host : $host;
+    $socket = @fsockopen($remoteHost, $port, $errno, $errstr, 15);
     if (!$socket) {
         $error = "SMTP connection failed: $errstr ($errno)";
         setLastEmailError($error);
@@ -91,30 +93,72 @@ function sendViaSMTP(string $to, string $subject, string $htmlBody): bool {
         return false;
     }
 
-    $boundary = md5(uniqid('', true));
-
-    $read = fgets($socket, 515);
-    if (strpos($read, '220') !== 0) {
+    $read = smtpReadResponse($socket);
+    if (smtpResponseCode($read) !== 220) {
         setLastEmailError('SMTP greeting failed: ' . trim((string)$read));
         fclose($socket);
         return false;
     }
 
-    $commands = [
-        "EHLO " . gethostname() . "\r\n",
-        "AUTH LOGIN\r\n",
-        base64_encode($user) . "\r\n",
-        base64_encode($pass) . "\r\n",
-        "MAIL FROM:<$from>\r\n",
-        "RCPT TO:<$to>\r\n",
-        "DATA\r\n",
-    ];
+    $ehloHost = gethostname() ?: 'localhost';
+    $resp = smtpSendCommand($socket, "EHLO " . $ehloHost . "\r\n");
+    if (smtpResponseCode($resp) !== 250) {
+        setLastEmailError('SMTP EHLO failed: ' . trim((string)$resp));
+        fclose($socket);
+        return false;
+    }
 
-    foreach ($commands as $cmd) {
-        fwrite($socket, $cmd);
-        $resp = fgets($socket, 515);
-        $code = (int)substr($resp, 0, 3);
-        if ($code >= 500) {
+    if ($security === 'starttls') {
+        $resp = smtpSendCommand($socket, "STARTTLS\r\n");
+        if (smtpResponseCode($resp) !== 220) {
+            setLastEmailError('SMTP STARTTLS failed: ' . trim((string)$resp));
+            fclose($socket);
+            return false;
+        }
+
+        $cryptoEnabled = @stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+        if ($cryptoEnabled !== true) {
+            setLastEmailError('SMTP STARTTLS handshake failed.');
+            fclose($socket);
+            return false;
+        }
+
+        $resp = smtpSendCommand($socket, "EHLO " . $ehloHost . "\r\n");
+        if (smtpResponseCode($resp) !== 250) {
+            setLastEmailError('SMTP EHLO after STARTTLS failed: ' . trim((string)$resp));
+            fclose($socket);
+            return false;
+        }
+    }
+
+    if ($user !== '' || $pass !== '') {
+        $resp = smtpSendCommand($socket, "AUTH LOGIN\r\n");
+        if (smtpResponseCode($resp) !== 334) {
+            setLastEmailError('SMTP AUTH LOGIN failed: ' . trim((string)$resp));
+            fclose($socket);
+            return false;
+        }
+
+        $resp = smtpSendCommand($socket, base64_encode($user) . "\r\n");
+        if (smtpResponseCode($resp) !== 334) {
+            setLastEmailError('SMTP username rejected: ' . trim((string)$resp));
+            fclose($socket);
+            return false;
+        }
+
+        $resp = smtpSendCommand($socket, base64_encode($pass) . "\r\n");
+        if (smtpResponseCode($resp) !== 235) {
+            setLastEmailError('SMTP password rejected: ' . trim((string)$resp));
+            fclose($socket);
+            return false;
+        }
+    }
+
+    foreach (["MAIL FROM:<$from>\r\n", "RCPT TO:<$to>\r\n", "DATA\r\n"] as $cmd) {
+        $resp = smtpSendCommand($socket, $cmd);
+        $code = smtpResponseCode($resp);
+        $expected = $cmd === "DATA\r\n" ? 354 : 250;
+        if ($code !== $expected && !($expected === 250 && $code === 251)) {
             setLastEmailError('SMTP command failed: ' . trim((string)$resp));
             fclose($socket);
             return false;
@@ -137,17 +181,37 @@ function sendViaSMTP(string $to, string $subject, string $htmlBody): bool {
     $message .= "\r\n.\r\n";
 
     fwrite($socket, $message);
-    $resp = fgets($socket, 515);
+    $resp = smtpReadResponse($socket);
 
     fwrite($socket, "QUIT\r\n");
     fclose($socket);
 
-    if (strpos($resp, '250') === 0) {
+    if (smtpResponseCode($resp) === 250) {
         return true;
     }
 
     setLastEmailError('SMTP DATA failed: ' . trim((string)$resp));
     return false;
+}
+
+function smtpReadResponse($socket): string {
+    $response = '';
+    while (($line = fgets($socket, 515)) !== false) {
+        $response .= $line;
+        if (preg_match('/^\d{3}\s/', $line) === 1) {
+            break;
+        }
+    }
+    return $response;
+}
+
+function smtpResponseCode(string $response): int {
+    return (int)substr($response, 0, 3);
+}
+
+function smtpSendCommand($socket, string $command): string {
+    fwrite($socket, $command);
+    return smtpReadResponse($socket);
 }
 
 /**
