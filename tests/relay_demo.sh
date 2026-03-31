@@ -4,75 +4,21 @@
 # Usage:
 #   HOOKPOOL_RELAY_URL=https://hookpool.example.com/proj/token.relay \
 #     ./tests/relay_demo.sh
-#
-# Every incoming public HTTP request runs this script as a child process.
-# The relay loop (header below) handles all protocol details automatically.
-# Only edit the "Script body" section at the bottom.
-#
-# Environment variables available inside the body section:
-#   RELAY_METHOD  — HTTP method of the incoming request (GET, POST, …)
-#   RELAY_PATH    — request path (e.g. /api/users)
 
 # ── Relay loop header ── do not modify this section ───────────────────────────
-if [ "${HOOKPOOL_CHILD:-0}" != "1" ]; then
-
-  : "${HOOKPOOL_RELAY_URL:?HOOKPOOL_RELAY_URL is required}"
-
-  seq=""
-  resp=$(mktemp)   # HTTP response to deliver; empty file on first poll
-
-  _relay_cleanup() { rm -f "$resp"; exit 0; }
-  trap _relay_cleanup INT TERM
-
-  while :; do
-    hdrs=$(mktemp)   # response headers received from server
-    req=$(mktemp)    # raw HTTP request received from server
-
-    # Deliver previous response + poll for next request in one shot.
-    # Empty seq / empty body = pure poll (server ignores both).
-    curl -s -X PATCH \
-      -D "$hdrs" \
-      --output "$req" \
-      -H "X-Relay-Mod: http" \
-      -H "X-Relay-Seq: $seq" \
-      --data-binary "@$resp" \
-      "$HOOKPOOL_RELAY_URL"
-
-    rm -f "$resp"
-
-    # Read the HTTP status line from curl's -D output (first line of headers)
-    http_status=$(awk 'NR==1 {print $2}' "$hdrs")
-
-    # Parse X-Relay-Seq from response headers
-    new_seq=$(awk 'tolower($0) ~ /^x-relay-seq:/ { gsub(/\r/, ""); print $2; exit }' "$hdrs")
-
-    if [ "$http_status" = "204" ] || [ -z "$new_seq" ] || [ "$new_seq" = "0" ]; then
-      # Poll timeout or error — reconnect after a short pause
-      rm -f "$hdrs" "$req"
-      resp=$(mktemp)
-      seq=""
-      sleep 1
-      continue
-    fi
-
-    seq="$new_seq"
-
-    rm -f "$hdrs" "$req"
-
-    # Build HTTP response wrapping the child's output
-    resp=$(mktemp)
-    {
-      printf 'HTTP/1.1 200 OK\r\n'
-      printf 'Content-Type: text/plain; charset=utf-8\r\n'
-      printf 'X-Served-By: hookpool-relay-demo\r\n'
-      printf '\r\n'
-      HOOKPOOL_CHILD=1 "$0"
-    } >"$resp" 2>&1
-
-  done
-
-  exit 0
-fi
+while [ "${HOOKPOOL_CHILD:-0}" != "1" ]; do
+  : "${HOOKPOOL_RELAY_URL:?}"
+  h=${h:-$(mktemp)}; r=${r:-$(mktemp)}
+  curl -s -X PATCH -D "$h" -o /dev/null \
+    -H "X-Relay-Mod: http" -H "X-Relay-Seq: $s" \
+    --data-binary "@$r" "$HOOKPOOL_RELAY_URL"
+  s=$(awk 'tolower($0)~/^x-relay-seq:/{gsub(/\r/,"");print $2;exit}' "$h")
+  case "$s" in ''|0) s=""; sleep 1; continue ;; esac
+  { printf 'HTTP/1.1 200 OK\r\n'
+    printf 'Content-Type: text/plain\r\n'
+    printf '\r\n'
+    HOOKPOOL_CHILD=1 "$0"; } >"$r" 2>&1
+done
 # ── End of relay loop header ───────────────────────────────────────────────────
 
 
