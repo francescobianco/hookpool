@@ -509,6 +509,10 @@ function relayFormatTimingHeader(?int $createdAtMs, ?int $dispatchedAtMs, ?int $
 /**
  * PATCH side: relay client long-poll.
  *
+ * Supports two modes via X-Relay-Mod header:
+ *   json (default) — request/response encoded as JSON
+ *   http           — request/response as raw HTTP messages (message/http)
+ *
  * If the PATCH carries X-Relay-Seq + body, deliver the response for that
  * transaction first, then wait for the next pending public request.
  * Responds with the request payload + X-Relay-Seq, or 204 on poll timeout.
@@ -525,6 +529,10 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
     $pollIntervalUs = 100000;
     $pollDeadlineMs = relayNowMs() + 28000;
 
+    // Detect relay mode: json (default, backward-compatible) or http (HTTP-in-HTTP)
+    $relayMod   = strtolower(trim($_SERVER['HTTP_X_RELAY_MOD'] ?? 'json'));
+    $isHttpMode = ($relayMod === 'http');
+
     // Purge stale entries (done/expired older than 2 minutes)
     $db->prepare("DELETE FROM relay_queue
                   WHERE webhook_id = ? AND state IN ('done','expired')
@@ -535,7 +543,7 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
     $responseSeq = isset($_SERVER['HTTP_X_RELAY_SEQ']) ? (int)$_SERVER['HTTP_X_RELAY_SEQ'] : 0;
     if ($responseSeq > 0 && $body !== '') {
         $respondedAtMs = relayNowMs();
-        $payload = json_decode($body, true);
+        $payload = $isHttpMode ? relayParseRawHttpResponse($body) : json_decode($body, true);
         if (is_array($payload) && array_key_exists('status', $payload)) {
             $db->prepare("UPDATE relay_queue
                           SET state = 'done',
@@ -582,17 +590,7 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
                 continue;
             }
 
-            $respBody = json_encode([
-                'method'       => $entry['req_method'],
-                'path'         => $entry['req_path'],
-                'query_string' => $entry['req_qs'],
-                'headers'      => json_decode($entry['req_headers'], true) ?: [],
-                'body'         => $entry['req_body'],
-                'body_base64'  => (bool)$entry['req_b64'],
-            ]);
-
             http_response_code(200);
-            header('Content-Type: application/json');
             header('X-Relay-Seq: ' . $entry['id']);
             $createdAtMs = isset($entry['created_at_ms']) ? (int)$entry['created_at_ms'] : null;
             $timingHeader = relayFormatTimingHeader($createdAtMs, $dispatchedAtMs, null, null);
@@ -600,8 +598,25 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
                 header('X-Relay-Timing: ' . $timingHeader);
             }
             header('Cache-Control: no-cache, no-store');
-            header('Content-Length: ' . strlen($respBody));
-            echo $respBody;
+
+            if ($isHttpMode) {
+                $rawRequest = relayBuildRawHttpRequest($entry);
+                header('Content-Type: message/http');
+                header('Content-Length: ' . strlen($rawRequest));
+                echo $rawRequest;
+            } else {
+                $respBody = json_encode([
+                    'method'       => $entry['req_method'],
+                    'path'         => $entry['req_path'],
+                    'query_string' => $entry['req_qs'],
+                    'headers'      => json_decode($entry['req_headers'], true) ?: [],
+                    'body'         => $entry['req_body'],
+                    'body_base64'  => (bool)$entry['req_b64'],
+                ]);
+                header('Content-Type: application/json');
+                header('Content-Length: ' . strlen($respBody));
+                echo $respBody;
+            }
             return;
         }
 
@@ -612,6 +627,102 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
     http_response_code(204);
     header('X-Relay-Seq: 0');
     header('Cache-Control: no-cache, no-store');
+}
+
+/**
+ * Build a raw HTTP/1.1 request message (RFC 7230) from a relay_queue entry.
+ * Used when X-Relay-Mod: http to dispatch the request to the relay client.
+ */
+function relayBuildRawHttpRequest(array $entry): string
+{
+    $method = (string)($entry['req_method'] ?? 'GET');
+    $path   = (string)($entry['req_path']   ?? '/');
+    $qs     = (string)($entry['req_qs']     ?? '');
+    $target = ($qs !== '') ? $path . '?' . $qs : $path;
+    if ($target === '') $target = '/';
+
+    $headers = json_decode($entry['req_headers'] ?? '{}', true) ?: [];
+    $body    = (string)($entry['req_body'] ?? '');
+    if (!empty($entry['req_b64'])) {
+        $body = (string)base64_decode($body);
+    }
+
+    // Strip any pre-existing Content-Length — we will recalculate it
+    $safeHeaders = [];
+    foreach ($headers as $name => $value) {
+        $name = preg_replace('/[^\x21-\x7e]/', '', (string)$name);
+        if ($name === '' || strtoupper($name) === 'CONTENT-LENGTH') continue;
+        $safeHeaders[$name] = $value;
+    }
+
+    $out = "$method $target HTTP/1.1\r\n";
+    foreach ($safeHeaders as $name => $value) {
+        $out .= "$name: $value\r\n";
+    }
+    if ($body !== '') {
+        $out .= 'Content-Length: ' . strlen($body) . "\r\n";
+    }
+    $out .= "\r\n";
+    $out .= $body;
+
+    return $out;
+}
+
+/**
+ * Parse a raw HTTP response message into a structured array compatible with
+ * the relay_queue response columns.  Returns null if the message is malformed.
+ * Used when X-Relay-Mod: http to decode the relay client's PATCH body.
+ */
+function relayParseRawHttpResponse(string $raw): ?array
+{
+    // Normalise CRLF → LF for uniform parsing
+    $raw = str_replace("\r\n", "\n", $raw);
+
+    // Split at the first blank line (header / body separator)
+    $sepPos = strpos($raw, "\n\n");
+    if ($sepPos === false) {
+        $headerSection = $raw;
+        $body = '';
+    } else {
+        $headerSection = substr($raw, 0, $sepPos);
+        $body          = substr($raw, $sepPos + 2);
+    }
+
+    $headerLines = explode("\n", $headerSection);
+    $statusLine  = array_shift($headerLines);
+
+    // "HTTP/1.x 200 OK"
+    if (!preg_match('#^HTTP/\S+\s+(\d{3})#i', (string)$statusLine, $m)) {
+        return null;
+    }
+    $status = (int)$m[1];
+
+    $headers = [];
+    foreach ($headerLines as $line) {
+        $line = trim($line);
+        if ($line === '') continue;
+        $colon = strpos($line, ':');
+        if ($colon === false) continue;
+        $name  = trim(substr($line, 0, $colon));
+        $value = trim(substr($line, $colon + 1));
+        if ($name === '') continue;
+        $headers[$name] = $value;
+    }
+
+    // Encode body: UTF-8 as-is, binary → base64
+    $bodyB64 = false;
+    $bodyStr = $body;
+    if ($body !== '' && !mb_check_encoding($body, 'UTF-8')) {
+        $bodyStr = base64_encode($body);
+        $bodyB64 = true;
+    }
+
+    return [
+        'status'      => $status,
+        'headers'     => $headers,
+        'body'        => $bodyStr,
+        'body_base64' => $bodyB64,
+    ];
 }
 
 /**
