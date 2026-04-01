@@ -2157,10 +2157,10 @@ tr:last-child td { border-bottom: none; }
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     min-height: 140px;
     box-shadow: var(--shadow-sm);
     transition: box-shadow 0.15s;
@@ -2171,14 +2171,15 @@ tr:last-child td { border-bottom: none; }
 .cp-widget-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    min-height: 20px;
 }
 .cp-widget-title {
     flex: 1;
-    font-size: 0.72rem;
+    font-size: 0.66rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -2195,12 +2196,22 @@ tr:last-child td { border-bottom: none; }
     background: none;
     border: none;
     cursor: pointer;
-    padding: 2px 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 4px;
+    min-width: 20px;
+    min-height: 20px;
     border-radius: var(--radius-sm);
     color: var(--text-dim);
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     line-height: 1;
     transition: background 0.12s, color 0.12s;
+}
+.cp-widget-action-btn svg {
+    width: 12px;
+    height: 12px;
+    display: block;
 }
 .cp-widget-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 .cp-widget-action-delete:hover { color: var(--error); }

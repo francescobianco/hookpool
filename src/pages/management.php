@@ -74,7 +74,11 @@ function cpDirIcon(string $dir): string {
             <div class="cp-widget-header">
                 <span class="cp-widget-title"><?= e($w['title']) ?></span>
                 <span class="cp-widget-actions">
-                    <button class="cp-widget-action-btn" onclick="cpEditWidget(this)" title="<?= __('form.edit') ?>">⚙</button>
+                    <button class="cp-widget-action-btn" onclick="cpEditWidget(this)" title="<?= __('form.edit') ?>" aria-label="<?= __('form.edit') ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </button>
                     <button class="cp-widget-action-btn cp-widget-action-delete" onclick="cpDeleteWidget(this)" title="<?= __('form.delete') ?>">✕</button>
                 </span>
             </div>
