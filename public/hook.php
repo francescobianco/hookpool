@@ -581,11 +581,15 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
         if ($entry) {
             // Atomically claim the row (another process may race us)
             $dispatchedAtMs = relayNowMs();
-            $upd = $db->prepare("UPDATE relay_queue
-                                 SET state = 'dispatched', dispatched_at = $nowExpr, dispatched_at_ms = ?
-                                 WHERE id = ? AND state = 'pending'");
-            $upd->execute([$dispatchedAtMs, (int)$entry['id']]);
-            if ($upd->rowCount() === 0) {
+            $claimSql = "UPDATE relay_queue
+                         SET state = 'dispatched', dispatched_at = $nowExpr, dispatched_at_ms = ?
+                         WHERE id = ? AND state = 'pending'";
+            $claimedRows = relayExecuteWithRetry($db, $claimSql, [$dispatchedAtMs, (int)$entry['id']], 5000, $pollIntervalUs);
+            if ($claimedRows === null) {
+                usleep($pollIntervalUs);
+                continue;
+            }
+            if ($claimedRows === 0) {
                 usleep($pollIntervalUs); // lost the race, retry
                 continue;
             }
@@ -968,4 +972,27 @@ function relayOpenDb(): PDO
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     return $pdo;
+}
+
+/**
+ * Execute a statement with bounded retries on transient SQLite lock contention.
+ */
+function relayExecuteWithRetry(PDO $db, string $sql, array $params, int $timeoutMs = 5000, int $sleepUs = 100000): ?int
+{
+    $deadlineMs = relayNowMs() + max(0, $timeoutMs);
+    do {
+        try {
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->rowCount();
+        } catch (\PDOException $e) {
+            if (DB_TYPE !== 'sqlite' || stripos($e->getMessage(), 'database is locked') === false) {
+                throw $e;
+            }
+            if (relayNowMs() >= $deadlineMs) {
+                return null;
+            }
+            usleep($sleepUs);
+        }
+    } while (true);
 }

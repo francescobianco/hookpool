@@ -12,6 +12,7 @@ class Database {
                 }
                 self::$instance = new PDO('sqlite:' . DB_PATH);
                 self::$instance->exec('PRAGMA journal_mode=WAL');
+                self::$instance->exec('PRAGMA busy_timeout=5000');
                 self::$instance->exec('PRAGMA foreign_keys=ON');
             } else {
                 $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4';
