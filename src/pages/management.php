@@ -110,40 +110,39 @@ function cpDirIcon(string $dir): string {
 
                 <?php elseif ($type === 'dpad'): ?>
                     <div class="cp-dpad-grid">
-                        <div></div>
-                        <button class="cp-btn cp-btn--icon cp-action-btn"
-                                data-url="<?= e($cfg['up_url'] ?? '') ?>"
-                                data-method="<?= e($cfg['up_method'] ?? 'GET') ?>"
-                                data-body=""><?= cpDirIcon('up') ?></button>
-                        <div></div>
                         <button class="cp-btn cp-btn--icon cp-action-btn"
                                 data-url="<?= e($cfg['left_url'] ?? '') ?>"
                                 data-method="<?= e($cfg['left_method'] ?? 'GET') ?>"
                                 data-body=""><?= cpDirIcon('left') ?></button>
-                        <div></div>
+                        <div class="cp-dpad-vertical">
+                            <button class="cp-btn cp-btn--icon cp-action-btn"
+                                    data-url="<?= e($cfg['up_url'] ?? '') ?>"
+                                    data-method="<?= e($cfg['up_method'] ?? 'GET') ?>"
+                                    data-body=""><?= cpDirIcon('up') ?></button>
+                            <button class="cp-btn cp-btn--icon cp-action-btn"
+                                    data-url="<?= e($cfg['down_url'] ?? '') ?>"
+                                    data-method="<?= e($cfg['down_method'] ?? 'GET') ?>"
+                                    data-body=""><?= cpDirIcon('down') ?></button>
+                        </div>
                         <button class="cp-btn cp-btn--icon cp-action-btn"
                                 data-url="<?= e($cfg['right_url'] ?? '') ?>"
                                 data-method="<?= e($cfg['right_method'] ?? 'GET') ?>"
                                 data-body=""><?= cpDirIcon('right') ?></button>
-                        <div></div>
-                        <button class="cp-btn cp-btn--icon cp-action-btn"
-                                data-url="<?= e($cfg['down_url'] ?? '') ?>"
-                                data-method="<?= e($cfg['down_method'] ?? 'GET') ?>"
-                                data-body=""><?= cpDirIcon('down') ?></button>
-                        <div></div>
                     </div>
 
                 <?php elseif ($type === 'send'): ?>
                     <div class="cp-send-row">
-                        <input type="text" class="cp-send-input"
-                               placeholder="<?= e($cfg['placeholder'] ?? '') ?>"
-                               data-param="<?= e($cfg['param_name'] ?? 'value') ?>"
-                               data-url="<?= e($cfg['url'] ?? '') ?>"
-                               data-method="<?= e($cfg['method'] ?? 'POST') ?>"
-                               data-send-as="<?= e($cfg['send_as'] ?? 'body') ?>">
-                        <button class="cp-btn cp-btn--primary cp-send-btn">
-                            <?= e($cfg['button_label'] ?? __('cp.btn_send')) ?>
-                        </button>
+                        <div class="cp-send-main">
+                            <textarea class="cp-send-input"
+                                      placeholder="<?= e($cfg['placeholder'] ?? '') ?>"
+                                      data-param="<?= e($cfg['param_name'] ?? 'value') ?>"
+                                      data-url="<?= e($cfg['url'] ?? '') ?>"
+                                      data-method="<?= e($cfg['method'] ?? 'POST') ?>"
+                                      data-send-as="<?= e($cfg['send_as'] ?? 'body') ?>"></textarea>
+                            <button class="cp-btn cp-btn--primary cp-send-btn">
+                                <?= e($cfg['button_label'] ?? __('cp.btn_send')) ?>
+                            </button>
+                        </div>
                     </div>
                 <?php endif; ?>
             </div>
@@ -334,27 +333,20 @@ function cpDirIcon(string $dir): string {
 
                 <!-- Send widget fields -->
                 <div id="cpFieldsSend" class="cp-type-fields" style="display:none">
-                    <div class="form-group">
-                        <label class="form-label">URL</label>
-                        <div class="cp-url-row">
-                            <input type="text" class="form-control" id="cpFSendUrl" placeholder="https://...">
-                            <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFSendUrl', this)">🔗</button>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                            <div class="form-group cp-method-field">
+                    <div class="form-row cp-send-action-row">
+                        <div class="form-group cp-method-field">
                             <label class="form-label"><?= __('cp.field_method') ?></label>
                             <select class="form-control" id="cpFSendMethod">
                                 <option>POST</option><option>GET</option><option>PUT</option>
                                 <option>PATCH</option>
                             </select>
                         </div>
-                            <div class="form-group cp-method-field">
-                            <label class="form-label"><?= __('cp.field_send_as') ?></label>
-                            <select class="form-control" id="cpFSendAs">
-                                <option value="body">Body</option>
-                                <option value="query">Query string</option>
-                            </select>
+                        <div class="form-group cp-button-url-field">
+                            <label class="form-label">URL</label>
+                            <div class="cp-url-row">
+                                <input type="text" class="form-control" id="cpFSendUrl" placeholder="https://...">
+                                <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFSendUrl', this)">🔗</button>
+                            </div>
                         </div>
                     </div>
                     <div class="form-group">
@@ -399,7 +391,7 @@ function cpDirIcon(string $dir): string {
     document.getElementById('cpGrid').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             const inp = e.target.closest('.cp-send-input');
-            if (inp) {
+            if (inp && inp.tagName !== 'TEXTAREA') {
                 const sendBtn = inp.closest('.cp-send-row').querySelector('.cp-send-btn');
                 cpFireSend(inp, sendBtn);
             }
@@ -623,7 +615,6 @@ function cpDirIcon(string $dir): string {
         } else if (type === 'send') {
             document.getElementById('cpFSendUrl').value         = cfg.url          || '';
             document.getElementById('cpFSendMethod').value      = cfg.method       || 'POST';
-            document.getElementById('cpFSendAs').value          = cfg.send_as      || 'body';
             document.getElementById('cpFSendParam').value       = cfg.param_name   || 'value';
             document.getElementById('cpFSendPlaceholder').value = cfg.placeholder  || '';
             document.getElementById('cpFSendBtnLabel').value    = cfg.button_label || '';
@@ -672,7 +663,7 @@ function cpDirIcon(string $dir): string {
             config = {
                 url:          document.getElementById('cpFSendUrl').value.trim(),
                 method:       document.getElementById('cpFSendMethod').value,
-                send_as:      document.getElementById('cpFSendAs').value,
+                send_as:      'body',
                 param_name:   document.getElementById('cpFSendParam').value.trim() || 'value',
                 placeholder:  document.getElementById('cpFSendPlaceholder').value.trim(),
                 button_label: document.getElementById('cpFSendBtnLabel').value.trim(),

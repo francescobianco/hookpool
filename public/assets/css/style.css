@@ -2251,6 +2251,91 @@ tr:last-child td { border-bottom: none; }
     border-color: #cac2b7;
     color: #514842;
 }
+.cp-widget-updown .cp-widget-body {
+    gap: 0;
+}
+.cp-widget-updown .cp-action-btn {
+    flex: 1 1 50%;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #e7e1d9;
+    border-color: #d7d0c6;
+    color: #5e544d;
+    border-radius: 0;
+}
+.cp-widget-updown .cp-action-btn:hover {
+    background: #ddd6cc;
+    border-color: #cac2b7;
+    color: #514842;
+}
+.cp-widget-updown .cp-action-btn:first-child {
+    border-top-left-radius: var(--radius);
+    border-top-right-radius: var(--radius);
+}
+.cp-widget-updown .cp-action-btn:last-child {
+    border-top: none;
+    border-bottom-left-radius: var(--radius);
+    border-bottom-right-radius: var(--radius);
+}
+.cp-widget-dpad .cp-widget-body {
+    justify-content: center;
+    overflow: hidden;
+}
+.cp-widget-dpad .cp-dpad-grid {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 160px;
+    margin: 0 auto;
+    gap: 8px;
+}
+.cp-widget-dpad .cp-action-btn {
+    min-height: 42px;
+    min-width: 42px;
+    background: #e7e1d9;
+    border-color: #d7d0c6;
+    color: #5e544d;
+    box-shadow: none;
+}
+.cp-widget-dpad .cp-action-btn:hover {
+    background: #ddd6cc;
+    border-color: #cac2b7;
+    color: #514842;
+}
+.cp-widget-dpad .cp-action-btn .cp-dir-icon svg {
+    width: 20px;
+    height: 20px;
+}
+.cp-dpad-vertical {
+    flex: 0 0 44px;
+    width: 44px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.cp-dpad-vertical .cp-action-btn {
+    width: 44px;
+    min-width: 44px;
+}
+.cp-dpad-vertical .cp-action-btn:first-child {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+}
+.cp-dpad-vertical .cp-action-btn:last-child {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    margin-top: 0;
+}
+.cp-widget-dpad .cp-dpad-grid > .cp-action-btn {
+    width: 44px;
+    min-width: 44px;
+    flex: 0 0 44px;
+}
 .cp-action-btn-emoji {
     display: block;
     font-size: 2.4rem;
@@ -2298,10 +2383,22 @@ tr:last-child td { border-bottom: none; }
     gap: 1rem;
     align-items: end;
 }
+.cp-send-action-row {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: end;
+}
 .cp-button-action-row > .form-group {
     margin-bottom: 0;
 }
+.cp-send-action-row > .form-group {
+    margin-bottom: 0;
+}
 .cp-button-action-row > .cp-method-field {
+    min-width: 0;
+}
+.cp-send-action-row > .cp-method-field {
     min-width: 0;
 }
 .cp-button-url-field {
@@ -2349,15 +2446,36 @@ tr:last-child td { border-bottom: none; }
 
 /* Send widget */
 .cp-send-row {
-    display: flex;
-    gap: 8px;
+    display: block;
     width: 100%;
-    align-items: center;
+    min-height: 120px;
+}
+.cp-send-main {
+    min-width: 0;
+    min-height: 120px;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 8px;
+    height: 100%;
+}
+.cp-send-btn {
+    width: 100%;
+    min-height: 40px;
+    background: #e7e1d9;
+    border-color: #d7d0c6;
+    color: #5e544d;
+}
+.cp-send-btn:hover {
+    background: #ddd6cc;
+    border-color: #cac2b7;
+    color: #514842;
 }
 .cp-send-input {
-    flex: 1;
+    width: 100%;
     min-width: 0;
-    padding: 8px 10px;
+    min-height: 0;
+    height: 100%;
+    padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     font-family: var(--font-sans);
@@ -2366,6 +2484,7 @@ tr:last-child td { border-bottom: none; }
     color: var(--text-primary);
     outline: none;
     transition: border-color 0.15s;
+    resize: none;
 }
 .cp-send-input:focus { border-color: var(--border-focus); }
 
@@ -2447,7 +2566,7 @@ tr:last-child td { border-bottom: none; }
 /* Responsive: mobile always 2 columns min, wide widgets collapse to 1 span */
 @media (max-width: 500px) {
     .cp-grid { grid-template-columns: repeat(2, 1fr); }
-    .cp-widget--wide { grid-column: span 1; }
+    .cp-widget--wide { grid-column: span 2; }
     .cp-widget-actions {
         opacity: 1;
         transition: none;
@@ -2472,7 +2591,15 @@ tr:last-child td { border-bottom: none; }
         grid-template-columns: 104px minmax(0, 1fr);
         gap: 0.75rem;
     }
+    .cp-send-action-row {
+        display: grid;
+        grid-template-columns: 104px minmax(0, 1fr);
+        gap: 0.75rem;
+    }
     .cp-button-action-row > .cp-method-field {
+        min-width: 0;
+    }
+    .cp-send-action-row > .cp-method-field {
         min-width: 0;
     }
 }
