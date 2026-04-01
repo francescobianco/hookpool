@@ -2241,6 +2241,16 @@ tr:last-child td { border-bottom: none; }
     justify-content: center;
     gap: 8px;
 }
+.cp-widget-button .cp-action-btn--hero.cp-btn--primary {
+    background: #e7e1d9;
+    border-color: #d7d0c6;
+    color: #5e544d;
+}
+.cp-widget-button .cp-action-btn--hero.cp-btn--primary:hover {
+    background: #ddd6cc;
+    border-color: #cac2b7;
+    color: #514842;
+}
 .cp-action-btn-emoji {
     display: block;
     font-size: 2.4rem;
@@ -2281,6 +2291,27 @@ tr:last-child td { border-bottom: none; }
     display: flex;
     gap: 8px;
     align-items: stretch;
+}
+.cp-button-action-row {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: end;
+}
+.cp-button-action-row > .form-group {
+    margin-bottom: 0;
+}
+.cp-button-action-row > .cp-method-field {
+    min-width: 0;
+}
+.cp-button-url-field {
+    min-width: 0;
+}
+.cp-button-url-field .cp-url-row {
+    min-width: 0;
+}
+.cp-button-url-field .form-control {
+    min-width: 0;
 }
 .cp-button-label-row .form-control:first-child {
     flex: 1;
@@ -2435,6 +2466,14 @@ tr:last-child td { border-bottom: none; }
         flex: 0 0 120px;
         width: 120px;
         min-width: 120px;
+    }
+    .cp-button-action-row {
+        display: grid;
+        grid-template-columns: 104px minmax(0, 1fr);
+        gap: 0.75rem;
+    }
+    .cp-button-action-row > .cp-method-field {
+        min-width: 0;
     }
 }
 

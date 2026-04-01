@@ -74,7 +74,7 @@ function cpDirIcon(string $dir): string {
             <div class="cp-widget-header">
                 <span class="cp-widget-title"><?= e($w['title']) ?></span>
                 <span class="cp-widget-actions">
-                    <button class="cp-widget-action-btn" onclick="cpEditWidget(this)" title="<?= __('form.edit') ?>">✎</button>
+                    <button class="cp-widget-action-btn" onclick="cpEditWidget(this)" title="<?= __('form.edit') ?>">⚙</button>
                     <button class="cp-widget-action-btn cp-widget-action-delete" onclick="cpDeleteWidget(this)" title="<?= __('form.delete') ?>">✕</button>
                 </span>
             </div>
@@ -228,7 +228,7 @@ function cpDirIcon(string $dir): string {
                                 <option>DELETE</option><option>PATCH</option>
                             </select>
                         </div>
-                        <div class="form-group" style="flex:2">
+                        <div class="form-group cp-button-url-field">
                             <label class="form-label">URL</label>
                             <div class="cp-url-row">
                                 <input type="text" class="form-control" id="cpFBtnUrl" placeholder="https://...">
