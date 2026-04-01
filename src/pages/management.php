@@ -76,7 +76,7 @@ function cpDirIcon(string $dir): string {
                 <span class="cp-widget-actions">
                     <button class="cp-widget-action-btn" onclick="cpEditWidget(this)" title="<?= __('form.edit') ?>" aria-label="<?= __('form.edit') ?>">
                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                            <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="12" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/>
                         </svg>
                     </button>
                     <button class="cp-widget-action-btn cp-widget-action-delete" onclick="cpDeleteWidget(this)" title="<?= __('form.delete') ?>">✕</button>
