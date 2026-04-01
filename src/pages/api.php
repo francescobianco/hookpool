@@ -477,6 +477,11 @@ switch ($action) {
 
         $configDecoded = json_decode($configRaw, true);
         if (!is_array($configDecoded)) $configDecoded = [];
+        $projectEmojis = array_keys(PROJECT_ICONS);
+        if ($type === 'button') {
+            $emoji = trim((string)($configDecoded['emoji'] ?? ''));
+            $configDecoded['emoji'] = in_array($emoji, $projectEmojis, true) ? $emoji : '';
+        }
         $configJson = json_encode($configDecoded);
 
         if ($widgetId > 0) {

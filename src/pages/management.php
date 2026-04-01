@@ -31,6 +31,7 @@ $webhookPickerJson = json_encode(array_map(fn($wh) => [
     'label' => $wh['project_name'] . ' > ' . $wh['name'],
     'url'  => webhookUrl($wh['project_slug'], $wh['token']),
 ], $webhooksForPicker));
+$projectEmojis = array_keys(PROJECT_ICONS);
 
 $WIDGET_TYPES = [
     'button' => ['icon' => '▶', 'label' => __('cp.type_button'),  'desc' => __('cp.type_button_desc')],
@@ -79,11 +80,18 @@ function cpDirIcon(string $dir): string {
             </div>
             <div class="cp-widget-body">
                 <?php if ($type === 'button'): ?>
-                    <button class="cp-btn cp-btn--primary cp-btn--full cp-action-btn"
+                    <?php
+                        $buttonEmojiKey = (string)($cfg['emoji'] ?? '');
+                        $buttonHasEmoji = $buttonEmojiKey !== '' && in_array($buttonEmojiKey, $projectEmojis, true);
+                    ?>
+                    <button class="cp-btn cp-btn--primary cp-btn--full cp-action-btn cp-action-btn--hero<?= $buttonHasEmoji ? ' cp-action-btn--emoji' : '' ?>"
                             data-url="<?= e($cfg['url'] ?? '') ?>"
                             data-method="<?= e($cfg['method'] ?? 'GET') ?>"
                             data-body="<?= e($cfg['body'] ?? '') ?>">
-                        <?= e($cfg['label'] ?? __('cp.btn_click')) ?>
+                        <?php if ($buttonHasEmoji): ?>
+                            <span class="cp-action-btn-emoji" aria-hidden="true"><?= e(projectEmoji($buttonEmojiKey)) ?></span>
+                        <?php endif; ?>
+                        <span class="cp-action-btn-label"><?= e($cfg['label'] ?? __('cp.btn_click')) ?></span>
                     </button>
 
                 <?php elseif ($type === 'updown'): ?>
@@ -202,21 +210,31 @@ function cpDirIcon(string $dir): string {
                 <div id="cpFieldsButton" class="cp-type-fields" style="display:none">
                     <div class="form-group">
                         <label class="form-label"><?= __('cp.field_label') ?></label>
-                        <input type="text" class="form-control" id="cpFBtnLabel" placeholder="Clicca">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">URL</label>
-                        <div class="cp-url-row">
-                            <input type="text" class="form-control" id="cpFBtnUrl" placeholder="https://...">
-                            <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFBtnUrl', this)">🔗</button>
+                        <div class="cp-button-label-row">
+                            <input type="text" class="form-control" id="cpFBtnLabel" placeholder="Clicca">
+                            <select class="form-control emoji-picker cp-button-emoji-picker" id="cpFBtnEmoji" title="Choose a button icon" aria-label="Emoji">
+                                <option value=""></option>
+                                <?php foreach ($projectEmojis as $key): ?>
+                                <option value="<?= e($key) ?>"><?= projectEmoji($key) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label"><?= __('cp.field_method') ?></label>
-                        <select class="form-control" id="cpFBtnMethod">
-                            <option>GET</option><option>POST</option><option>PUT</option>
-                            <option>DELETE</option><option>PATCH</option>
-                        </select>
+                    <div class="form-row cp-button-action-row">
+                        <div class="form-group cp-method-field">
+                            <label class="form-label"><?= __('cp.field_method') ?></label>
+                            <select class="form-control" id="cpFBtnMethod">
+                                <option>GET</option><option>POST</option><option>PUT</option>
+                                <option>DELETE</option><option>PATCH</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:2">
+                            <label class="form-label">URL</label>
+                            <div class="cp-url-row">
+                                <input type="text" class="form-control" id="cpFBtnUrl" placeholder="https://...">
+                                <button type="button" class="btn btn-sm btn-outline cp-webhook-pick-btn" onclick="cpOpenWebhookPicker('cpFBtnUrl', this)">🔗</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group" id="cpFBtnBodyGroup">
                         <label class="form-label">Body</label>
@@ -464,6 +482,13 @@ function cpDirIcon(string $dir): string {
         document.getElementById('cpEditId').value = '';
         document.getElementById('cpEditType').value = '';
         document.getElementById('cpModalTitle').textContent = <?= json_encode(__('cp.add_widget')) ?>;
+        document.getElementById('cpFTitle').value = '';
+        document.getElementById('cpFWidth').value = '1';
+        document.getElementById('cpFBtnLabel').value = '';
+        document.getElementById('cpFBtnEmoji').value = '';
+        document.getElementById('cpFBtnUrl').value = '';
+        document.getElementById('cpFBtnMethod').value = 'GET';
+        document.getElementById('cpFBtnBody').value = '';
         cpShowStep('type');
         document.querySelectorAll('.cp-type-card').forEach(c => c.classList.remove('selected'));
         openModal('cpWidgetModal');
@@ -572,6 +597,7 @@ function cpDirIcon(string $dir): string {
         // Prefill type-specific fields
         if (type === 'button') {
             document.getElementById('cpFBtnLabel').value  = cfg.label  || '';
+            document.getElementById('cpFBtnEmoji').value  = cfg.emoji  || '';
             document.getElementById('cpFBtnUrl').value    = cfg.url    || '';
             document.getElementById('cpFBtnMethod').value = cfg.method || 'GET';
             document.getElementById('cpFBtnBody').value   = cfg.body   || '';
@@ -619,6 +645,7 @@ function cpDirIcon(string $dir): string {
         if (type === 'button') {
             config = {
                 label:  document.getElementById('cpFBtnLabel').value.trim(),
+                emoji:  document.getElementById('cpFBtnEmoji').value.trim(),
                 url:    document.getElementById('cpFBtnUrl').value.trim(),
                 method: document.getElementById('cpFBtnMethod').value,
                 body:   document.getElementById('cpFBtnBody').value.trim(),

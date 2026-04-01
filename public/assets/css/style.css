@@ -2147,7 +2147,7 @@ tr:last-child td { border-bottom: none; }
 
 .cp-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 16px;
     margin-top: 4px;
 }
@@ -2233,6 +2233,63 @@ tr:last-child td { border-bottom: none; }
 .cp-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .cp-btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .cp-btn--full { width: 100%; }
+.cp-action-btn--hero {
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.cp-action-btn-emoji {
+    display: block;
+    font-size: 2.4rem;
+    line-height: 1;
+}
+.cp-action-btn-label {
+    display: block;
+    font-size: 0.74rem;
+    line-height: 1.25;
+    text-align: center;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.cp-widget-button .cp-action-btn:not(.cp-action-btn--emoji) .cp-action-btn-label {
+    font-size: 0.9rem;
+}
+.cp-config-header-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: nowrap;
+    flex-direction: row;
+}
+.cp-config-header-row > .form-group {
+    margin-bottom: 0;
+}
+.cp-config-header-row > .form-group.flex-1 {
+    flex: 1;
+    min-width: 0;
+}
+.cp-config-header-row > .form-group.form-group-sm {
+    flex: 0 0 140px;
+    width: 140px;
+    min-width: 140px;
+}
+.cp-button-label-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.cp-button-label-row .form-control:first-child {
+    flex: 1;
+    min-width: 0;
+}
+.cp-button-emoji-picker {
+    flex: 0 0 64px;
+    min-width: 64px;
+}
 .cp-btn--icon {
     padding: 9px;
     font-size: 1rem;
@@ -2356,9 +2413,29 @@ tr:last-child td { border-bottom: none; }
 .cp-toast--success { background: var(--success); }
 .cp-toast--error   { background: var(--error); }
 
-/* Responsive: on narrow screens span-2 falls back to 1 */
+/* Responsive: mobile always 2 columns min, wide widgets collapse to 1 span */
 @media (max-width: 500px) {
+    .cp-grid { grid-template-columns: repeat(2, 1fr); }
     .cp-widget--wide { grid-column: span 1; }
+    .cp-widget-actions {
+        opacity: 1;
+        transition: none;
+    }
+    .cp-config-header-row {
+        flex-direction: row;
+        align-items: flex-end;
+    }
+    .cp-config-header-row > .form-group {
+        width: auto;
+    }
+    .cp-config-header-row > .form-group.flex-1 {
+        flex: 1 1 auto;
+    }
+    .cp-config-header-row > .form-group.form-group-sm {
+        flex: 0 0 120px;
+        width: 120px;
+        min-width: 120px;
+    }
 }
 
 /* CP — webhook URL picker */
