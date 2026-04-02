@@ -139,11 +139,6 @@ if (strpos($ip, ',') !== false) {
 
 // ── HTTP Relay: private polling side (.relay + PATCH only) ───────────────────
 if (($webhook['special_function'] ?? '') === 'http_relay' && $isRelayPollRoute && $method === 'PATCH') {
-    relayTrace('poll_route_enter', [
-        'webhook_id' => (int)$webhook['id'],
-        'request_uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
-        'method' => $method,
-    ]);
     relayHandlePoll($db, $webhook, $body);
     exit;
 }
@@ -171,14 +166,6 @@ foreach ($guards as $guard) {
 }
 
 // Save event to database
-if (($webhook['special_function'] ?? '') === 'http_relay') {
-    relayTrace('public_route_before_event_insert', [
-        'webhook_id' => (int)$webhook['id'],
-        'request_uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
-        'method' => $method,
-        'validated' => $validated,
-    ]);
-}
 $insertStmt = $db->prepare('
     INSERT INTO events (webhook_id, method, path, query_string, headers, body, content_type, ip, validated, rejection_reason)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -196,23 +183,9 @@ $insertStmt->execute([
     $rejectionReason,
 ]);
 $eventId = (int)$db->lastInsertId();
-if (($webhook['special_function'] ?? '') === 'http_relay') {
-    relayTrace('public_route_after_event_insert', [
-        'webhook_id' => (int)$webhook['id'],
-        'event_id' => $eventId,
-        'validated' => $validated,
-    ]);
-}
 
 // ── HTTP Relay: public side — queue request and wait for relay response ───────
 if (($webhook['special_function'] ?? '') === 'http_relay' && $validated) {
-    relayTrace('public_route_enter_relay_handle', [
-        'webhook_id' => (int)$webhook['id'],
-        'event_id' => $eventId,
-        'method' => $method,
-        'path' => $path,
-        'query' => $queryStringClean,
-    ]);
     relayHandlePublic($db, $webhook, $method, $path, $queryStringClean, $headers, $body);
     exit;
 }
@@ -559,10 +532,6 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
     // Detect relay mode: json (default, backward-compatible) or http (HTTP-in-HTTP)
     $relayMod   = strtolower(trim($_SERVER['HTTP_X_RELAY_MOD'] ?? 'json'));
     $isHttpMode = ($relayMod === 'http');
-    if ($isHttpMode) {
-        relaySniffPatch($webhook, $body);
-    }
-
     // Purge stale entries (done/expired older than 2 minutes)
     $db->prepare("DELETE FROM relay_queue
                   WHERE webhook_id = ? AND state IN ('done','expired')
@@ -575,11 +544,6 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
         $respondedAtMs = relayNowMs();
         $payload = $isHttpMode ? relayParseRawHttpResponse($body) : json_decode($body, true);
         if (is_array($payload) && array_key_exists('status', $payload)) {
-            relayTrace('poll_response_received', [
-                'webhook_id' => $webhookId,
-                'response_seq' => $responseSeq,
-                'body_len' => strlen($body),
-            ]);
             $db->prepare("UPDATE relay_queue
                           SET state = 'done',
                               resp_status  = ?,
@@ -614,11 +578,6 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
         $stmt->closeCursor();
 
         if ($entry) {
-            relayTrace('poll_pending_seen', [
-                'webhook_id' => $webhookId,
-                'queue_id' => (int)$entry['id'],
-                'state' => (string)($entry['state'] ?? ''),
-            ]);
             // Atomically claim the row (another process may race us)
             $dispatchedAtMs = relayNowMs();
             $claimSql = "UPDATE relay_queue
@@ -626,26 +585,13 @@ function relayHandlePoll(PDO $db, array $webhook, string $body): void
                          WHERE id = ? AND state = 'pending'";
             $claimedRows = relayExecuteWithRetry($pollDb, $claimSql, [$dispatchedAtMs, (int)$entry['id']], 5000, $pollIntervalUs);
             if ($claimedRows === null) {
-                relayTrace('poll_claim_timeout', [
-                    'webhook_id' => $webhookId,
-                    'queue_id' => (int)$entry['id'],
-                ]);
                 usleep($pollIntervalUs);
                 continue;
             }
             if ($claimedRows === 0) {
-                relayTrace('poll_claim_lost', [
-                    'webhook_id' => $webhookId,
-                    'queue_id' => (int)$entry['id'],
-                ]);
                 usleep($pollIntervalUs); // lost the race, retry
                 continue;
             }
-            relayTrace('poll_claimed', [
-                'webhook_id' => $webhookId,
-                'queue_id' => (int)$entry['id'],
-                'dispatched_at_ms' => $dispatchedAtMs,
-            ]);
 
             http_response_code(200);
             header('X-Relay-Seq: ' . $entry['id']);
@@ -844,12 +790,6 @@ function relayHandlePublic(
        ->execute([$webhookId, $method, $relayPath, $qs, json_encode($headers), $bodyStr, $bodyB64, $requestStartedAtMs]);
 
     $queueId = (int)$db->lastInsertId();
-    relayTrace('public_enqueued', [
-        'webhook_id' => $webhookId,
-        'queue_id' => $queueId,
-        'method' => $method,
-        'path' => $relayPath,
-    ]);
 
     // Two-phase wait — fresh DB connection for WAL snapshot isolation.
     $pollDb = relayOpenDb();
@@ -865,12 +805,6 @@ function relayHandlePublic(
         $stmt->closeCursor();
 
         if ($row && $row['state'] !== 'pending') {
-            relayTrace('public_claim_observed', [
-                'webhook_id' => $webhookId,
-                'queue_id' => $queueId,
-                'state' => (string)$row['state'],
-                'dispatched_at_ms' => isset($row['dispatched_at_ms']) ? (int)$row['dispatched_at_ms'] : null,
-            ]);
             $claimed = true;
             break;
         }
@@ -878,10 +812,6 @@ function relayHandlePublic(
     }
 
     if (!$claimed) {
-        relayTrace('public_claim_timeout', [
-            'webhook_id' => $webhookId,
-            'queue_id' => $queueId,
-        ]);
         try { $db->prepare("DELETE FROM relay_queue WHERE id = ?")->execute([$queueId]); } catch (\Exception $e) {}
         relayErrorResponse(503,
             'No Relay Client Connected',
@@ -900,11 +830,6 @@ function relayHandlePublic(
         $stmt->closeCursor();
 
         if ($entry) {
-            relayTrace('public_response_observed', [
-                'webhook_id' => $webhookId,
-                'queue_id' => $queueId,
-                'status' => isset($entry['resp_status']) ? (int)$entry['resp_status'] : null,
-            ]);
             $status      = (int)($entry['resp_status'] ?? 200);
             $respHeaders = json_decode($entry['resp_headers'] ?? '{}', true) ?: [];
             $respBody    = (string)($entry['resp_body'] ?? '');
@@ -1046,51 +971,6 @@ function relayOpenDb(): PDO
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     return $pdo;
-}
-
-function relaySniffPatch(array $webhook, string $body): void
-{
-    $headers = [];
-    foreach ($_SERVER as $key => $value) {
-        if (strpos($key, 'HTTP_') === 0) {
-            $headers[str_replace('_', '-', substr($key, 5))] = $value;
-        }
-    }
-    if (isset($_SERVER['CONTENT_TYPE'])) {
-        $headers['CONTENT-TYPE'] = $_SERVER['CONTENT_TYPE'];
-    }
-    if (isset($_SERVER['CONTENT_LENGTH'])) {
-        $headers['CONTENT-LENGTH'] = $_SERVER['CONTENT_LENGTH'];
-    }
-
-    $path = dirname(DB_PATH) . '/relay-sniff.log';
-    $requestId = bin2hex(random_bytes(8));
-    $relaySeq = isset($_SERVER['HTTP_X_RELAY_SEQ']) ? (string)$_SERVER['HTTP_X_RELAY_SEQ'] : '';
-    $entry = [
-        'request_id' => $requestId,
-        'ts' => date('c'),
-        'webhook_id' => (int)($webhook['id'] ?? 0),
-        'token' => (string)($webhook['token'] ?? ''),
-        'request_uri' => (string)($_SERVER['REQUEST_URI'] ?? ''),
-        'method' => (string)($_SERVER['REQUEST_METHOD'] ?? ''),
-        'relay_seq' => $relaySeq,
-        'headers' => $headers,
-        'body_len' => strlen($body),
-        'body_empty' => ($body === ''),
-        'body_b64' => base64_encode($body),
-    ];
-    @file_put_contents($path, json_encode($entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND);
-}
-
-function relayTrace(string $event, array $context = []): void
-{
-    $path = dirname(DB_PATH) . '/relay-trace.log';
-    $entry = [
-        'ts' => date('c'),
-        'event' => $event,
-        'context' => $context,
-    ];
-    @file_put_contents($path, json_encode($entry, JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND);
 }
 
 /**
