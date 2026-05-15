@@ -36,7 +36,8 @@ $developer_relay_curl = "HOOKPOOL_RELAY_URL='" . $developer_relay_url . "' ./tes
 ?>
 
 <div class="landing">
-    <section class="hero">
+
+    <section class="hero" id="hero">
         <div class="hero-content">
 
             <div class="hero-opensource-strip">
@@ -114,47 +115,20 @@ $developer_relay_curl = "HOOKPOOL_RELAY_URL='" . $developer_relay_url . "' ./tes
         </div>
     </section>
 
-    <section class="developer-mode" id="for-developers">
-        <div class="developer-copy">
-            <span class="developer-kicker"><?= __('home.developer_kicker') ?></span>
-            <h2><?= __('home.developer_title') ?></h2>
-            <p><?= __('home.developer_desc') ?></p>
-            <div class="developer-points">
-                <div class="developer-point">
-                    <strong><?= __('home.developer_point_login') ?></strong>
-                    <span><?= __('home.developer_point_login_desc') ?></span>
-                </div>
-                <div class="developer-point">
-                    <strong><?= __('home.developer_point_owner') ?></strong>
-                    <span><?= __('home.developer_point_owner_desc') ?></span>
-                </div>
-                <div class="developer-point">
-                    <strong><?= __('home.developer_point_private') ?></strong>
-                    <span><?= __('home.developer_point_private_desc') ?></span>
-                </div>
-            </div>
+    <nav class="landing-nav" id="landingNav" aria-label="Page sections">
+        <div class="landing-nav-inner">
+            <a href="#hero" class="landing-nav-link active">Overview</a>
+            <a href="#features" class="landing-nav-link">Features</a>
+            <a href="#for-developers" class="landing-nav-link"><?= __('home.developer_kicker') ?></a>
+            <a href="#get-started" class="landing-nav-link">Get Started</a>
         </div>
-        <div class="developer-code-panel">
-            <div class="code-block-label"><?= __('home.developer_create_label') ?></div>
-            <pre class="landing-code"><code><?= e($developer_create_curl) ?></code></pre>
+    </nav>
 
-            <div class="code-block-label"><?= __('home.developer_response_label') ?></div>
-            <pre class="landing-code landing-code-compact"><code><?= e($developer_response_json) ?></code></pre>
-
-            <div class="developer-followup">
-                <div>
-                    <span><?= __('home.developer_call_label') ?></span>
-                    <code><?= e($developer_call_curl) ?></code>
-                </div>
-                <div>
-                    <span><?= __('home.developer_relay_label') ?></span>
-                    <code><?= e($developer_relay_curl) ?></code>
-                </div>
-            </div>
+    <section class="features" id="features">
+        <div class="landing-section-head">
+            <span class="landing-section-kicker">Features</span>
+            <h2>Everything you need to manage webhooks</h2>
         </div>
-    </section>
-
-    <section class="features">
         <div class="features-grid">
             <div class="feature-card">
                 <div class="feature-icon">📁</div>
@@ -194,11 +168,91 @@ $developer_relay_curl = "HOOKPOOL_RELAY_URL='" . $developer_relay_url . "' ./tes
         </div>
     </section>
 
-    <section class="landing-cta">
+    <section class="developer-mode" id="for-developers">
+        <div class="developer-section-head">
+            <span class="developer-kicker"><?= __('home.developer_kicker') ?></span>
+            <h2><?= __('home.developer_title') ?></h2>
+            <p><?= __('home.developer_desc') ?></p>
+        </div>
+
+        <div class="developer-flow">
+            <div class="developer-flow-step">
+                <div class="developer-flow-step-hd">
+                    <span class="dev-step-num">1</span>
+                    <span class="code-block-label"><?= __('home.developer_create_label') ?></span>
+                </div>
+                <pre class="landing-code"><code><?= e($developer_create_curl) ?></code></pre>
+            </div>
+            <div class="developer-flow-arrow">&#x2192;</div>
+            <div class="developer-flow-step">
+                <div class="developer-flow-step-hd">
+                    <span class="dev-step-num">2</span>
+                    <span class="code-block-label"><?= __('home.developer_response_label') ?></span>
+                </div>
+                <pre class="landing-code"><code><?= e($developer_response_json) ?></code></pre>
+            </div>
+        </div>
+
+        <div class="developer-followup-row">
+            <div class="developer-followup-item">
+                <div class="developer-followup-item-hd">
+                    <span class="dev-step-num">3</span>
+                    <span class="developer-followup-label"><?= __('home.developer_call_label') ?></span>
+                </div>
+                <code class="developer-followup-code"><?= e($developer_call_curl) ?></code>
+            </div>
+            <div class="developer-followup-item">
+                <div class="developer-followup-item-hd">
+                    <span class="dev-step-num">4</span>
+                    <span class="developer-followup-label"><?= __('home.developer_relay_label') ?></span>
+                </div>
+                <code class="developer-followup-code"><?= e($developer_relay_curl) ?></code>
+            </div>
+        </div>
+
+        <div class="developer-points">
+            <div class="developer-point">
+                <strong><?= __('home.developer_point_login') ?></strong>
+                <span><?= __('home.developer_point_login_desc') ?></span>
+            </div>
+            <div class="developer-point">
+                <strong><?= __('home.developer_point_owner') ?></strong>
+                <span><?= __('home.developer_point_owner_desc') ?></span>
+            </div>
+            <div class="developer-point">
+                <strong><?= __('home.developer_point_private') ?></strong>
+                <span><?= __('home.developer_point_private_desc') ?></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="landing-cta" id="get-started">
         <h2><?= __('home.cta_title') ?></h2>
         <p><?= authEnabled() ? __('home.cta_sub_auth') : __('home.cta_sub_local') ?></p>
         <a href="<?= authEnabled() ? BASE_URL . '/?page=auth&action=login' : BASE_URL . '/?page=dashboard' ?>" class="btn btn-primary btn-lg">
             <?= authEnabled() ? __('home.cta') : __('home.open_dashboard') ?>
         </a>
     </section>
+
 </div>
+
+<script>
+(function () {
+    const links = document.querySelectorAll('.landing-nav-link');
+    if (!links.length) return;
+    const ids = Array.from(links).map(a => a.getAttribute('href').slice(1));
+    const sections = ids.map(id => document.getElementById(id)).filter(Boolean);
+
+    const activate = id => {
+        links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+    };
+
+    const io = new IntersectionObserver(entries => {
+        entries.forEach(entry => { if (entry.isIntersecting) activate(entry.target.id); });
+    }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+
+    sections.forEach(s => io.observe(s));
+
+    if (window.location.hash) activate(window.location.hash.slice(1));
+})();
+</script>
