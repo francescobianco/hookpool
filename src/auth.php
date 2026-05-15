@@ -4,6 +4,84 @@ function authEnabled(): bool {
     return HOOKPOOL_AUTH_ENABLED;
 }
 
+function findActiveUserByEmail(PDO $db, string $email): ?array {
+    $email = trim($email);
+    if ($email === '') {
+        return null;
+    }
+
+    $stmt = $db->prepare('
+        SELECT *
+        FROM users
+        WHERE email IS NOT NULL
+          AND LOWER(email) = LOWER(?)
+          AND deleted_at IS NULL
+        ORDER BY CASE WHEN github_id IS NULL THEN 1 ELSE 0 END, id
+        LIMIT 1
+    ');
+    $stmt->execute([$email]);
+    return $stmt->fetch() ?: null;
+}
+
+function findClaimableUserByEmails(PDO $db, array $emails): ?array {
+    $seen = [];
+    foreach ($emails as $email) {
+        $email = trim((string)$email);
+        if ($email === '') {
+            continue;
+        }
+        $key = mb_strtolower($email, 'UTF-8');
+        if (isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+
+        $stmt = $db->prepare('
+            SELECT *
+            FROM users
+            WHERE github_id IS NULL
+              AND email IS NOT NULL
+              AND LOWER(email) = LOWER(?)
+              AND deleted_at IS NULL
+            ORDER BY id
+            LIMIT 1
+        ');
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+        if ($user) {
+            return $user;
+        }
+    }
+
+    return null;
+}
+
+function mergeUserOwnedProjects(PDO $db, int $fromUserId, int $toUserId): void {
+    if ($fromUserId <= 0 || $toUserId <= 0 || $fromUserId === $toUserId) {
+        return;
+    }
+
+    $db->prepare('UPDATE projects SET user_id = ? WHERE user_id = ?')->execute([$toUserId, $fromUserId]);
+    $db->prepare('UPDATE categories SET user_id = ? WHERE user_id = ?')->execute([$toUserId, $fromUserId]);
+
+    $optionalTables = [
+        'filter_presets',
+        'known_ips',
+        'analytics_views',
+        'control_panel_widgets',
+    ];
+    foreach ($optionalTables as $table) {
+        try {
+            $db->prepare("UPDATE $table SET user_id = ? WHERE user_id = ?")->execute([$toUserId, $fromUserId]);
+        } catch (Throwable $e) {
+            // Older installations may not have every optional table yet.
+        }
+    }
+
+    $db->prepare('UPDATE users SET deleted_at = ? WHERE id = ? AND github_id IS NULL')
+       ->execute([date('Y-m-d H:i:s'), $fromUserId]);
+}
+
 function ensureLocalUser(PDO $db): array {
     $stmt = $db->prepare("SELECT * FROM users WHERE username = ? AND deleted_at IS NULL LIMIT 1");
     $stmt->execute(['local']);
@@ -134,25 +212,30 @@ function handleOAuthCallback(PDO $db): array {
     $displayName = $githubUser['name'] ?? $username;
     $avatarUrl   = $githubUser['avatar_url'] ?? '';
     $email       = $githubUser['email'] ?? null;
+    $verifiedEmails = [];
+    if ($email) {
+        $verifiedEmails[] = $email;
+    }
 
-    // If email is null from the public endpoint, try to fetch primary verified email
-    if (!$email) {
-        $emailsJson = httpGet(
-            'https://api.github.com/user/emails',
-            [
-                'Authorization' => 'Bearer ' . $accessToken,
-                'Accept'        => 'application/vnd.github+json',
-                'User-Agent'    => 'Hookpool/1.0',
-            ]
-        );
-        if ($emailsJson !== false) {
-            $emails = json_decode($emailsJson, true);
-            if (is_array($emails)) {
-                foreach ($emails as $e) {
-                    if (($e['primary'] ?? false) && ($e['verified'] ?? false)) {
-                        $email = $e['email'];
-                        break;
-                    }
+    $emailsJson = httpGet(
+        'https://api.github.com/user/emails',
+        [
+            'Authorization' => 'Bearer ' . $accessToken,
+            'Accept'        => 'application/vnd.github+json',
+            'User-Agent'    => 'Hookpool/1.0',
+        ]
+    );
+    if ($emailsJson !== false) {
+        $emails = json_decode($emailsJson, true);
+        if (is_array($emails)) {
+            foreach ($emails as $e) {
+                $candidate = trim((string)($e['email'] ?? ''));
+                if ($candidate === '' || !($e['verified'] ?? false)) {
+                    continue;
+                }
+                $verifiedEmails[] = $candidate;
+                if (($e['primary'] ?? false)) {
+                    $email = $candidate;
                 }
             }
         }
@@ -171,14 +254,28 @@ function handleOAuthCallback(PDO $db): array {
         );
         $upd->execute([$username, $displayName, $avatarUrl, $email, $githubId]);
         $userId = (int)$existingUser['id'];
+        $claimableUser = findClaimableUserByEmails($db, $verifiedEmails);
+        if ($claimableUser && (int)$claimableUser['id'] !== $userId) {
+            mergeUserOwnedProjects($db, (int)$claimableUser['id'], $userId);
+        }
     } else {
-        // Insert new user
-        $ins = $db->prepare(
-            'INSERT INTO users (github_id, username, display_name, avatar_url, email)
-             VALUES (?, ?, ?, ?, ?)'
-        );
-        $ins->execute([$githubId, $username, $displayName, $avatarUrl, $email]);
-        $userId = (int)$db->lastInsertId();
+        $claimableUser = findClaimableUserByEmails($db, $verifiedEmails);
+        if ($claimableUser) {
+            $userId = (int)$claimableUser['id'];
+            $upd = $db->prepare(
+                'UPDATE users SET github_id = ?, username = ?, display_name = ?, avatar_url = ?, email = ?
+                 WHERE id = ? AND github_id IS NULL AND deleted_at IS NULL'
+            );
+            $upd->execute([$githubId, $username, $displayName, $avatarUrl, $email, $userId]);
+        } else {
+            // Insert new user
+            $ins = $db->prepare(
+                'INSERT INTO users (github_id, username, display_name, avatar_url, email)
+                 VALUES (?, ?, ?, ?, ?)'
+            );
+            $ins->execute([$githubId, $username, $displayName, $avatarUrl, $email]);
+            $userId = (int)$db->lastInsertId();
+        }
     }
 
     // Fetch the full user record

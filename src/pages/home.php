@@ -8,6 +8,31 @@ if ($current_user) {
 
 $page_title = __('nav.home');
 $github_url = 'https://github.com/francescobianco/hookpool';
+$developer_api_url = BASE_URL . '/api/create_webhook';
+$developer_demo_url = BASE_URL . '/for-developers/abc123';
+$developer_relay_url = $developer_demo_url . '.relay';
+$developer_create_curl = "curl -s -X POST '" . $developer_api_url . "' \\\n"
+    . "  -H 'Content-Type: application/json' \\\n"
+    . "  -d '{\n"
+    . "    \"owner_email\": \"dev@example.com\",\n"
+    . "    \"type\": \"http_relay\",\n"
+    . "    \"project_name\": \"For Developers\",\n"
+    . "    \"webhook_name\": \"Local HTTP Relay\"\n"
+    . "  }'";
+$developer_response_json = "{\n"
+    . "  \"ok\": true,\n"
+    . "  \"webhook\": {\n"
+    . "    \"type\": \"http_relay\",\n"
+    . "    \"url\": \"" . $developer_demo_url . "\",\n"
+    . "    \"relay_url\": \"" . $developer_relay_url . "\"\n"
+    . "  },\n"
+    . "  \"credentials\": {\n"
+    . "    \"header\": \"X-Hookpool-Secret\",\n"
+    . "    \"secret\": \"8f5e...\"\n"
+    . "  }\n"
+    . "}";
+$developer_call_curl = "curl -H 'X-Hookpool-Secret: 8f5e...' '" . $developer_demo_url . "'";
+$developer_relay_curl = "HOOKPOOL_RELAY_URL='" . $developer_relay_url . "' ./tests/relay_demo.sh";
 ?>
 
 <div class="landing">
@@ -84,6 +109,46 @@ $github_url = 'https://github.com/francescobianco/hookpool';
                         <span class="logcat-path">/test/a7da8d</span>
                         <span class="badge-status ok">200</span>
                     </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="developer-mode" id="for-developers">
+        <div class="developer-copy">
+            <span class="developer-kicker"><?= __('home.developer_kicker') ?></span>
+            <h2><?= __('home.developer_title') ?></h2>
+            <p><?= __('home.developer_desc') ?></p>
+            <div class="developer-points">
+                <div class="developer-point">
+                    <strong><?= __('home.developer_point_login') ?></strong>
+                    <span><?= __('home.developer_point_login_desc') ?></span>
+                </div>
+                <div class="developer-point">
+                    <strong><?= __('home.developer_point_owner') ?></strong>
+                    <span><?= __('home.developer_point_owner_desc') ?></span>
+                </div>
+                <div class="developer-point">
+                    <strong><?= __('home.developer_point_private') ?></strong>
+                    <span><?= __('home.developer_point_private_desc') ?></span>
+                </div>
+            </div>
+        </div>
+        <div class="developer-code-panel">
+            <div class="code-block-label"><?= __('home.developer_create_label') ?></div>
+            <pre class="landing-code"><code><?= e($developer_create_curl) ?></code></pre>
+
+            <div class="code-block-label"><?= __('home.developer_response_label') ?></div>
+            <pre class="landing-code landing-code-compact"><code><?= e($developer_response_json) ?></code></pre>
+
+            <div class="developer-followup">
+                <div>
+                    <span><?= __('home.developer_call_label') ?></span>
+                    <code><?= e($developer_call_curl) ?></code>
+                </div>
+                <div>
+                    <span><?= __('home.developer_relay_label') ?></span>
+                    <code><?= e($developer_relay_curl) ?></code>
                 </div>
             </div>
         </div>

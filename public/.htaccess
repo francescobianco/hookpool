@@ -1,5 +1,10 @@
 RewriteEngine On
 
+# Public API entrypoint. Keeps /api?action=... and /api/<action> out of
+# the app page router so API traffic is served by public/api.php.
+RewriteRule ^api/?$ api.php [QSA,L]
+RewriteRule ^api/([A-Za-z0-9_-]+)/?$ api.php?action=$1 [QSA,L]
+
 # Route /hook/TOKEN.png to hook.php (pixel tracking)
 RewriteRule ^hook/([a-zA-Z0-9]+)\.png$ hook.php?token=$1&_pixel=1 [QSA,L]
 

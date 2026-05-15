@@ -1723,6 +1723,113 @@ tr:last-child td { border-bottom: none; }
 .landing-cta h2 { font-size: 2.1rem; margin-bottom: 0.85rem; }
 .landing-cta p { color: var(--text-muted); margin-bottom: 1.5rem; font-size: 1rem; }
 
+.developer-mode {
+    display: grid;
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+    gap: 2rem;
+    align-items: stretch;
+    margin: 0 0 2.5rem;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+.developer-copy { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.developer-kicker {
+    display: inline-flex;
+    align-self: flex-start;
+    margin-bottom: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--info-bg);
+    border: 1px solid rgba(48, 115, 214, 0.22);
+    color: var(--info);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+.developer-copy h2 {
+    font-size: 1.9rem;
+    margin-bottom: 0.8rem;
+}
+.developer-copy p {
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin-bottom: 1.25rem;
+}
+.developer-points {
+    display: grid;
+    gap: 0.75rem;
+}
+.developer-point {
+    display: grid;
+    gap: 0.18rem;
+    padding-left: 0.85rem;
+    border-left: 3px solid rgba(22, 155, 98, 0.35);
+}
+.developer-point strong {
+    font-size: 0.92rem;
+    color: var(--text-primary);
+}
+.developer-point span {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+.developer-code-panel {
+    min-width: 0;
+    border: 1px solid rgba(47, 33, 29, 0.1);
+    border-radius: var(--radius);
+    background: #172028;
+    padding: 1rem;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.code-block-label {
+    color: #d3efe1;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0 0 0.45rem;
+}
+.landing-code {
+    margin: 0 0 1rem;
+    padding: 0.85rem;
+    background: #0f151b;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-sm);
+    color: #f4f0e8;
+    font-size: 0.76rem;
+    line-height: 1.55;
+    white-space: pre;
+    overflow-x: auto;
+}
+.landing-code-compact { margin-bottom: 0.85rem; }
+.developer-followup {
+    display: grid;
+    gap: 0.6rem;
+}
+.developer-followup > div {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 0.65rem;
+    align-items: start;
+}
+.developer-followup span {
+    color: #a9c1d1;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+.developer-followup code {
+    display: block;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #fff3cd;
+}
+
 /* --- Special Functions ---------------------------------------------------- */
 .special-fn-grid {
     display: grid;
@@ -1850,6 +1957,7 @@ tr:last-child td { border-bottom: none; }
     .hero { grid-template-columns: 1fr; gap: 2rem; }
     .hero-visual { display: none; }
     .hero-title { font-size: 2.2rem; }
+    .developer-mode { grid-template-columns: 1fr; padding: 1.35rem; }
 }
 
 @media (max-width: 640px) {
@@ -1869,6 +1977,8 @@ tr:last-child td { border-bottom: none; }
     .header-nav .nav-link { display: none; }
     .user-name { display: none; }
     .hero-name { font-size: 3.2rem; }
+    .developer-copy h2 { font-size: 1.45rem; }
+    .developer-followup > div { grid-template-columns: 1fr; gap: 0.3rem; }
 }
 
 /* PWA install banner */

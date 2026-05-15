@@ -1,6 +1,218 @@
 <?php
 header('Content-Type: application/json');
 
+function apiJson(array $payload, int $status = 200): void {
+    http_response_code($status);
+    echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
+}
+
+function apiRequestPayload(): array {
+    $raw = file_get_contents('php://input');
+    $contentType = strtolower((string)($_SERVER['CONTENT_TYPE'] ?? ''));
+
+    if (str_contains($contentType, 'application/json')) {
+        if (trim($raw) === '') {
+            return [];
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            apiJson(['error' => 'invalid_json'], 400);
+            exit;
+        }
+        return $decoded;
+    }
+
+    if (!empty($_POST)) {
+        return $_POST;
+    }
+
+    if (trim($raw) !== '') {
+        parse_str($raw, $parsed);
+        return is_array($parsed) ? $parsed : [];
+    }
+
+    return [];
+}
+
+function apiFindOrCreateOwnerUser(PDO $db, string $ownerEmail): array {
+    $existing = findActiveUserByEmail($db, $ownerEmail);
+    if ($existing) {
+        return $existing;
+    }
+
+    $username = 'api-' . substr(hash('sha256', mb_strtolower($ownerEmail, 'UTF-8')), 0, 12);
+    $ins = $db->prepare(
+        'INSERT INTO users (github_id, username, display_name, avatar_url, email, log_retention_days)
+         VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    $ins->execute([null, $username, $ownerEmail, '', $ownerEmail, 1]);
+
+    $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
+    $stmt->execute([(int)$db->lastInsertId()]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        throw new RuntimeException('Failed to create owner user.');
+    }
+
+    return $user;
+}
+
+function apiFindOrCreateDeveloperProject(PDO $db, int $userId, string $projectName): array {
+    $stmt = $db->prepare('
+        SELECT *
+        FROM projects
+        WHERE user_id = ?
+          AND name = ?
+          AND active = 1
+          AND deleted_at IS NULL
+        ORDER BY id
+        LIMIT 1
+    ');
+    $stmt->execute([$userId, $projectName]);
+    $project = $stmt->fetch();
+    if ($project) {
+        return $project;
+    }
+
+    $slug = uniqueProjectSlug($db, $projectName);
+    $slugCheck = $db->prepare('SELECT id FROM projects WHERE slug = ?');
+    $slugCheck->execute([$slug]);
+    if ($slugCheck->fetch()) {
+        $slug = 'p' . random_int(100000, 999999);
+    }
+
+    $ins = $db->prepare(
+        'INSERT INTO projects (user_id, category_id, name, emoji, slug, description, active)
+         VALUES (?, NULL, ?, ?, ?, ?, 1)'
+    );
+    $ins->execute([
+        $userId,
+        $projectName,
+        'plug',
+        $slug,
+        'Created through the public developer API.',
+    ]);
+
+    $stmt = $db->prepare('SELECT * FROM projects WHERE id = ?');
+    $stmt->execute([(int)$db->lastInsertId()]);
+    $project = $stmt->fetch();
+    if (!$project) {
+        throw new RuntimeException('Failed to create developer project.');
+    }
+
+    return $project;
+}
+
+function handlePublicWebhookCreate(PDO $db): void {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        apiJson(['error' => 'method_not_allowed'], 405);
+        return;
+    }
+
+    $payload = apiRequestPayload();
+    $ownerEmail = trim((string)($payload['owner_email'] ?? $payload['email'] ?? ''));
+    if ($ownerEmail === '') {
+        apiJson(['error' => 'owner_email_required'], 400);
+        return;
+    }
+
+    $requestedType = strtolower(str_replace('-', '_', trim((string)($payload['special_function'] ?? $payload['type'] ?? 'standard'))));
+    $specialFunction = null;
+    if (in_array($requestedType, ['', 'standard', 'webhook'], true)) {
+        $requestedType = 'standard';
+    } elseif (in_array($requestedType, ['http_relay', 'relay'], true)) {
+        $requestedType = 'http_relay';
+        $specialFunction = 'http_relay';
+    } else {
+        apiJson(['error' => 'unsupported_type', 'supported' => ['standard', 'http_relay']], 400);
+        return;
+    }
+
+    $projectName = trim((string)($payload['project_name'] ?? 'For Developers'));
+    if ($projectName === '') {
+        $projectName = 'For Developers';
+    }
+    $webhookName = trim((string)($payload['webhook_name'] ?? ($requestedType === 'http_relay' ? 'HTTP Relay' : 'Webhook')));
+    if ($webhookName === '') {
+        $webhookName = 'Webhook';
+    }
+
+    $secretHeader = 'X-Hookpool-Secret';
+    $secret = generateToken();
+
+    try {
+        $db->beginTransaction();
+
+        $owner = apiFindOrCreateOwnerUser($db, $ownerEmail);
+        $project = apiFindOrCreateDeveloperProject($db, (int)$owner['id'], $projectName);
+
+        $token = generateUniqueWebhookToken($db, (int)$project['id']);
+        $ins = $db->prepare('
+            INSERT INTO webhooks (project_id, name, token, special_function)
+            VALUES (?, ?, ?, ?)
+        ');
+        $ins->execute([(int)$project['id'], $webhookName, $token, $specialFunction]);
+        $webhookId = (int)$db->lastInsertId();
+
+        $guardConfig = json_encode(['header' => $secretHeader, 'value' => $secret], JSON_UNESCAPED_SLASHES);
+        $db->prepare('INSERT INTO guards (project_id, webhook_id, type, config) VALUES (?, ?, ?, ?)')
+           ->execute([(int)$project['id'], $webhookId, 'static_token', $guardConfig]);
+
+        $db->commit();
+
+        $publicUrl = webhookUrl((string)$project['slug'], $token);
+        $relayUrl = relayWebhookUrl((string)$project['slug'], $token);
+        $callExample = 'curl -H "' . $secretHeader . ': ' . $secret . '" ' . $publicUrl;
+
+        apiJson([
+            'ok' => true,
+            'created_by' => 'public_api',
+            'owner' => [
+                'email' => $ownerEmail,
+                'log_retention_days' => isset($owner['log_retention_days']) ? (int)$owner['log_retention_days'] : null,
+            ],
+            'project' => [
+                'id' => (int)$project['id'],
+                'name' => (string)$project['name'],
+                'slug' => (string)$project['slug'],
+            ],
+            'webhook' => [
+                'id' => $webhookId,
+                'name' => $webhookName,
+                'type' => $requestedType,
+                'url' => $publicUrl,
+                'relay_url' => $requestedType === 'http_relay' ? $relayUrl : null,
+            ],
+            'secret' => $secret,
+            'credentials' => [
+                'guard' => 'static_token',
+                'header' => $secretHeader,
+                'secret' => $secret,
+                'curl_header' => $secretHeader . ': ' . $secret,
+            ],
+            'usage' => [
+                'call_webhook' => $callExample,
+                'start_relay_client' => $requestedType === 'http_relay'
+                    ? "HOOKPOOL_RELAY_URL='" . $relayUrl . "' ./tests/relay_demo.sh"
+                    : null,
+            ],
+            'note' => 'Save this JSON. The secret is required by the default guard for future public calls.',
+        ], 201);
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        apiJson(['error' => 'create_failed', 'message' => $e->getMessage()], 500);
+    }
+}
+
+$action = $_GET['action'] ?? '';
+
+if ($action === 'create_webhook') {
+    handlePublicWebhookCreate($db);
+    exit;
+}
+
 // All API endpoints require authentication
 $user = getCurrentUser($db);
 if (!$user) {
@@ -10,7 +222,6 @@ if (!$user) {
 }
 
 $userId = (int)$user['id'];
-$action = $_GET['action'] ?? '';
 
 switch ($action) {
 

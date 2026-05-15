@@ -499,8 +499,8 @@ function relayWebhookUrl(string $projectSlug, string $webhookToken): string {
 function generateUniqueWebhookToken(PDO $db, int $projectId): string {
     do {
         $token = generateWebhookToken();
-        $stmt = $db->prepare('SELECT id FROM webhooks WHERE project_id = ? AND token = ? AND deleted_at IS NULL');
-        $stmt->execute([$projectId, $token]);
+        $stmt = $db->prepare('SELECT id FROM webhooks WHERE token = ?');
+        $stmt->execute([$token]);
         $exists = $stmt->fetch();
     } while ($exists);
 

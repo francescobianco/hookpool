@@ -149,7 +149,7 @@ $rejectionReason = null;
 
 $guardStmt = $db->prepare('
     SELECT * FROM guards
-    WHERE (project_id = ? OR webhook_id = ?)
+    WHERE ((project_id = ? AND webhook_id IS NULL) OR webhook_id = ?)
     AND active = 1 AND deleted_at IS NULL
 ');
 $guardStmt->execute([$webhook['project_id'], $webhook['id']]);
@@ -428,14 +428,14 @@ exit;
 function evaluateGuard(string $type, array $config, array $headers, array $query, string $body, string $ip): bool {
     switch ($type) {
         case 'required_header':
-            $name = strtoupper(str_replace('-', '_', $config['header'] ?? ''));
-            return isset($headers[$name]) && $headers[$name] !== '';
+            $actual = guardHeaderValue($headers, (string)($config['header'] ?? ''));
+            return $actual !== null && $actual !== '';
 
         case 'static_token':
-            $name     = strtoupper(str_replace('-', '_', $config['header'] ?? ''));
             $expected = $config['value'] ?? '';
-            if (!$expected || !isset($headers[$name])) return false;
-            return hash_equals($expected, $headers[$name]);
+            $actual   = guardHeaderValue($headers, (string)($config['header'] ?? ''));
+            if (!$expected || $actual === null) return false;
+            return hash_equals($expected, $actual);
 
         case 'query_secret':
             $param    = $config['param']  ?? '';
@@ -458,6 +458,22 @@ function evaluateGuard(string $type, array $config, array $headers, array $query
         default:
             return true;
     }
+}
+
+function guardHeaderValue(array $headers, string $name): ?string {
+    $wanted = strtoupper(str_replace('_', '-', trim($name)));
+    if ($wanted === '') {
+        return null;
+    }
+
+    foreach ($headers as $headerName => $value) {
+        $actual = strtoupper(str_replace('_', '-', (string)$headerName));
+        if ($actual === $wanted) {
+            return (string)$value;
+        }
+    }
+
+    return null;
 }
 
 /**
