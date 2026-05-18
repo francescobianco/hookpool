@@ -208,7 +208,7 @@ function handlePublicWebhookCreate(PDO $db): void {
 
 $action = $_GET['action'] ?? '';
 
-if ($action === 'create_webhook') {
+if ($action === 'webhook' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     handlePublicWebhookCreate($db);
     exit;
 }

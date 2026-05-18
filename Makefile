@@ -1,4 +1,4 @@
-.PHONY: start stop migrate push shell logs
+.PHONY: start stop migrate push shell logs test-index
 
 start:
 	docker compose up -d --build
@@ -38,9 +38,14 @@ ftp-deploy: push
 	lftp -f "$$SCRIPT"; \
 	'
 
-
 shell:
 	docker compose exec app bash
 
 logs:
 	docker compose logs -f app
+
+test-index:
+	@PORT=$${TEST_PORT:-8090}; \
+	echo "Landing page su http://localhost:$$PORT (Ctrl+C per fermare)"; \
+	HOOKPOOL_AUTH=yes BASE_URL=http://localhost:$$PORT \
+	docker compose run --rm --build -p $$PORT:80 -e HOOKPOOL_AUTH=yes -e BASE_URL=http://localhost:$$PORT app

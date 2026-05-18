@@ -8,7 +8,7 @@ if ($current_user) {
 
 $page_title = __('nav.home');
 $github_url = 'https://github.com/francescobianco/hookpool';
-$developer_api_url = BASE_URL . '/api/create_webhook';
+$developer_api_url = BASE_URL . '/api/webhook';
 $developer_demo_url = BASE_URL . '/for-developers/abc123';
 $developer_relay_url = $developer_demo_url . '.relay';
 $developer_create_curl = "curl -s -X POST '" . $developer_api_url . "' \\\n"
@@ -175,53 +175,79 @@ $developer_relay_curl = "HOOKPOOL_RELAY_URL='" . $developer_relay_url . "' ./tes
             <p><?= __('home.developer_desc') ?></p>
         </div>
 
-        <div class="developer-flow">
-            <div class="developer-flow-step">
-                <div class="developer-flow-step-hd">
-                    <span class="dev-step-num">1</span>
-                    <span class="code-block-label"><?= __('home.developer_create_label') ?></span>
+        <div class="api-guide">
+            <div class="api-step">
+                <div class="api-step-aside">
+                    <span class="api-step-num">1</span>
+                    <div class="api-step-line"></div>
                 </div>
-                <pre class="landing-code"><code><?= e($developer_create_curl) ?></code></pre>
+                <div class="api-step-body">
+                    <h4 class="api-step-title"><?= __('home.developer_create_label') ?></h4>
+                    <div class="api-request-block">
+                        <div class="api-request-bar">
+                            <span class="api-method-badge post">POST</span>
+                            <code class="api-request-url">/api/webhook</code>
+                        </div>
+                        <pre class="api-code"><code><?= e($developer_create_curl) ?></code></pre>
+                    </div>
+                </div>
             </div>
-            <div class="developer-flow-arrow">&#x2192;</div>
-            <div class="developer-flow-step">
-                <div class="developer-flow-step-hd">
-                    <span class="dev-step-num">2</span>
-                    <span class="code-block-label"><?= __('home.developer_response_label') ?></span>
+
+            <div class="api-step">
+                <div class="api-step-aside">
+                    <span class="api-step-num api-step-num-green">2</span>
+                    <div class="api-step-line"></div>
                 </div>
-                <pre class="landing-code"><code><?= e($developer_response_json) ?></code></pre>
+                <div class="api-step-body">
+                    <h4 class="api-step-title"><?= __('home.developer_response_label') ?></h4>
+                    <div class="api-request-block">
+                        <div class="api-request-bar api-request-bar-ok">
+                            <span class="api-status-badge">200 OK</span>
+                            <span class="api-request-bar-note">application/json</span>
+                        </div>
+                        <pre class="api-code api-code-response"><code><?= e($developer_response_json) ?></code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-step">
+                <div class="api-step-aside">
+                    <span class="api-step-num">3</span>
+                </div>
+                <div class="api-step-body">
+                    <h4 class="api-step-title"><?= __('home.developer_call_label') ?></h4>
+                    <div class="api-request-block">
+                        <div class="api-request-bar">
+                            <span class="api-method-badge get">GET</span>
+                            <code class="api-request-url">/for-developers/{token}</code>
+                        </div>
+                        <pre class="api-code"><code><?= e($developer_call_curl) ?></code></pre>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="developer-followup-row">
-            <div class="developer-followup-item">
-                <div class="developer-followup-item-hd">
-                    <span class="dev-step-num">3</span>
-                    <span class="developer-followup-label"><?= __('home.developer_call_label') ?></span>
+        <div class="developer-badges">
+            <div class="developer-badge">
+                <span class="developer-badge-icon">⚡</span>
+                <div class="developer-badge-body">
+                    <strong><?= __('home.developer_point_login') ?></strong>
+                    <span><?= __('home.developer_point_login_desc') ?></span>
                 </div>
-                <code class="developer-followup-code"><?= e($developer_call_curl) ?></code>
             </div>
-            <div class="developer-followup-item">
-                <div class="developer-followup-item-hd">
-                    <span class="dev-step-num">4</span>
-                    <span class="developer-followup-label"><?= __('home.developer_relay_label') ?></span>
+            <div class="developer-badge">
+                <span class="developer-badge-icon">📧</span>
+                <div class="developer-badge-body">
+                    <strong><?= __('home.developer_point_owner') ?></strong>
+                    <span><?= __('home.developer_point_owner_desc') ?></span>
                 </div>
-                <code class="developer-followup-code"><?= e($developer_relay_curl) ?></code>
             </div>
-        </div>
-
-        <div class="developer-points">
-            <div class="developer-point">
-                <strong><?= __('home.developer_point_login') ?></strong>
-                <span><?= __('home.developer_point_login_desc') ?></span>
-            </div>
-            <div class="developer-point">
-                <strong><?= __('home.developer_point_owner') ?></strong>
-                <span><?= __('home.developer_point_owner_desc') ?></span>
-            </div>
-            <div class="developer-point">
-                <strong><?= __('home.developer_point_private') ?></strong>
-                <span><?= __('home.developer_point_private_desc') ?></span>
+            <div class="developer-badge">
+                <span class="developer-badge-icon">🔒</span>
+                <div class="developer-badge-body">
+                    <strong><?= __('home.developer_point_private') ?></strong>
+                    <span><?= __('home.developer_point_private_desc') ?></span>
+                </div>
             </div>
         </div>
     </section>
